@@ -21,13 +21,14 @@ void main() {
   vec3 base = mix(uColorA, uColorB, band);
   base = mix(base, uColorC, clamp(uMid * 1.25, 0.0, 1.0) * 0.42);
 
-  float shade = 0.30 + uBass * 0.85;
+  float shade = 0.45 + uBass * 1.05;
   vec3 col = base * shade
-           + fresnel * mix(uColorC, vec3(1.0), 0.38) * (0.48 + uTreble * 1.35)
-           + pow(fresnel, 3.5) * uColorB * 0.55
-           + uBeat * 0.4 * fresnel * mix(uColorB, vec3(1.0), 0.4);
+           + fresnel * mix(uColorC, vec3(1.0), 0.38) * (0.65 + uTreble * 1.7)
+           + pow(fresnel, 3.0) * uColorB * 0.9
+           + uBeat * 0.55 * fresnel * mix(uColorB, vec3(1.0), 0.4)
+           + base * pow(max(dot(V, N), 0.0), 4.0) * 0.45;
 
-  float alpha = 0.94 - fresnel * 0.22;
+  float alpha = 0.96 - fresnel * 0.16;
 
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>

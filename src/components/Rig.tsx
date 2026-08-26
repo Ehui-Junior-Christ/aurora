@@ -18,7 +18,7 @@ export default function Rig() {
   }, []);
 
   useFrame(({ camera }, delta) => {
-    if (mode === "tunnel" || mode === "metaballs") return;
+    if (mode === "tunnel" || mode === "metaballs" || mode === "nebula") return;
     const k = Math.min(1, delta * 2.2);
     camera.position.x += (target.current.x * 0.55 - camera.position.x) * k;
     camera.position.y += (target.current.y * 0.35 - camera.position.y) * k;

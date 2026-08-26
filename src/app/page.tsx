@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { usePlayer, type VisualMode } from "@/store/player-store";
+import { useEffect, useRef, useState } from "react";
+import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
 import { engine } from "@/lib/audio-engine";
 import { idbGet, idbSet } from "@/lib/db";
 import type { FsNode } from "@/lib/fs-scanner";
@@ -23,8 +23,6 @@ const Visualizer = dynamic(() => import("@/components/Visualizer"), {
 const CustomCursor = dynamic(() => import("@/components/CustomCursor"), {
   ssr: false,
 });
-
-const MODE_KEYS: VisualMode[] = ["organism", "tunnel", "metaballs", "particles"];
 
 function MetaLine({ immersive }: { immersive: boolean }) {
   const current = usePlayer((s) => s.current);
@@ -80,9 +78,25 @@ function SeedTag({ immersive }: { immersive: boolean }) {
 export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
   const setVisualMode = usePlayer((s) => s.setVisualMode);
+  const lyricsAvailable = usePlayer((s) => s.lyricsAvailable);
+  const currentTrackId = usePlayer((s) => s.tracks[s.current]?.id ?? null);
   const [immersive, setImmersive] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const lyricsClosedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lyricsAvailable && lyricsClosedFor.current !== currentTrackId) {
+      setLyricsOpen(true);
+    }
+  }, [lyricsAvailable, currentTrackId]);
+
+  const toggleLyrics = () => {
+    setLyricsOpen((open) => {
+      if (open) lyricsClosedFor.current = currentTrackId;
+      return !open;
+    });
+  };
 
   useEffect(() => {
     void usePlayer.getState().restore();
@@ -225,7 +239,7 @@ export default function Home() {
             <PlayerBar
               immersive={immersive}
               lyricsOpen={lyricsOpen}
-              onToggleLyrics={() => setLyricsOpen(!lyricsOpen)}
+              onToggleLyrics={toggleLyrics}
             />
             <TrackList immersive={immersive} />
             <ModeSwitcher />

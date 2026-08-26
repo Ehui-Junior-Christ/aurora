@@ -11,8 +11,23 @@ import { fragmentShader, vertexShader } from "@/lib/shaders";
 
 export default function Blob() {
   const meshRef = useRef<THREE.Mesh>(null!);
+  const spriteRef = useRef<THREE.Sprite>(null!);
   const smooth = useMemo(() => ({ bass: 0, mid: 0, treble: 0 }), []);
   const beat = useMemo(() => new BeatDetector(), []);
+
+  const glowTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d")!;
+    const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gradient.addColorStop(0, "rgba(255,255,255,0.85)");
+    gradient.addColorStop(0.3, "rgba(255,255,255,0.22)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(canvas);
+  }, []);
 
   const detail = useMemo(
     () =>
@@ -62,6 +77,11 @@ export default function Blob() {
       uniforms.uColorA.value.set(colors[0].hex);
       uniforms.uColorB.value.set(colors[1].hex);
       uniforms.uColorC.value.set(colors[2].hex);
+      if (spriteRef.current) {
+        (spriteRef.current.material as THREE.SpriteMaterial).color.set(
+          colors[0].hex
+        );
+      }
     }
   }, [palette, seed, preset, uniforms]);
 
@@ -91,17 +111,38 @@ export default function Blob() {
     mesh.rotation.y += d * (0.06 + smooth.mid * 0.12);
     mesh.rotation.z += d * 0.03;
     mesh.scale.setScalar(1 + smooth.bass * 0.08 + beat.value * 0.05);
+
+    const sprite = spriteRef.current;
+    if (sprite) {
+      const mat = sprite.material as THREE.SpriteMaterial;
+      mat.opacity = ambient
+        ? 0.16
+        : 0.2 + smooth.bass * 0.35 + beat.value * 0.18;
+      sprite.scale.setScalar(5 + smooth.bass * 1.2 + beat.value * 0.6);
+    }
   });
 
   return (
-    <mesh ref={meshRef}>
-      <icosahedronGeometry args={[1.32, detail]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        transparent
-      />
-    </mesh>
+    <>
+      <mesh ref={meshRef}>
+        <icosahedronGeometry args={[1.32, detail]} />
+        <shaderMaterial
+          uniforms={uniforms}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          transparent
+        />
+      </mesh>
+      <sprite ref={spriteRef} position={[0, 0, -0.7]} scale={[5, 5, 1]}>
+        <spriteMaterial
+          map={glowTexture}
+          transparent
+          opacity={0.24}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          color="#6d4dff"
+        />
+      </sprite>
+    </>
   );
 }

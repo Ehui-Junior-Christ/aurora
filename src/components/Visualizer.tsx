@@ -8,8 +8,11 @@ import Blob from "./Blob";
 import Particles from "./Particles";
 import Rig from "./Rig";
 import Backdrop from "./scenes/Backdrop";
+import Galaxy from "./scenes/Galaxy";
 import Metaballs from "./scenes/Metaballs";
+import Nebula from "./scenes/Nebula";
 import Tunnel from "./scenes/Tunnel";
+import Waves from "./scenes/Waves";
 import PerfGuard from "./PerfGuard";
 
 function SceneContent() {
@@ -36,13 +39,27 @@ function SceneContent() {
           <Particles />
         </>
       )}
+      {mode === "galaxy" && (
+        <>
+          <Rig />
+          <Galaxy />
+        </>
+      )}
+      {mode === "nebula" && <Nebula />}
+      {mode === "waves" && (
+        <>
+          <Rig />
+          <Waves />
+        </>
+      )}
       {bloom && !qualityLow && (
         <EffectComposer multisampling={0}>
           <Bloom
             mipmapBlur
-            intensity={1.15}
-            luminanceThreshold={0.18}
-            luminanceSmoothing={0.35}
+            intensity={1.6}
+            luminanceThreshold={0.08}
+            luminanceSmoothing={0.25}
+            radius={0.8}
           />
         </EffectComposer>
       )}

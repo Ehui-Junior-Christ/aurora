@@ -204,6 +204,24 @@ class AudioEngine {
     this.eqHigh.gain.value = this.desiredEq.high;
   }
 
+  getSpectrum(target: Uint8Array): void {
+    if (!this.analyser || !this.context) {
+      target.fill(0);
+      return;
+    }
+    this.analyser.getByteFrequencyData(this.freqData);
+    const bins = target.length;
+    const srcBins = this.freqData.length;
+    for (let i = 0; i < bins; i++) {
+      const frac = i / bins;
+      const idx = Math.min(
+        srcBins - 1,
+        Math.floor(Math.pow(frac, 1.5) * srcBins * 0.75)
+      );
+      target[i] = this.freqData[idx];
+    }
+  }
+
   bands(): { bass: number; mid: number; treble: number } {
     if (!this.analyser || !this.context) return { bass: 0, mid: 0, treble: 0 };
     this.analyser.getByteFrequencyData(this.freqData);

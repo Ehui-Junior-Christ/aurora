@@ -29,16 +29,16 @@ void main() {
   float s = sin(rot);
   p = mat2(c, -s, s, c) * p;
 
-  vec3 col = vec3(0.02, 0.02, 0.033);
+  vec3 col = vec3(0.025, 0.025, 0.04);
   float g1 = length(p - vec2(-0.5, 0.35));
   float g2 = length(p - vec2(0.55, -0.42));
   float g3 = length(p - vec2(0.18, 0.12));
-  col += uColorA * exp(-g1 * g1 * 6.0) * 0.30;
-  col += uColorB * exp(-g2 * g2 * 7.5) * 0.20;
-  col += uColorC * exp(-g3 * g3 * 9.0) * 0.14;
+  col += uColorA * exp(-g1 * g1 * 5.0) * 0.42;
+  col += uColorB * exp(-g2 * g2 * 6.5) * 0.30;
+  col += uColorC * exp(-g3 * g3 * 8.0) * 0.22;
 
-  float vig = smoothstep(1.4, 0.3, length(p));
-  col *= mix(0.68, 1.0, vig);
+  float vig = smoothstep(1.5, 0.35, length(p));
+  col *= mix(0.75, 1.0, vig);
 
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>

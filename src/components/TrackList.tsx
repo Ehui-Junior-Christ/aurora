@@ -76,7 +76,8 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
             onAdd(track.id);
           }}
           aria-label="Ajouter à une playlist"
-          className="grid size-6 shrink-0 place-items-center rounded-full text-white/30 opacity-0 transition-all hover:bg-white/10 hover:text-white group-hover:opacity-100"
+          title="Ajouter à une playlist"
+          className="grid size-6 shrink-0 place-items-center rounded-full text-white/45 opacity-80 transition-all hover:bg-white/10 hover:text-white md:opacity-0 md:group-hover:opacity-100"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
             <path

@@ -11,11 +11,29 @@ import { parseTrack } from "@/lib/metadata";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
+import { fetchRemoteLyrics } from "@/lib/lyrics-fetcher";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 
 export type RepeatMode = "off" | "all" | "one";
-export type VisualMode = "organism" | "tunnel" | "metaballs" | "particles";
+export type VisualMode =
+  | "organism"
+  | "tunnel"
+  | "metaballs"
+  | "particles"
+  | "galaxy"
+  | "nebula"
+  | "waves";
+
+export const MODE_KEYS: VisualMode[] = [
+  "organism",
+  "tunnel",
+  "metaballs",
+  "particles",
+  "galaxy",
+  "nebula",
+  "waves",
+];
 
 interface EqSettings {
   low: number;
@@ -56,6 +74,7 @@ interface PlayerState {
   error: string | null;
   shuffle: boolean;
   repeat: RepeatMode;
+  autoMode: boolean;
   eq: EqSettings;
   visualMode: VisualMode;
   bloom: boolean;
@@ -89,6 +108,7 @@ interface PlayerState {
   setQueueOpen(value: boolean): void;
   toggleShuffle(): void;
   cycleRepeat(): void;
+  setAutoMode(value: boolean): void;
   setEq(eq: EqSettings): void;
   setVisualMode(mode: VisualMode): void;
   toggleBloom(): void;
@@ -165,6 +185,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   error: null,
   shuffle: false,
   repeat: "off",
+  autoMode: true,
   eq: { low: 0, mid: 0, high: 0 },
   visualMode: "organism",
   bloom: true,
@@ -190,11 +211,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   async restore() {
-    const [volume, repeat, shuffle, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists] =
+    const [volume, repeat, shuffle, autoMode, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists] =
       await Promise.all([
         idbGet<number>("prefs", "volume"),
         idbGet<RepeatMode>("prefs", "repeat"),
         idbGet<boolean>("prefs", "shuffle"),
+        idbGet<boolean>("prefs", "autoMode"),
         idbGet<EqSettings>("prefs", "eq"),
         idbGet<VisualMode>("prefs", "visualMode"),
         idbGet<boolean>("prefs", "bloom"),
@@ -214,6 +236,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (repeat === "off" || repeat === "all" || repeat === "one")
       prefs.repeat = repeat;
     if (typeof shuffle === "boolean") prefs.shuffle = shuffle;
+    if (typeof autoMode === "boolean") prefs.autoMode = autoMode;
     if (eq && typeof eq.low === "number") {
       prefs.eq = eq;
       engine.setEq(eq);
@@ -222,7 +245,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       visualMode === "organism" ||
       visualMode === "tunnel" ||
       visualMode === "metaballs" ||
-      visualMode === "particles"
+      visualMode === "particles" ||
+      visualMode === "galaxy" ||
+      visualMode === "nebula" ||
+      visualMode === "waves"
     )
       prefs.visualMode = visualMode;
     if (typeof bloom === "boolean") prefs.bloom = bloom;
@@ -415,6 +441,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     savePref("lastTrackId", track.id);
     set({ current: index, duration: 0 });
 
+    if (get().autoMode) {
+      set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
+    }
+
     const nextStats: ListeningStats = {
       plays: { ...get().stats.plays },
       seconds: get().stats.seconds,
@@ -448,17 +478,29 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       engine.setTrackGain(1);
     }
 
+    set({ lyrics: [], lyricsAvailable: false });
+    const applyCues = (cues: LyricsCue[]) => {
+      set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
+    };
     const lrcFile = lyricsFiles.get(baseName(track.file.name));
     if (lrcFile) {
       void lrcFile
         .text()
-        .then((text) => {
-          const cues = parseLrc(text);
-          set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
-        })
+        .then((text) => applyCues(parseLrc(text)))
         .catch(() => set({ lyrics: [], lyricsAvailable: false }));
     } else {
-      set({ lyrics: [], lyricsAvailable: false });
+      void (async () => {
+        const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
+        if (cached && cached.length > 0) {
+          applyCues(cached);
+          return;
+        }
+        const remote = await fetchRemoteLyrics(track.artist, track.title);
+        if (remote && remote.length > 0) {
+          void idbSet("meta", `lyrics:${track.id}`, remote);
+          applyCues(remote);
+        }
+      })();
     }
 
     void idbGet<VisualPreset>("meta", `visual:${track.id}`).then((preset) => {
@@ -536,6 +578,18 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const shuffle = !get().shuffle;
     set({ shuffle });
     savePref("shuffle", shuffle);
+  },
+
+  setAutoMode(autoMode) {
+    set({ autoMode });
+    savePref("autoMode", autoMode);
+    if (autoMode) {
+      const { tracks, current } = get();
+      const track = tracks[current];
+      if (track) {
+        set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
+      }
+    }
   },
 
   cycleRepeat() {
