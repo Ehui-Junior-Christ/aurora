@@ -13,9 +13,10 @@ import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
-import GlobalProgressBar from "@/components/GlobalProgressBar";
 import Onboarding from "@/components/Onboarding";
 import UpdateToast from "@/components/UpdateToast";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import GlobalProgressBar from "@/components/GlobalProgressBar";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,
@@ -173,6 +174,38 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setVisualMode]);
 
+useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const onStart = (event: TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && target.closest("aside, button, input, [data-panel]")) return;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+      tracking = true;
+    };
+    const onEnd = (event: TouchEvent) => {
+      if (!tracking) return;
+      tracking = false;
+      const dx = event.changedTouches[0].clientX - startX;
+      const dy = event.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) > 70 && Math.abs(dy) < 50) {
+        if (dx < 0) {
+          usePlayer.getState().next();
+        } else {
+          usePlayer.getState().prev();
+        }
+      }
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
   useEffect(() => {
     const onDragOver = (event: DragEvent) => {
       event.preventDefault();
@@ -215,6 +248,14 @@ export default function Home() {
       window.removeEventListener("dragleave", onDragLeave);
       window.removeEventListener("drop", onDropNative);
     };
+  }, []);
+
+  useEffect(() => {
+    void import("@/lib/db").then(({ idbGet }) => {
+      void idbGet<boolean>("prefs", "onboarded").then((done) => {
+        if (!done) usePlayer.getState().setHelpOpen(true);
+      });
+    });
   }, []);
 
   return (

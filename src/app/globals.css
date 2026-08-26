@@ -106,6 +106,13 @@ body::after {
   }
 }
 
+button,
+[role="button"],
+input,
+a {
+  touch-action: manipulation;
+}
+
 .fade-in-up {
   animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }

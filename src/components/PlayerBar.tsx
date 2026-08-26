@@ -105,7 +105,30 @@ export default function PlayerBar({
             </div>
           </div>
 
-          <div className="col-start-1 col-span-2 row-start-1 flex items-center justify-center gap-1.5 md:col-auto md:row-auto md:gap-2.5">
+          <div className="max-md:flex flex-col gap-2 md:hidden">
+            {track?.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={track.coverUrl}
+                alt=""
+                className="size-9 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <div
+                className="size-9 shrink-0 rounded-lg"
+                style={{
+                  background:
+                    "linear-gradient(135deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c3) 55%, transparent))",
+                }}
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold">{track?.title ?? "—"}</p>
+              <p className="truncate text-[10px] text-white/45">{track?.artist}</p>
+            </div>
+          </div>
+
+          <div className="col-span-2 flex items-center justify-center gap-1 md:col-auto md:justify-center md:gap-2.5">
             <button
               type="button"
               data-cursor="magnetic"
@@ -166,7 +189,7 @@ export default function PlayerBar({
               disabled={!lyricsAvailable}
               aria-label="Paroles"
               title="Paroles"
-              className={`hidden size-9 place-items-center rounded-full transition-colors sm:grid disabled:opacity-25 ${
+              className={`size-9 place-items-center rounded-full transition-colors disabled:opacity-25 ${
                 lyricsOpen ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
               }`}
             >
@@ -186,7 +209,7 @@ export default function PlayerBar({
               onClick={toggleShuffle}
               aria-label="Lecture aléatoire"
               title="Lecture aléatoire"
-              className={`hidden size-9 place-items-center rounded-full transition-colors sm:grid ${
+              className={`size-9 place-items-center rounded-full transition-colors ${
                 shuffle ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
               }`}
             >
