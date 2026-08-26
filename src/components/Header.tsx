@@ -66,10 +66,16 @@ export default function Header({ immersive }: { immersive: boolean }) {
       "video/webm",
     ].find((type) => MediaRecorder.isTypeSupported(type));
     const stream = canvas.captureStream(60);
-    const recorder = new MediaRecorder(stream, {
-      mimeType: mime,
-      videoBitsPerSecond: 12_000_000,
-    });
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: 12_000_000,
+      });
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
     chunksRef.current = [];
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);

@@ -71,7 +71,7 @@ export default function TrackTitle() {
     <h1
       ref={titleRef}
       aria-label={displayTitle}
-      className="font-display max-w-full break-words text-[clamp(2.8rem,11vw,10rem)] font-extrabold uppercase leading-[0.88] tracking-tight"
+      className="hero-title font-display max-w-full break-words text-[clamp(2.8rem,11vw,10rem)] font-extrabold uppercase leading-[0.88] tracking-tight"
     >
       AURORA
     </h1>

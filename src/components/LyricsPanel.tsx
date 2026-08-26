@@ -29,7 +29,7 @@ export default function LyricsPanel() {
   if (!available || lyrics.length === 0) return null;
 
   return (
-    <div className="glass fade-in-up fixed bottom-32 left-5 z-30 max-h-[42vh] w-[min(400px,calc(100vw-2.5rem))] overflow-y-auto rounded-2xl px-5 py-4 md:bottom-36">
+    <div className="glass fade-in-up fixed bottom-[calc(13rem+env(safe-area-inset-bottom))] left-2 right-2 z-30 max-h-[38vh] overflow-y-auto rounded-2xl px-5 py-4 md:bottom-48 md:right-auto md:w-[min(400px,calc(100vw-2.5rem))]">
       <p className="mb-3 font-mono text-[9px] uppercase tracking-[0.4em] text-white/35">
         paroles
       </p>

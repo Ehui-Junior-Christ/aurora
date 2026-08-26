@@ -220,7 +220,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
   return (
     <aside
       aria-label="File d'attente"
-      className={`glass fixed right-4 top-20 bottom-44 z-20 flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] md:right-6 md:top-24 md:bottom-36 ${
+      className={`glass fixed right-4 top-20 bottom-[calc(11rem+env(safe-area-inset-bottom))] z-20 flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] md:right-6 md:top-24 md:bottom-36 ${
         queueOpen && !immersive
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-10 opacity-0"

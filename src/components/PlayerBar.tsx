@@ -66,7 +66,7 @@ export default function PlayerBar({
 
   return (
     <div
-      className={`fixed inset-x-4 bottom-4 z-30 transition-all duration-700 md:inset-x-auto md:left-1/2 md:bottom-6 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
+      className={`fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 transition-all duration-700 md:inset-x-auto md:left-1/2 md:bottom-6 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
         immersive ? "pointer-events-none translate-y-6 opacity-0" : "opacity-100"
       }`}
     >
@@ -236,15 +236,15 @@ export default function PlayerBar({
             </button>
           </div>
 
-          <div className="col-span-2 flex items-center justify-end gap-4 md:col-auto">
+          <div className="col-span-2 flex items-center justify-end gap-3 md:col-auto md:gap-4">
             <Timeline />
-            <div className="relative flex items-center gap-2 max-sm:hidden">
+            <div className="relative">
               <button
                 type="button"
                 data-cursor="magnetic"
                 onClick={() => setEqOpen(!eqOpen)}
-                aria-label="Égaliseur"
-                title="Égaliseur"
+                aria-label="Égaliseur et options audio"
+                title="Égaliseur et options"
                 className={`grid size-8 place-items-center rounded-full transition-colors ${
                   eqOpen ? "text-white" : "text-white/50 hover:text-white"
                 }`}
@@ -262,22 +262,21 @@ export default function PlayerBar({
                 </svg>
               </button>
               {eqOpen && <EqPanel onClose={() => setEqOpen(false)} />}
-
-              <div className={`${styles.volume} flex items-center gap-2`}>
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-                  <path d="M8 2.2 4.8 5H2v6h2.8L8 13.8V2.2Zm2.5 2.05a.6.6 0 0 1 .85 0 5.3 5.3 0 0 1 0 7.5.6.6 0 1 1-.85-.85 4.1 4.1 0 0 0 0-5.8.6.6 0 0 1 0-.85Zm1.9-1.9a.6.6 0 0 1 .85 0 8 8 0 0 1 0 11.3.6.6 0 1 1-.85-.85 6.8 6.8 0 0 0 0-9.6.6.6 0 0 1 0-.85Z" />
-                </svg>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={volume}
-                  onChange={(event) => setVolume(Number(event.target.value))}
-                  aria-label="Volume"
-                  className={styles.slider}
-                />
-              </div>
+            </div>
+            <div className={`${styles.volume} hidden items-center gap-2 md:flex`}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                <path d="M8 2.2 4.8 5H2v6h2.8L8 13.8V2.2Zm2.5 2.05a.6.6 0 0 1 .85 0 5.3 5.3 0 0 1 0 7.5.6.6 0 1 1-.85-.85 4.1 4.1 0 0 0 0-5.8.6.6 0 0 1 0-.85Zm1.9-1.9a.6.6 0 0 1 .85 0 8 8 0 0 1 0 11.3.6.6 0 1 1-.85-.85 6.8 6.8 0 0 0 0-9.6.6.6 0 0 1 0-.85Z" />
+              </svg>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(event) => setVolume(Number(event.target.value))}
+                aria-label="Volume"
+                className={styles.slider}
+              />
             </div>
           </div>
         </div>

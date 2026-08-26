@@ -48,7 +48,7 @@ export default function GlobalProgressBar() {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 h-4 select-none">
+    <div className="fixed inset-x-0 bottom-0 z-40 h-[calc(16px+env(safe-area-inset-bottom))] select-none">
       <span
         ref={curRef}
         className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] tabular-nums tracking-wider text-white/45"

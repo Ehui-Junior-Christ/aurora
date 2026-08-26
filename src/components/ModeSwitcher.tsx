@@ -57,7 +57,7 @@ export default function ModeSwitcher() {
   const [tunerOpen, setTunerOpen] = useState(false);
 
   return (
-    <div className="glass fixed bottom-32 left-5 z-20 hidden items-center gap-1 rounded-full p-1 md:flex">
+    <div className="glass fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] left-2 z-20 flex items-center gap-1 rounded-full p-1 md:bottom-32 md:left-5">
       {MODES.map((entry) => (
         <button
           key={entry.id}
@@ -66,7 +66,7 @@ export default function ModeSwitcher() {
           onClick={() => setVisualMode(entry.id)}
           title={entry.label}
           aria-label={`Mode visuel : ${entry.label}`}
-          className={`relative grid size-9 place-items-center rounded-full transition-colors duration-300 ${
+          className={`relative grid size-8 place-items-center rounded-full transition-colors duration-300 md:size-9 ${
             mode === entry.id
               ? "bg-white/15 text-white"
               : "text-white/45 hover:text-white"
@@ -82,7 +82,7 @@ export default function ModeSwitcher() {
           onClick={() => setTunerOpen(!tunerOpen)}
           title="Réglage visuel"
           aria-label="Réglage visuel"
-          className={`grid size-9 place-items-center rounded-full transition-colors duration-300 ${
+          className={`grid size-8 place-items-center rounded-full transition-colors duration-300 md:size-9 ${
             tunerOpen ? "text-white" : "text-white/40 hover:text-white"
           }`}
         >

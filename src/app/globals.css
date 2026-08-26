@@ -179,3 +179,13 @@ body::after {
     animation: none;
   }
 }
+
+.hero-title {
+  font-size: clamp(2.8rem, 11vw, 10rem);
+}
+
+@media (max-height: 560px) {
+  .hero-title {
+    font-size: clamp(1.6rem, 9vh, 4rem);
+  }
+}

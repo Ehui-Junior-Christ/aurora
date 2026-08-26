@@ -9,7 +9,7 @@ export default function UpdateToast() {
   if (!updateReady) return null;
 
   return (
-    <div className="glass-strong fade-in-up fixed bottom-6 left-6 z-[70] flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl">
+    <div className="glass-strong fade-in-up fixed inset-x-4 top-24 z-[70] flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl md:inset-x-auto md:bottom-6 md:left-6 md:top-auto">
       <span
         className="size-2 rounded-full"
         style={{

@@ -46,7 +46,7 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`artist-${track?.id ?? "none"}`}
-      className={`fade-in-up mt-7 flex items-baseline gap-5 transition-opacity duration-700 ${
+      className={`fade-in-up mt-7 flex flex-wrap items-baseline gap-x-5 gap-y-2 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -86,6 +86,9 @@ export default function Home() {
 
   useEffect(() => {
     void usePlayer.getState().restore();
+    if (window.innerWidth < 768) {
+      usePlayer.getState().setQueueOpen(false);
+    }
   }, []);
 
   useEffect(() => {

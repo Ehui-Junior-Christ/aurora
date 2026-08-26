@@ -56,7 +56,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="glass-strong absolute bottom-full right-0 z-40 mb-3 max-h-[70vh] w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
+    <div className="glass-strong absolute bottom-full right-0 z-40 mb-3 max-h-[70vh] w-72 max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
           Égaliseur
