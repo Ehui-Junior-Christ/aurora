@@ -78,12 +78,11 @@ const LABELS: Record<string, string> = {
   waves: "Ondes",
 };
 
-export default function ModeSwitcher() {
+export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
   const mode = usePlayer((s) => s.visualMode);
   const setVisualMode = usePlayer((s) => s.setVisualMode);
   const autoMode = usePlayer((s) => s.autoMode);
   const setAutoMode = usePlayer((s) => s.setAutoMode);
-  const lyricsOpen = usePlayer((s) => s.lyricsOpen);
   const [tunerOpen, setTunerOpen] = useState(false);
 
   return (

@@ -298,7 +298,7 @@ export default function Home() {
               <FloatingSearch />
             </div>
             <TrackList immersive={immersive} />
-            <ModeSwitcher />
+            <ModeSwitcher lyricsOpen={lyricsOpen} />
             {lyricsOpen && <LyricsPanel />}
             <GlobalProgressBar />
           </>

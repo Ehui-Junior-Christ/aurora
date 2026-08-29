@@ -36,7 +36,7 @@ class AudioEngine {
   // YouTube IFrame Player
   private ytPlayer: any = null;
   private ytReady = false;
-  private ytActive = false;
+  public ytActive = false;
   private ytDuration = 0;
   public onYtStateChange?: (state: number) => void;
   public onYtError?: (error: number) => void;
