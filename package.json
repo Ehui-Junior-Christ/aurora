@@ -41,6 +41,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",
+    "youtube-ext": "^1.1.25",
+    "yt-search": "^2.13.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

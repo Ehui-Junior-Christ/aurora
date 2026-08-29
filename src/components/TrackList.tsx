@@ -27,15 +27,15 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
         event.dataTransfer.setData("text/aurora-index", String(index));
         event.dataTransfer.effectAllowed = "move";
       }}
-      className="h-full"
+      className={`group flex h-full w-full items-center gap-3 rounded-xl px-3 transition-colors duration-200 ${
+        active ? "bg-white/[0.09]" : "hover:bg-white/[0.05]"
+      }`}
     >
       <button
         type="button"
         data-cursor="magnetic"
         onClick={() => onPlay(index)}
-        className={`group flex h-full w-full items-center gap-3 rounded-xl px-3 text-left transition-colors duration-200 ${
-          active ? "bg-white/[0.09]" : "hover:bg-white/[0.05]"
-        }`}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
         <span
           className={`w-7 shrink-0 font-mono text-[10px] tracking-widest ${
@@ -64,37 +64,37 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
             {track.artist}
           </span>
         </span>
-        {track.isOnline && (
-          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
-            web
-          </span>
-        )}
-        {track.bpm ? (
-          <span className="hidden shrink-0 font-mono text-[9px] tracking-widest text-white/30 sm:block">
-            {track.bpm} BPM
-          </span>
-        ) : null}
-        <span
-          role="button"
-          tabIndex={-1}
-          data-cursor="magnetic"
-          onClick={(event) => {
-            event.stopPropagation();
-            onAdd(track.id);
-          }}
-          aria-label="Ajouter à une playlist"
-          title="Ajouter à une playlist"
-          className="grid size-6 shrink-0 place-items-center rounded-full text-white/45 opacity-80 transition-all hover:bg-white/10 hover:text-white md:opacity-0 md:group-hover:opacity-100"
-        >
-          <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
-            <path
-              d="M6 1v10M1 6h10"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+      </button>
+
+      {track.isOnline && (
+        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
+          web
         </span>
+      )}
+      {track.bpm ? (
+        <span className="hidden shrink-0 font-mono text-[9px] tracking-widest text-white/30 sm:block">
+          {track.bpm} BPM
+        </span>
+      ) : null}
+      <button
+        type="button"
+        data-cursor="magnetic"
+        onClick={(event) => {
+          event.stopPropagation();
+          onAdd(track.id);
+        }}
+        aria-label="Ajouter à une playlist"
+        title="Ajouter à une playlist"
+        className="grid size-8 shrink-0 place-items-center rounded-full text-white/45 opacity-80 transition-all hover:bg-white/10 hover:text-white md:opacity-0 md:group-hover:opacity-100"
+      >
+        <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
+          <path
+            d="M6 1v10M1 6h10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
       </button>
     </div>
   );
@@ -610,7 +610,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
           onClick={() => setAddMenuTrackId(null)}
         >
           <div
-            className="glass-strong w-full rounded-2xl p-3"
+            className="glass-strong w-full max-h-[70vh] overflow-y-auto overscroll-contain rounded-2xl p-3"
             onClick={(event) => event.stopPropagation()}
           >
             <p className="mb-2 px-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
