@@ -186,7 +186,7 @@ export default function Timeline() {
         aria-valuemax={100}
         aria-valuenow={0}
         tabIndex={-1}
-        className={styles.trackWrap}
+        className={styles["track-wrap"]}
         onPointerDown={(event) => {
           draggingRef.current = true;
           event.currentTarget.setPointerCapture(event.pointerId);
