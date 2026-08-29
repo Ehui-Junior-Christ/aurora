@@ -238,7 +238,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   onlineResults: [],
   onlineSearching: false,
   onlineError: null,
-  youtubeApiKey: process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "",
+  youtubeApiKey: process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "AIzaSyBHRkh_QT4tjk_TRZq8U7TBPLkBLHIcobo",
   showHome: false,
   history: [],
   savedOnlineTracks: [],
@@ -319,7 +319,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   async restore() {
-    const [volume, repeat, shuffle, autoMode, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists, savedOnlineTracks, history] =
+    const [volume, repeat, shuffle, autoMode, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists, savedOnlineTracks, history, storedYoutubeApiKey] =
       await Promise.all([
         idbGet<number>("prefs", "volume"),
         idbGet<RepeatMode>("prefs", "repeat"),
@@ -336,9 +336,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         idbGetAll<Playlist>("playlists"),
         idbGet<Track[]>("prefs", "savedOnlineTracks"),
         idbGet<Track[]>("prefs", "history"),
+        idbGet<string>("prefs", "youtubeApiKey"),
       ]);
 
     const prefs: Partial<PlayerState> = {};
+    if (typeof storedYoutubeApiKey === "string") {
+      prefs.youtubeApiKey = storedYoutubeApiKey;
+    }
     if (typeof volume === "number") {
       prefs.volume = volume;
       engine.volume = volume;

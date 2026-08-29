@@ -49,79 +49,71 @@ function timeoutSignal(signal?: AbortSignal): {
   return { signal: controller.signal, cleanup };
 }
 
-const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://api.piped.projectsegfau.lt",
-  "https://piped-api.garudalinux.org",
-  "https://pipedapi.adminforge.de",
-  "https://pipedapi.tokhmi.xyz"
-];
-
 export async function searchOnlineMusic(
   query: string,
-  _apiKey?: string
+  apiKey: string
 ): Promise<OnlineMusicResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
-  const params = new URLSearchParams({ q: trimmed, filter: "music_songs" });
+  const params = new URLSearchParams({
+    part: "snippet",
+    type: "video",
+    maxResults: "20",
+    q: trimmed,
+    videoCategoryId: "10", // Music
+    key: apiKey,
+  });
 
-  let lastError: any;
-  for (const instance of PIPED_INSTANCES) {
-    const timeout = timeoutSignal();
-    try {
-      const response = await fetch(`${instance}/search?${params.toString()}`, {
-        signal: timeout.signal,
-        headers: { Accept: "application/json" },
-      });
+  const timeout = timeoutSignal();
+  try {
+    const response = await fetch(`${YOUTUBE_API_BASE}/search?${params.toString()}`, {
+      signal: timeout.signal,
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP_${response.status}`);
-      }
-
-      const json = await response.json();
-      if (json.error) throw new Error(json.error);
-      const items = json.items ?? [];
-
-      return items
-        .filter((item: any) => item.url?.includes("/watch?v="))
-        .map((item: any) => {
-          const videoId = item.url.split("v=")[1]?.split("&")[0];
-          
-          const title = (item.title || "")
-            .replace(/&amp;/g, "&")
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'");
-
-          return {
-            id: `yt:${videoId}`,
-            title,
-            artist: item.uploaderName || item.author || "YouTube",
-            thumbnail: item.thumbnail,
-            durationText: item.duration > 0 ? formatDuration(item.duration) : "",
-            isOnline: true as const,
-          };
-        });
-    } catch (err: any) {
-      lastError = err;
-      // Continue to next instance
-    } finally {
-      timeout.cleanup();
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
     }
-  }
 
-  // If all instances failed
-  if (lastError?.name === "AbortError") {
-    throw new Error("La recherche a expiré. Réessayez.");
-  }
-  throw new Error("Impossible de se connecter aux serveurs de recherche. Réessayez plus tard.");
-}
+    const json = (await response.json()) as YouTubeSearchResponse;
+    if (json.error) throw new Error(json.error.message);
+    const items = json.items ?? [];
 
-function formatDuration(seconds: number): string {
-  if (!seconds) return "";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
+    return items
+      .filter((item) => item.id?.videoId)
+      .map((item) => {
+        const snippet = item.snippet;
+        const thumbnail =
+          snippet.thumbnails?.high?.url ||
+          snippet.thumbnails?.medium?.url ||
+          snippet.thumbnails?.default?.url;
+
+        // Clean up titles (remove HTML entities like &amp;)
+        const title = snippet.title
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+
+        return {
+          id: `yt:${item.id.videoId}`, // Prefix with yt: so engine knows to use IFrame
+          title,
+          artist: snippet.channelTitle,
+          thumbnail,
+          durationText: "",
+          isOnline: true as const,
+        };
+      });
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      throw new Error("La recherche a expiré. Réessayez.");
+    }
+    throw err;
+  } finally {
+    timeout.cleanup();
+  }
 }
 
 export async function getAudioStreamUrl(trackId: string): Promise<string> {
