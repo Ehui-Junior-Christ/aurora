@@ -235,7 +235,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   onlineResults: [],
   onlineSearching: false,
   onlineError: null,
-  youtubeApiKey: "AIzaSyBHRkh_QT4tjk_TRZq8U7TBPLkBLHIcobo",
+  youtubeApiKey: process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "",
   showHome: false,
   history: [],
   savedOnlineTracks: [],
