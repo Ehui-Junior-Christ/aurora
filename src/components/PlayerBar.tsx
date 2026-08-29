@@ -66,7 +66,7 @@ export default function PlayerBar({
 
   return (
     <div
-      className={`fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 transition-all duration-700 md:inset-x-auto md:left-1/2 md:bottom-6 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
+      className={`fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 transition-all duration-700 md:inset-x-auto md:left-1/2 md:bottom-6 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
         immersive ? "pointer-events-none translate-y-6 opacity-0" : "opacity-100"
       }`}
     >
