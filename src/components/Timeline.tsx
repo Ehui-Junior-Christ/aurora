@@ -140,7 +140,7 @@ export default function Timeline() {
       ) {
         engine.seek(loopAB.a);
       }
-      if (state.skipSilence && state.playing && !engine.paused) {
+      if (state.skipSilence && state.playing) {
         const b = engine.bands();
         const energy = b.bass + b.mid + b.treble;
         const now = performance.now();

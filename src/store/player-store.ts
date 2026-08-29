@@ -414,6 +414,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           ...t,
           url: Capacitor.convertFileSrc(t.path),
           isOnline: false,
+          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
+          seed: Math.random(),
         }));
         set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
       } catch (e) {
@@ -468,6 +470,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           ...t,
           url: Capacitor.convertFileSrc(t.path),
           isOnline: false,
+          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
+          seed: Math.random(),
         }));
         set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
       } catch (e) {
