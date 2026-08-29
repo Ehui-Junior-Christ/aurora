@@ -14,7 +14,7 @@ export default function VisualTuner({ onClose }: { onClose: () => void }) {
   ] as const;
 
   return (
-    <div className="glass-strong absolute bottom-full left-0 z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
+    <div className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
           Réglage visuel
