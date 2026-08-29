@@ -582,6 +582,25 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           });
         });
       }
+      
+      let lastCrossfadeId: string | null = null;
+      setInterval(() => {
+        const state = get();
+        if (state.crossfade <= 0 || !state.playing || state.current < 0) return;
+        if (engine.ytActive) return; // Crossfade doesn't work well with YouTube iframe yet
+        
+        const track = state.tracks[state.current];
+        if (!track || track.id === lastCrossfadeId) return;
+        
+        const dur = engine.duration;
+        const time = engine.currentTime;
+        // Si la piste est assez longue et qu'on atteint la zone de crossfade
+        if (dur > state.crossfade + 2 && dur - time <= state.crossfade) {
+          lastCrossfadeId = track.id;
+          get().next(true);
+        }
+      }, 250);
+
       engine.onYtStateChange = (state) => {
         // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
         if (state === 1) {
