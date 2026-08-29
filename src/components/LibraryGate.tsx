@@ -72,7 +72,7 @@ export default function LibraryGate() {
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-6 py-20">
+    <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-6 md:py-20">
       <div className="m-auto flex w-full max-w-3xl flex-col items-center text-center">
         {needsPermission ? (
           <>
@@ -112,7 +112,7 @@ export default function LibraryGate() {
             </p>
             <h1
               data-gate
-              className="font-display max-w-5xl text-[clamp(2rem,8.5vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight"
+              className="font-display max-w-5xl text-4xl md:text-6xl lg:text-[7.5rem] font-extrabold uppercase leading-[0.92] tracking-tight break-words"
             >
               Chaque piste
               <br />
@@ -141,7 +141,7 @@ export default function LibraryGate() {
               </p>
             )}
 
-            <ul data-gate className="mt-12 flex flex-wrap justify-center gap-2">
+            <ul data-gate className="mt-10 hidden md:flex flex-wrap justify-center gap-2">
               {FORMATS.map((format) => (
                 <li
                   key={format}
@@ -156,7 +156,7 @@ export default function LibraryGate() {
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
                 Obtenir l&apos;application
               </p>
-              <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex flex-col md:flex-row flex-wrap justify-center gap-4 w-full md:w-auto">
                 <a
                   href="/download/aurora-mobile.apk"
                   download="aurora-mobile.apk"
