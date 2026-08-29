@@ -86,16 +86,12 @@ export default function Home() {
   const [immersive, setImmersive] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const lyricsClosedFor = useRef<string | null>(null);
 
   const queueOpen = usePlayer((s) => s.queueOpen);
 
   useEffect(() => {
-    if (lyricsAvailable && lyricsClosedFor.current !== currentTrackId) {
-      setLyricsOpen(true);
-      usePlayer.getState().setQueueOpen(false);
-    }
-  }, [lyricsAvailable, currentTrackId]);
+    setLyricsOpen(false);
+  }, [currentTrackId]);
 
   useEffect(() => {
     if (queueOpen) setLyricsOpen(false);
@@ -105,7 +101,6 @@ export default function Home() {
     setLyricsOpen((open) => {
       const nextOpen = !open;
       if (nextOpen) {
-        lyricsClosedFor.current = currentTrackId;
         usePlayer.getState().setQueueOpen(false);
       }
       return nextOpen;
