@@ -2,6 +2,20 @@ interface Slot {
   el: HTMLAudioElement;
   gain: GainNode | null;
   url: string | null;
+  revokeUrl: boolean;
+}
+
+export interface AudioSource {
+  url: string;
+  crossOrigin?: "" | "anonymous";
+  revokeUrl?: boolean;
+}
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
 }
 
 class AudioEngine {
@@ -19,12 +33,79 @@ class AudioEngine {
   private desiredRate = 1;
   private freqData = new Uint8Array(1024);
 
+  // YouTube IFrame Player
+  private ytPlayer: any = null;
+  private ytReady = false;
+  private ytActive = false;
+  private ytDuration = 0;
+  public onYtStateChange?: (state: number) => void;
+  public onYtError?: (error: number) => void;
+
+  constructor() {
+    this.initYouTube();
+  }
+
+  private initYouTube() {
+    if (typeof window === "undefined") return;
+    const div = document.createElement("div");
+    div.id = "aurora-yt-player";
+    div.style.position = "absolute";
+    div.style.left = "-9999px";
+    div.style.top = "-9999px";
+    div.style.width = "300px";
+    div.style.height = "300px";
+    div.style.opacity = "0.01";
+    div.style.pointerEvents = "none";
+    document.body.appendChild(div);
+
+    window.onYouTubeIframeAPIReady = () => {
+      this.ytPlayer = new window.YT.Player("aurora-yt-player", {
+        height: "300",
+        width: "300",
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          playsinline: 1,
+        },
+        events: {
+          onReady: () => {
+            this.ytReady = true;
+            this.ytPlayer.setVolume(this.desiredVolume * 100);
+          },
+          onStateChange: (event: any) => {
+            if (this.onYtStateChange) this.onYtStateChange(event.data);
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              this.ytDuration = this.ytPlayer.getDuration();
+            }
+          },
+          onError: (event: any) => {
+            if (this.onYtError) this.onYtError(event.data);
+          },
+        },
+      });
+    };
+
+    if (!document.getElementById("yt-api-script")) {
+      const tag = document.createElement("script");
+      tag.id = "yt-api-script";
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+  }
+
   private ensureSlots(): Record<"a" | "b", Slot> {
     if (!this.slots) {
       const make = (): Slot => {
         const el = new Audio();
         el.preload = "auto";
-        return { el, gain: null, url: null };
+        return { el, gain: null, url: null, revokeUrl: false };
       };
       this.slots = { a: make(), b: make() };
     }
@@ -102,10 +183,38 @@ class AudioEngine {
   }
 
   load(file: File, crossfadeMs = 0): void {
+    this.ytActive = false;
+    if (this.ytReady) this.ytPlayer.stopVideo();
+    this.loadSource({ url: URL.createObjectURL(file), revokeUrl: true }, crossfadeMs);
+  }
+
+  loadSource(source: AudioSource, crossfadeMs = 0): void {
+    if (source.url.startsWith("yt:")) {
+      this.ytActive = true;
+      const slots = this.ensureSlots();
+      slots.a.el.pause();
+      slots.b.el.pause();
+      
+      const videoId = source.url.substring(3);
+      if (this.ytReady) {
+        this.ytPlayer.loadVideoById(videoId);
+      } else {
+        const waitInterval = setInterval(() => {
+          if (this.ytReady) {
+            clearInterval(waitInterval);
+            this.ytPlayer.loadVideoById(videoId);
+          }
+        }, 100);
+      }
+      return;
+    }
+
+    this.ytActive = false;
+    if (this.ytReady) this.ytPlayer.stopVideo();
+
     const slots = this.ensureSlots();
     const current = slots[this.activeKey];
     const next = slots[this.otherKey()];
-    const url = URL.createObjectURL(file);
 
     const crossfadeActive =
       crossfadeMs >= 500 &&
@@ -115,16 +224,23 @@ class AudioEngine {
 
     if (!crossfadeActive) {
       next.el.pause();
-      if (current.url) URL.revokeObjectURL(current.url);
-      current.url = url;
-      current.el.src = url;
+      current.gain?.gain.cancelScheduledValues(this.context?.currentTime ?? 0);
+      if (current.gain) current.gain.gain.value = 1;
+      if (next.gain) next.gain.gain.value = 1;
+      if (current.url && current.revokeUrl) URL.revokeObjectURL(current.url);
+      current.url = source.url;
+      current.revokeUrl = source.revokeUrl ?? false;
+      current.el.crossOrigin = source.crossOrigin ?? "";
+      current.el.src = source.url;
       current.el.playbackRate = this.desiredRate;
       return;
     }
 
-    if (next.url) URL.revokeObjectURL(next.url);
-    next.url = url;
-    next.el.src = url;
+    if (next.url && next.revokeUrl) URL.revokeObjectURL(next.url);
+    next.url = source.url;
+    next.revokeUrl = source.revokeUrl ?? false;
+    next.el.crossOrigin = source.crossOrigin ?? "";
+    next.el.src = source.url;
     next.el.playbackRate = this.desiredRate;
 
     const ctx = this.context!;
@@ -145,11 +261,20 @@ class AudioEngine {
     this.activeKey = this.otherKey();
     window.setTimeout(() => {
       previousSlot.el.pause();
+      if (previousSlot.url && previousSlot.revokeUrl) {
+        URL.revokeObjectURL(previousSlot.url);
+        previousSlot.url = null;
+        previousSlot.revokeUrl = false;
+      }
     }, crossfadeMs + 200);
   }
 
   async play(): Promise<void> {
     this.init();
+    if (this.ytActive) {
+      if (this.ytReady) this.ytPlayer.playVideo();
+      return;
+    }
     try {
       await this.el.play();
     } catch {
@@ -158,15 +283,37 @@ class AudioEngine {
   }
 
   pause(): void {
+    if (this.ytActive) {
+      if (this.ytReady) this.ytPlayer.pauseVideo();
+      return;
+    }
     const slots = this.ensureSlots();
     slots.a.el.pause();
     slots.b.el.pause();
   }
 
   seek(time: number): void {
+    if (this.ytActive) {
+      if (this.ytReady) this.ytPlayer.seekTo(time, true);
+      return;
+    }
     if (Number.isFinite(time)) {
       this.el.currentTime = Math.max(0, time);
     }
+  }
+
+  get currentTime(): number {
+    if (this.ytActive) {
+      return this.ytReady && this.ytPlayer.getCurrentTime ? this.ytPlayer.getCurrentTime() : 0;
+    }
+    return this.el.currentTime;
+  }
+
+  get duration(): number {
+    if (this.ytActive) {
+      return this.ytDuration;
+    }
+    return this.el.duration;
   }
 
   get volume(): number {
@@ -176,6 +323,9 @@ class AudioEngine {
   set volume(value: number) {
     this.desiredVolume = value;
     if (this.masterGain) this.masterGain.gain.value = value;
+    if (this.ytReady && this.ytPlayer.setVolume) {
+      this.ytPlayer.setVolume(value * 100);
+    }
   }
 
   setRate(rate: number): void {
@@ -183,6 +333,9 @@ class AudioEngine {
     const slots = this.ensureSlots();
     for (const key of ["a", "b"] as const) {
       slots[key].el.playbackRate = rate;
+    }
+    if (this.ytReady && this.ytPlayer.setPlaybackRate) {
+      this.ytPlayer.setPlaybackRate(rate);
     }
   }
 
@@ -205,6 +358,18 @@ class AudioEngine {
   }
 
   getSpectrum(target: Uint8Array): void {
+    if (this.ytActive) {
+      // Fake spectrum for YouTube playback
+      const isPlaying = this.ytReady && this.ytPlayer.getPlayerState && this.ytPlayer.getPlayerState() === 1;
+      const bins = target.length;
+      for (let i = 0; i < bins; i++) {
+        const falloff = i / bins;
+        const rand = isPlaying ? Math.random() : 0;
+        target[i] = (rand * 255) * (1 - falloff);
+      }
+      return;
+    }
+    
     if (!this.analyser || !this.context) {
       target.fill(0);
       return;
@@ -223,6 +388,12 @@ class AudioEngine {
   }
 
   bands(): { bass: number; mid: number; treble: number } {
+    if (this.ytActive) {
+      const isPlaying = this.ytReady && this.ytPlayer.getPlayerState && this.ytPlayer.getPlayerState() === 1;
+      const amount = isPlaying ? 0.3 + Math.random() * 0.4 : 0;
+      return { bass: amount, mid: amount * 0.8, treble: amount * 0.5 };
+    }
+    
     if (!this.analyser || !this.context) return { bass: 0, mid: 0, treble: 0 };
     this.analyser.getByteFrequencyData(this.freqData);
     const nyquist = this.context.sampleRate / 2;

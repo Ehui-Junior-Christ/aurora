@@ -105,17 +105,17 @@ export default function PlayerBar({
             </div>
           </div>
 
-          <div className="max-md:flex flex-col gap-2 md:hidden">
+          <div className="col-span-2 flex items-center gap-3 overflow-hidden md:hidden">
             {track?.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={track.coverUrl}
                 alt=""
-                className="size-9 shrink-0 rounded-lg object-cover"
+                className="size-10 shrink-0 rounded-lg object-cover"
               />
             ) : (
               <div
-                className="size-9 shrink-0 rounded-lg"
+                className="size-10 shrink-0 rounded-lg"
                 style={{
                   background:
                     "linear-gradient(135deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c3) 55%, transparent))",
@@ -153,7 +153,7 @@ export default function PlayerBar({
               }}
             >
               <span
-                className={`transition-opacity duration-200 ${
+                className={`transition-opacity duration-200 ml-0.5 ${
                   playing ? "opacity-0" : "opacity-100"
                 }`}
               >
@@ -189,7 +189,7 @@ export default function PlayerBar({
               disabled={!lyricsAvailable}
               aria-label="Paroles"
               title="Paroles"
-              className={`size-9 place-items-center rounded-full transition-colors disabled:opacity-25 ${
+              className={`grid size-9 place-items-center rounded-full transition-colors disabled:opacity-25 ${
                 lyricsOpen ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
               }`}
             >
@@ -209,7 +209,7 @@ export default function PlayerBar({
               onClick={toggleShuffle}
               aria-label="Lecture aléatoire"
               title="Lecture aléatoire"
-              className={`size-9 place-items-center rounded-full transition-colors ${
+              className={`grid size-9 place-items-center rounded-full transition-colors ${
                 shuffle ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
               }`}
             >

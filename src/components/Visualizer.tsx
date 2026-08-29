@@ -56,9 +56,9 @@ function SceneContent() {
         <EffectComposer multisampling={0}>
           <Bloom
             mipmapBlur
-            intensity={1.6}
-            luminanceThreshold={0.08}
-            luminanceSmoothing={0.25}
+            intensity={1.2}
+            luminanceThreshold={0}
+            luminanceSmoothing={0.9}
             radius={0.8}
           />
         </EffectComposer>

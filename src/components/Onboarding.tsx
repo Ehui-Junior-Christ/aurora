@@ -6,7 +6,7 @@ import { usePlayer } from "@/store/player-store";
 const STEPS = [
   {
     title: "Bienvenue dans AURORA",
-    text: "Un lecteur pour ta musique locale, 100 % hors-ligne. Rien ne quitte jamais ton appareil.",
+    text: "Un lecteur hybride pour ta musique locale et le streaming gratuit via Invidious.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
         <path
@@ -19,8 +19,8 @@ const STEPS = [
     ),
   },
   {
-    title: "Ouvre ton dossier",
-    text: "AURORA scanne ton dossier musique et analyse tags, pochettes et palettes de couleurs de chaque fichier.",
+    title: "Ajoute tes dossiers",
+    text: "Ajoute un dossier une seule fois, complète ta bibliothèque plus tard, puis supprime les sources que tu ne veux plus.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
         <path
@@ -33,8 +33,18 @@ const STEPS = [
     ),
   },
   {
-    title: "Un visuel unique par piste",
-    text: "Chaque morceau génère un organisme WebGL unique : les basses le font respirer, la pochette lui donne ses couleurs.",
+    title: "Cherche en ligne",
+    text: "La barre unifiée trouve des morceaux en ligne et les lit directement dans le même moteur audio.",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
+        <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+        <path d="m13 13 4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    title: "Visuels et paroles",
+    text: "Chaque morceau génère un organisme WebGL unique et AURORA récupère les paroles synchronisées quand elles existent.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
         <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3" />
@@ -49,7 +59,7 @@ const STEPS = [
   },
   {
     title: "Raccourcis",
-    text: "Espace : lecture · Shift+←/→ : piste · 1-4 : modes visuels · F : mode immersif",
+    text: "Espace : lecture · Shift+←/→ : piste · 1-7 : modes visuels · F : plein écran",
     icon: (
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
         <rect x="2" y="5" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" />
@@ -76,8 +86,8 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70 p-5 backdrop-blur-md">
-      <div className="glass-strong fade-in-up w-full max-w-md rounded-3xl p-8 text-center shadow-2xl">
+    <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/70 p-5 backdrop-blur-md">
+      <div className="glass-strong fade-in-up w-full max-w-md rounded-3xl p-6 text-center shadow-2xl md:p-8">
         <div
           className="mx-auto mb-6 grid size-14 place-items-center rounded-2xl text-white"
           style={{
@@ -127,7 +137,7 @@ export default function Onboarding() {
             }}
             className="rounded-full border border-white/15 bg-white/10 px-7 py-2.5 font-display text-xs font-bold uppercase tracking-[0.2em] transition-all duration-300 hover:border-white/40 hover:bg-white/15"
           >
-            {isLast ? "Ouvrir un dossier" : "Suivant"}
+            {isLast ? "Ajouter un dossier" : "Suivant"}
           </button>
         </div>
       </div>

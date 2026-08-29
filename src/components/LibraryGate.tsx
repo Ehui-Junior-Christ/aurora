@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import gsap from "gsap";
 import { usePlayer } from "@/store/player-store";
+import UnifiedSearch from "@/components/UnifiedSearch";
 
 const FORMATS = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"];
 
@@ -13,7 +14,6 @@ export default function LibraryGate() {
   const error = usePlayer((s) => s.error);
   const needsPermission = usePlayer((s) => s.needsPermission);
   const pendingDirName = usePlayer((s) => s.pendingDirName);
-  const openFolder = usePlayer((s) => s.openFolder);
   const reconnect = usePlayer((s) => s.reconnect);
   const setSupported = usePlayer((s) => s.setSupported);
 
@@ -108,7 +108,7 @@ export default function LibraryGate() {
               data-gate
               className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40"
             >
-              aurora // lecteur génératif local
+              aurora // lecteur génératif hybride
             </p>
             <h1
               data-gate
@@ -122,29 +122,12 @@ export default function LibraryGate() {
               data-gate
               className="mt-8 max-w-md text-sm leading-relaxed text-white/50"
             >
-              Autorise l’accès à un dossier musical. AURORA lit tes tags et tes
-              pochettes, en extrait la palette, puis synthétise un organisme
-              WebGL unique pour chaque morceau — entièrement hors-ligne.
+              Cherche le titre ou l&apos;artiste de ton choix, et AURORA se charge du reste. Des visuels WebGL génératifs accompagnent chaque musique en temps réel.
             </p>
 
-            <button
-              data-gate
-              data-cursor="magnetic"
-              type="button"
-              disabled={!supported}
-              onClick={() => void openFolder()}
-              className="group mt-10 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.07] px-9 py-4 font-display text-sm font-bold uppercase tracking-[0.22em] backdrop-blur-xl transition-all duration-300 hover:border-white/40 hover:bg-white/[0.12] disabled:pointer-events-none disabled:opacity-35"
-            >
-              <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden>
-                <path
-                  d="M2 5.5A1.5 1.5 0 0 1 3.5 4h4l2 2.5h7A1.5 1.5 0 0 1 18 8v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15V5.5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Ouvrir un dossier musique
-            </button>
+            <div data-gate className="mt-10 w-full">
+              <UnifiedSearch />
+            </div>
 
             {error && (
               <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-red-400/90">
@@ -168,6 +151,34 @@ export default function LibraryGate() {
                 </li>
               ))}
             </ul>
+
+            <div data-gate className="mt-16 flex flex-col items-center gap-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
+                Obtenir l&apos;application
+              </p>
+              <div className="flex flex-wrap justify-center gap-4">
+                <a
+                  href="/download/aurora-mobile.apk"
+                  download="aurora-mobile.apk"
+                  className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2m-5-4l-3 3m0 0l-3-3m3 3V4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Mobile (.apk)
+                </a>
+                <a
+                  href="/download/AURORA.exe"
+                  download="AURORA.exe"
+                  className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  PC (.exe)
+                </a>
+              </div>
+            </div>
           </>
         )}
       </div>

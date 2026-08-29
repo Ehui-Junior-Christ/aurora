@@ -2,14 +2,16 @@
 
 import { useMemo, useRef, useState } from "react";
 import { usePlayer, type Playlist } from "@/store/player-store";
+import UnifiedSearch from "@/components/UnifiedSearch";
+import type { Track } from "@/lib/types";
 
-type Tab = "file" | "albums" | "playlists" | "stats";
+type Tab = "search" | "file" | "albums" | "playlists" | "stats";
 
 const ROW_HEIGHT = 52;
 const OVERSCAN = 8;
 
 interface RowProps {
-  track: import("@/lib/types").Track;
+  track: Track;
   index: number;
   active: boolean;
   playing: boolean;
@@ -62,8 +64,13 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
             {track.artist}
           </span>
         </span>
+        {track.isOnline && (
+          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
+            web
+          </span>
+        )}
         {track.bpm ? (
-          <span className="shrink-0 font-mono text-[9px] tracking-widest text-white/30">
+          <span className="hidden shrink-0 font-mono text-[9px] tracking-widest text-white/30 sm:block">
             {track.bpm} BPM
           </span>
         ) : null}
@@ -88,14 +95,6 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
             />
           </svg>
         </span>
-        {track.coverUrl && active && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={track.coverUrl}
-            alt=""
-            className="size-9 shrink-0 rounded-lg object-cover"
-          />
-        )}
       </button>
     </div>
   );
@@ -131,20 +130,19 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
     () =>
       tracks
         .map((track, index) => ({ track, index }))
-        .filter(
-          ({ track }) =>
-            track.title.toLowerCase().includes(query.toLowerCase()) ||
-            track.artist.toLowerCase().includes(query.toLowerCase()) ||
-            track.album.toLowerCase().includes(query.toLowerCase())
-        ),
+        .filter(({ track }) => {
+          const lower = query.toLowerCase();
+          return (
+            track.title.toLowerCase().includes(lower) ||
+            track.artist.toLowerCase().includes(lower) ||
+            track.album.toLowerCase().includes(lower)
+          );
+        }),
     [tracks, query]
   );
 
   const range = useMemo(() => {
-    const start = Math.max(
-      0,
-      Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN
-    );
+    const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
     const end = Math.min(
       filtered.length,
       Math.ceil((scrollTop + 460) / ROW_HEIGHT) + OVERSCAN
@@ -172,46 +170,35 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
         });
       }
     });
-    return [...map.values()].sort((a, b) =>
-      a.album.localeCompare(b.album)
-    );
+    return [...map.values()].sort((a, b) => a.album.localeCompare(b.album));
   }, [tracks]);
 
   const openPlaylist = playlists.find((p) => p.id === openPlaylistId) ?? null;
   const playlistTracks = useMemo(() => {
     if (!openPlaylist) return [];
     return openPlaylist.trackIds
-      .map((id) => ({
-        track: tracks.find((t) => t.id === id),
-      }))
-      .filter((x): x is { track: import("@/lib/types").Track } =>
-        Boolean(x.track)
-      );
+      .map((id) => tracks.find((t) => t.id === id))
+      .filter((track): track is Track => Boolean(track));
   }, [openPlaylist, tracks]);
 
   const openAlbumData = useMemo(() => {
     if (!openAlbum) return null;
-    return albums.find(
-      (a) => `${a.artist}||${a.album}` === openAlbum
-    );
+    return albums.find((a) => `${a.artist}||${a.album}` === openAlbum) ?? null;
   }, [openAlbum, albums]);
 
   const topPlayed = useMemo(() => {
     return Object.entries(stats.plays)
       .map(([id, count]) => ({ track: tracks.find((t) => t.id === id), count }))
-      .filter((x): x is { track: import("@/lib/types").Track; count: number } =>
-        Boolean(x.track)
-      )
+      .filter((x): x is { track: Track; count: number } => Boolean(x.track))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [stats, tracks]);
 
   const totalHours = Math.floor(stats.seconds / 3600);
   const totalMinutes = Math.floor((stats.seconds % 3600) / 60);
-
   const visible = filtered.slice(range.start, range.end);
-
   const tabs: { id: Tab; label: string }[] = [
+    { id: "search", label: "Search" },
     { id: "file", label: "File" },
     { id: "albums", label: "Albums" },
     { id: "playlists", label: "Playlists" },
@@ -221,34 +208,29 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
   return (
     <aside
       aria-label="File d'attente"
-      className={`glass fixed right-4 top-20 bottom-[calc(11rem+env(safe-area-inset-bottom))] z-20 flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] md:right-6 md:top-24 md:bottom-36 ${
+      className={`glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-20 flex flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 ${
         queueOpen && !immersive
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-10 opacity-0"
       }`}
     >
       <div className="flex items-center justify-between px-4 pb-2 pt-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/45">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45 md:tracking-[0.4em]">
           bibliothèque · {tracks.length}
         </span>
         <button
           type="button"
           onClick={() => setQueueOpen(false)}
           aria-label="Fermer le panneau"
-          className="text-white/40 transition-colors hover:text-white"
+          className="grid size-8 place-items-center text-white/40 transition-colors hover:text-white"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-            <path
-              d="m1 1 10 10M11 1 1 11"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <path d="m1 1 10 10M11 1 1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
       </div>
 
-      <div className="flex gap-1 px-3 pb-2">
+      <div className="flex gap-1 overflow-x-auto px-3 pb-2">
         {tabs.map((entry) => (
           <button
             key={entry.id}
@@ -258,7 +240,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               setOpenPlaylistId(null);
               setOpenAlbum(null);
             }}
-            className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] transition-colors ${
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors sm:flex-1 ${
               tab === entry.id
                 ? "bg-white/12 text-white"
                 : "text-white/40 hover:text-white"
@@ -269,6 +251,12 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
         ))}
       </div>
 
+      {tab === "search" && (
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
+          <UnifiedSearch />
+        </div>
+      )}
+
       {tab === "file" && (
         <>
           <div className="px-3 pb-2">
@@ -276,7 +264,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Rechercher…"
+              placeholder="Rechercher..."
               aria-label="Rechercher dans la bibliothèque"
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition-colors focus:border-white/30"
             />
@@ -289,22 +277,21 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault();
-              const raw = event.dataTransfer.getData("text/aurora-index");
-              if (raw === "" || dragIndex.current === null) return;
-              const targetIndex = Math.min(
+              if (dragIndex.current === null || filtered.length === 0) return;
+              const top = listRef.current?.getBoundingClientRect().top ?? 0;
+              const targetRow = Math.min(
                 filtered.length - 1,
                 Math.max(
                   0,
                   range.start +
-                    Math.floor(
-                      (event.clientY -
-                        (listRef.current?.getBoundingClientRect().top ?? 0) +
-                        scrollTop) /
-                        ROW_HEIGHT
-                    )
+                    Math.floor((event.clientY - top + scrollTop) / ROW_HEIGHT)
                 )
               );
-              if (dragIndex.current !== targetIndex) {
+              const targetIndex = filtered[targetRow]?.index;
+              if (
+                typeof targetIndex === "number" &&
+                dragIndex.current !== targetIndex
+              ) {
                 reorder(dragIndex.current, targetIndex);
               }
               dragIndex.current = null;
@@ -353,9 +340,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 key={`${album.artist}||${album.album}`}
                 type="button"
                 data-cursor="magnetic"
-                onClick={() =>
-                  setOpenAlbum(`${album.artist}||${album.album}`)
-                }
+                onClick={() => setOpenAlbum(`${album.artist}||${album.album}`)}
                 className="group text-left"
               >
                 <div
@@ -371,11 +356,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 >
                   {album.cover && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={album.cover}
-                      alt=""
-                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                    <img src={album.cover} alt="" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   )}
                 </div>
                 <p className="truncate text-xs font-semibold text-white/85">
@@ -396,7 +377,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             <button
               type="button"
               onClick={() => setOpenAlbum(null)}
-              className="text-white/50 transition-colors hover:text-white"
+              className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
               aria-label="Retour aux albums"
             >
               ←
@@ -436,11 +417,6 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   <span className="min-w-0 flex-1 truncate text-xs text-white/80">
                     {track.title}
                   </span>
-                  {track.bpm ? (
-                    <span className="font-mono text-[9px] text-white/30">
-                      {track.bpm}
-                    </span>
-                  ) : null}
                 </button>
               );
             })}
@@ -460,7 +436,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   setNewPlaylistName("");
                 }
               }}
-              placeholder="Nouvelle playlist…"
+              placeholder="Nouvelle playlist..."
               className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-white/30"
             />
             <button
@@ -479,7 +455,8 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
           </div>
           {playlists.length === 0 && (
             <p className="px-2 py-6 text-center text-xs text-white/35">
-              Ajoute des titres avec le bouton + de la file            </p>
+              Ajoute des titres avec le bouton + de la file
+            </p>
           )}
           {playlists.map((playlist) => (
             <div
@@ -501,15 +478,10 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 type="button"
                 onClick={() => void deletePlaylist(playlist.id)}
                 aria-label={`Supprimer ${playlist.name}`}
-                className="text-white/25 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100"
+                className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-                  <path
-                    d="m1 1 10 10M11 1 1 11"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
+                  <path d="m1 1 10 10M11 1 1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
@@ -523,7 +495,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             <button
               type="button"
               onClick={() => setOpenPlaylistId(null)}
-              className="text-white/50 transition-colors hover:text-white"
+              className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
               aria-label="Retour aux playlists"
             >
               ←
@@ -538,7 +510,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 Playlist vide
               </p>
             )}
-            {playlistTracks.map(({ track }) => {
+            {playlistTracks.map((track) => {
               const globalIndex = tracks.findIndex((t) => t.id === track.id);
               const active = globalIndex === current;
               return (
@@ -551,11 +523,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                     onClick={() => play(globalIndex)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <p
-                      className={`truncate text-xs ${
-                        active ? "font-semibold text-white" : "text-white/75"
-                      }`}
-                    >
+                    <p className={`truncate text-xs ${active ? "font-semibold text-white" : "text-white/75"}`}>
                       {track.title}
                     </p>
                     <p className="truncate text-[10px] text-white/40">
@@ -564,11 +532,9 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      void removeFromPlaylist(openPlaylist.id, track.id)
-                    }
+                    onClick={() => void removeFromPlaylist(openPlaylist.id, track.id)}
                     aria-label="Retirer de la playlist"
-                    className="text-white/25 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100"
+                    className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
                   >
                     <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
                       <path d="M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -588,11 +554,11 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               {totalHours}h
               <span className="text-white/40"> {totalMinutes}min</span>
             </p>
-            <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-white/40">
+            <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
               temps d’écoute total
             </p>
           </div>
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
             top titres
           </p>
           {topPlayed.length === 0 && (
@@ -631,7 +597,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
           <button
             type="button"
             onClick={resetStats}
-            className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.25em] text-white/45 transition-colors hover:border-white/30 hover:text-white"
+            className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:border-white/30 hover:text-white"
           >
             Réinitialiser
           </button>
@@ -647,8 +613,8 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             className="glass-strong w-full rounded-2xl p-3"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="mb-2 px-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/45">
-              Ajouter à…
+            <p className="mb-2 px-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
+              Ajouter à...
             </p>
             {playlists.length === 0 && (
               <p className="px-1 pb-2 text-xs text-white/40">

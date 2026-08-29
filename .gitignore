@@ -10,3 +10,10 @@ yarn-error.log*
 .env*
 .vercel
 *.tsbuildinfo
+
+public/download/
+dist-electron/
+android/app/build/
+android/.gradle/
+android/local.properties
+gh-release.txt

@@ -10,6 +10,7 @@ export default function TrackTitle() {
   const splitRef = useRef<SplitText | null>(null);
   const track = usePlayer((s) => s.tracks[s.current]);
   const trackId = track?.id ?? null;
+  const isOnline = track?.isOnline ?? false;
   const displayTitle = track?.title ?? "AURORA";
 
   useEffect(() => {
@@ -71,7 +72,12 @@ export default function TrackTitle() {
     <h1
       ref={titleRef}
       aria-label={displayTitle}
-      className="hero-title font-display max-w-full break-words text-[clamp(2.8rem,11vw,10rem)] font-extrabold uppercase leading-[0.88] tracking-tight"
+      className="hero-title font-display max-w-full break-words font-extrabold uppercase leading-[0.88] tracking-tight"
+      style={{
+        fontSize: isOnline
+          ? "clamp(1.5rem, 4vw, 3rem)"
+          : undefined
+      }}
     >
       AURORA
     </h1>

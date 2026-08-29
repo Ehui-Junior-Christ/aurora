@@ -7,11 +7,14 @@ export interface PaletteColor {
 
 export interface Track {
   id: string;
-  file: File;
+  file?: File;
+  streamUrl?: string;
+  isOnline: boolean;
   title: string;
   artist: string;
   album: string;
   coverUrl?: string;
+  durationText?: string;
   palette: PaletteColor[];
   seed: number;
   bpm?: number | null;

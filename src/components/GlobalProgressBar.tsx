@@ -21,11 +21,10 @@ export default function GlobalProgressBar() {
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const el = engine.el;
-      const duration = Number.isFinite(el.duration) ? el.duration : 0;
-      const pct = duration > 0 ? el.currentTime / duration : 0;
+      const duration = Number.isFinite(engine.duration) ? engine.duration : 0;
+      const pct = duration > 0 ? engine.currentTime / duration : 0;
       if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
-      if (curRef.current) curRef.current.textContent = formatTime(el.currentTime);
+      if (curRef.current) curRef.current.textContent = formatTime(engine.currentTime);
       if (durRef.current) durRef.current.textContent = formatTime(duration);
       raf = requestAnimationFrame(loop);
     };
@@ -41,7 +40,7 @@ export default function GlobalProgressBar() {
     const rect = wrap.getBoundingClientRect();
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
-    const duration = engine.el.duration;
+    const duration = engine.duration;
     if (Number.isFinite(duration)) {
       usePlayer.getState().seek(pct * duration);
     }

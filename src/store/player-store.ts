@@ -12,8 +12,20 @@ import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
 import { fetchRemoteLyrics } from "@/lib/lyrics-fetcher";
+import {
+  getAudioStreamUrl,
+  onlineResultToTrack,
+  searchOnlineMusic,
+  type OnlineMusicResult,
+} from "@/lib/invidious";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
+
+let wired = false;
+let pendingHandles: FsNode[] = [];
+let lyricsFiles = new Map<string, File>();
+const playHistory: number[] = [];
+let lastActionTime = 0; // Pour l'anti-spam (idempotence)
 
 export type RepeatMode = "off" | "all" | "one";
 export type VisualMode =
@@ -93,7 +105,23 @@ interface PlayerState {
   ambient: boolean;
   lyrics: LyricsCue[];
   lyricsAvailable: boolean;
+  lyricsOffset: number;
   visualPreset: VisualPreset;
+  onlineQuery: string;
+  onlineResults: OnlineMusicResult[];
+  onlineSearching: boolean;
+  onlineError: string | null;
+  youtubeApiKey: string;
+  showHome: boolean;
+  history: Track[];
+  savedOnlineTracks: Track[];
+  addToHistory(track: Track): void;
+  saveOnlineTrack(track: Track): void;
+  removeOnlineTrack(trackId: string): void;
+  setYoutubeApiKey(key: string): void;
+  searchOnline(query: string): Promise<void>;
+  playOnlineResult(result: OnlineMusicResult): Promise<void>;
+  removeSource(source: string): void;
   setSupported(value: boolean): void;
   restore(): Promise<void>;
   reconnect(): Promise<void>;
@@ -115,6 +143,8 @@ interface PlayerState {
   setQualityLow(value: boolean): void;
   setUpdateReady(value: boolean): void;
   setHelpOpen(value: boolean): void;
+  setShowHome(value: boolean): void;
+  setLyricsOffset(offset: number): void;
   reorder(from: number, to: number): void;
   refreshApp(): void;
   createPlaylist(name: string): Promise<void>;
@@ -166,11 +196,6 @@ function syncMediaSession(track: Track | null): void {
   session.setActionHandler("nexttrack", () => usePlayer.getState().next());
 }
 
-let wired = false;
-let pendingHandles: FsNode[] = [];
-let lyricsFiles = new Map<string, File>();
-const playHistory: number[] = [];
-
 export const usePlayer = create<PlayerState>((set, get) => ({
   tracks: [],
   sources: [],
@@ -204,14 +229,94 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   ambient: false,
   lyrics: [],
   lyricsAvailable: false,
+  lyricsOffset: 0,
   visualPreset: DEFAULT_PRESET,
+  onlineQuery: "",
+  onlineResults: [],
+  onlineSearching: false,
+  onlineError: null,
+  youtubeApiKey: "AIzaSyBHRkh_QT4tjk_TRZq8U7TBPLkBLHIcobo",
+  showHome: false,
+  history: [],
+  savedOnlineTracks: [],
+
+  addToHistory(track) {
+    if (!track.isOnline) return;
+    set((state) => {
+      const filtered = state.history.filter((t) => t.id !== track.id);
+      const nextHistory = [track, ...filtered].slice(0, 50);
+      savePref("history", nextHistory);
+      return { history: nextHistory };
+    });
+  },
+
+  saveOnlineTrack(track) {
+    if (!track.isOnline) return;
+    set((state) => {
+      if (state.savedOnlineTracks.some(t => t.id === track.id)) return state;
+      const nextSaved = [track, ...state.savedOnlineTracks];
+      savePref("savedOnlineTracks", nextSaved);
+      return { savedOnlineTracks: nextSaved };
+    });
+  },
+
+  removeOnlineTrack(trackId) {
+    set((state) => {
+      const nextSaved = state.savedOnlineTracks.filter((t) => t.id !== trackId);
+      savePref("savedOnlineTracks", nextSaved);
+      return { savedOnlineTracks: nextSaved };
+    });
+  },
+
+  setYoutubeApiKey(key) {
+    set({ youtubeApiKey: key });
+    savePref("youtubeApiKey", key);
+  },
+
+  async searchOnline(query) {
+    if (!query.trim()) {
+      set({ onlineQuery: "", onlineResults: [], onlineError: null });
+      return;
+    }
+    set({ onlineSearching: true, onlineQuery: query, onlineError: null });
+    try {
+      const results = await searchOnlineMusic(query, get().youtubeApiKey);
+      set({ onlineResults: results, onlineSearching: false });
+    } catch (e) {
+      set({ onlineError: "Erreur lors de la recherche en ligne", onlineSearching: false });
+    }
+  },
+
+  async playOnlineResult(result) {
+    const track = onlineResultToTrack(result);
+    get().addToHistory(track);
+    const { tracks, current } = get();
+    const existingIndex = tracks.findIndex(t => t.id === track.id);
+    if (existingIndex >= 0) {
+      get().play(existingIndex);
+      return;
+    }
+    
+    // Insert after current or at the end
+    const insertAt = current >= 0 ? current + 1 : tracks.length;
+    const nextTracks = [...tracks];
+    nextTracks.splice(insertAt, 0, track);
+    set({ tracks: nextTracks, showHome: false });
+    get().play(insertAt);
+  },
 
   setSupported(value) {
     set({ supported: value });
   },
 
+  removeSource(source) {
+    set((state) => ({
+      sources: state.sources.filter((s) => s !== source),
+    }));
+  },
+
   async restore() {
-    const [volume, repeat, shuffle, autoMode, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists] =
+    const [volume, repeat, shuffle, autoMode, eq, visualMode, bloom, crossfade, speed, skipSilence, normalize, stats, playlists, savedOnlineTracks, history] =
       await Promise.all([
         idbGet<number>("prefs", "volume"),
         idbGet<RepeatMode>("prefs", "repeat"),
@@ -226,6 +331,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         idbGet<boolean>("prefs", "normalize"),
         idbGet<ListeningStats>("prefs", "stats"),
         idbGetAll<Playlist>("playlists"),
+        idbGet<Track[]>("prefs", "savedOnlineTracks"),
+        idbGet<Track[]>("prefs", "history"),
       ]);
 
     const prefs: Partial<PlayerState> = {};
@@ -268,6 +375,25 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (Array.isArray(playlists?.values) && playlists.values.length > 0) {
       prefs.playlists = playlists.values;
     }
+    const cleanTracks = (tracks: Track[]) => {
+      const seen = new Set<string>();
+      return tracks
+        .map(t => ({ ...t, id: t.id.replace(/^(yt:|online_)+/, "yt:") }))
+        .filter(t => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        });
+    };
+
+    if (Array.isArray(savedOnlineTracks)) {
+      prefs.savedOnlineTracks = cleanTracks(savedOnlineTracks);
+      savePref("savedOnlineTracks", prefs.savedOnlineTracks);
+    }
+    if (Array.isArray(history)) {
+      prefs.history = cleanTracks(history);
+      savePref("history", prefs.history);
+    }
     set(prefs);
 
     let dirs = await idbGet<FsNode[]>("handles", "musicDirs");
@@ -302,7 +428,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     if (granted.length > 0) {
       pendingHandles = [];
-      set({ needsPermission: false, pendingDirName: "" });
+      set({ needsPermission: false, pendingDirName: "", showHome: false });
       await get().loadAllSources(granted);
     }
   },
@@ -329,6 +455,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   async loadAllSources(dirs) {
+    if (get().scanning) return; // IDEMPOTENCE: Empêche les scans en double
     set({ scanning: true, progress: { done: 0, total: 0 }, error: null });
     try {
       const byId = new Map<string, Track>();
@@ -414,6 +541,20 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           });
         });
       }
+      engine.onYtStateChange = (state) => {
+        // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
+        if (state === 1) {
+          set({ playing: true, duration: engine.duration });
+        } else if (state === 2) {
+          set({ playing: false });
+        } else if (state === 0) {
+          get().next(true);
+        }
+      };
+      engine.onYtError = (error) => {
+        console.warn("YouTube Error:", error);
+        get().next(true); // Passer au suivant si erreur (vidéo supprimée/bloquée)
+      };
     }
 
     const previous = current >= 0 ? tracks[current] : null;
@@ -429,7 +570,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       }
     }
 
-    engine.load(track.file, crossfade * 1000);
+    if (track.isOnline && track.streamUrl) {
+      engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
+    } else if (track.file) {
+      engine.load(track.file, crossfade * 1000);
+    }
     engine.volume = get().volume;
     applyPalette(track.palette);
     syncMediaSession(track);
@@ -439,7 +584,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     playHistory.push(index);
     if (playHistory.length > 60) playHistory.shift();
     savePref("lastTrackId", track.id);
-    set({ current: index, duration: 0 });
+    set({ current: index, duration: 0, lyricsOffset: 0 });
 
     if (get().autoMode) {
       set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
@@ -455,7 +600,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     void engine.play();
 
-    if (track.bpm === undefined) {
+    if (track.file && track.bpm === undefined) {
       void detectBpm(track.file).then((bpm) => {
         const state = get();
         const idx = state.tracks.findIndex((t) => t.id === track.id);
@@ -468,7 +613,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       });
     }
 
-    if (normalize) {
+    if (normalize && track.file) {
       void getCachedAnalysis(track.id, track.file).then((analysis) => {
         if (analysis) {
           engine.setTrackGain(normalizationGain(analysis.rms, true));
@@ -482,7 +627,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const applyCues = (cues: LyricsCue[]) => {
       set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
     };
-    const lrcFile = lyricsFiles.get(baseName(track.file.name));
+    const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
     if (lrcFile) {
       void lrcFile
         .text()
@@ -509,6 +654,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   toggle() {
+    const now = Date.now();
+    if (now - lastActionTime < 300) return; // Anti-spam (idempotence)
+    lastActionTime = now;
+
     const { current, tracks } = get();
     if (current < 0 || current >= tracks.length) {
       get().play(0);
@@ -519,6 +668,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   next(auto = false) {
+    if (!auto) {
+      const now = Date.now();
+      if (now - lastActionTime < 300) return;
+      lastActionTime = now;
+    }
+
     const { current, tracks, shuffle, repeat } = get();
     if (tracks.length === 0) return;
     if (auto && repeat === "one") {
@@ -543,9 +698,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   prev() {
+    const now = Date.now();
+    if (now - lastActionTime < 300) return;
+    lastActionTime = now;
+
     const { current, tracks, shuffle } = get();
     if (tracks.length === 0) return;
-    if (engine.el.currentTime > 3) {
+    if (engine.currentTime > 3) {
       engine.seek(0);
       return;
     }
@@ -624,9 +783,17 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     set({ updateReady });
   },
 
-  setHelpOpen(helpOpen) {
-    set({ helpOpen });
-    if (!helpOpen) savePref("onboarded", true);
+  setHelpOpen(value) {
+    set({ helpOpen: value });
+    if (!value) savePref("onboarded", true);
+  },
+
+  setShowHome(value) {
+    set({ showHome: value });
+  },
+
+  setLyricsOffset(offset) {
+    set({ lyricsOffset: offset });
   },
 
   reorder(from, to) {

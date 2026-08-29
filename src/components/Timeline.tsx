@@ -34,7 +34,7 @@ export default function Timeline() {
 
   useEffect(() => {
     peaksRef.current = null;
-    if (!trackId || !track) return;
+    if (!trackId || !track?.file || track.isOnline) return;
     void getCachedAnalysis(trackId, track.file).then((analysis) => {
       if (analysis) peaksRef.current = analysis.peaks;
     });
@@ -90,7 +90,7 @@ export default function Timeline() {
         return;
       if (event.key !== "b" && event.key !== "B") return;
       const loop = loopRef.current;
-      const now = engine.el.currentTime;
+      const now = engine.currentTime;
       if (loop.a === null) {
         loop.a = now;
         loop.b = null;
@@ -118,15 +118,16 @@ export default function Timeline() {
     let raf = 0;
     const loop = () => {
       const el = engine.el;
-      const duration = Number.isFinite(el.duration) ? el.duration : 0;
+      const duration = Number.isFinite(engine.duration) ? engine.duration : 0;
+      const currentTime = engine.currentTime;
       const state = usePlayer.getState();
       const loopAB = loopRef.current;
       if (!draggingRef.current) {
-        const pct = duration > 0 ? el.currentTime / duration : 0;
+        const pct = duration > 0 ? currentTime / duration : 0;
         if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
         if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
         if (curRef.current)
-          curRef.current.textContent = formatTime(el.currentTime);
+          curRef.current.textContent = formatTime(currentTime);
         wrapRef.current?.setAttribute(
           "aria-valuenow",
           String(Math.round(pct * 100))
@@ -135,18 +136,18 @@ export default function Timeline() {
       if (
         loopAB.a !== null &&
         loopAB.b !== null &&
-        el.currentTime >= loopAB.b
+        currentTime >= loopAB.b
       ) {
         engine.seek(loopAB.a);
       }
-      if (state.skipSilence && state.playing && !el.paused) {
+      if (state.skipSilence && state.playing && !engine.paused) {
         const b = engine.bands();
         const energy = b.bass + b.mid + b.treble;
         const now = performance.now();
         if (energy < 0.02) {
           if (silenceRef.current === null) silenceRef.current = now;
           else if (now - silenceRef.current > 2600 && duration > 0) {
-            engine.seek(Math.min(el.currentTime + 6, duration - 0.5));
+            engine.seek(Math.min(currentTime + 6, duration - 0.5));
             silenceRef.current = null;
           }
         } else {

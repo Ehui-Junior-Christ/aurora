@@ -5,17 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
 import { engine } from "@/lib/audio-engine";
 import { idbGet, idbSet } from "@/lib/db";
-import type { FsNode } from "@/lib/fs-scanner";
+import { mergeDirectoryHandle, type FsNode } from "@/lib/fs-scanner";
 import Header from "@/components/Header";
 import LibraryGate from "@/components/LibraryGate";
 import TrackTitle from "@/components/TrackTitle";
 import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
+import UnifiedSearch from "@/components/UnifiedSearch";
+import FloatingSearch from "@/components/FloatingSearch";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
 import UpdateToast from "@/components/UpdateToast";
-import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
@@ -78,6 +79,7 @@ function SeedTag({ immersive }: { immersive: boolean }) {
 
 export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
+  const showHome = usePlayer((s) => s.showHome);
   const setVisualMode = usePlayer((s) => s.setVisualMode);
   const lyricsAvailable = usePlayer((s) => s.lyricsAvailable);
   const currentTrackId = usePlayer((s) => s.tracks[s.current]?.id ?? null);
@@ -86,16 +88,27 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const lyricsClosedFor = useRef<string | null>(null);
 
+  const queueOpen = usePlayer((s) => s.queueOpen);
+
   useEffect(() => {
     if (lyricsAvailable && lyricsClosedFor.current !== currentTrackId) {
       setLyricsOpen(true);
+      usePlayer.getState().setQueueOpen(false);
     }
   }, [lyricsAvailable, currentTrackId]);
 
+  useEffect(() => {
+    if (queueOpen) setLyricsOpen(false);
+  }, [queueOpen]);
+
   const toggleLyrics = () => {
     setLyricsOpen((open) => {
-      if (open) lyricsClosedFor.current = currentTrackId;
-      return !open;
+      const nextOpen = !open;
+      if (nextOpen) {
+        lyricsClosedFor.current = currentTrackId;
+        usePlayer.getState().setQueueOpen(false);
+      }
+      return nextOpen;
     });
   };
 
@@ -162,9 +175,11 @@ export default function Home() {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
         return;
-      const modeIndex = MODE_KEYS.indexOf(event.key as VisualMode);
-      if (modeIndex >= 0) {
-        setVisualMode(MODE_KEYS[modeIndex]);
+      const numericMode = Number(event.key);
+      if (numericMode >= 1 && numericMode <= MODE_KEYS.length) {
+        setVisualMode(MODE_KEYS[numericMode - 1]);
+      } else if (MODE_KEYS.includes(event.key as VisualMode)) {
+        setVisualMode(event.key as VisualMode);
       } else if (event.key === "f" || event.key === "F") {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen();
@@ -174,7 +189,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setVisualMode]);
 
-useEffect(() => {
+  useEffect(() => {
     let startX = 0;
     let startY = 0;
     let tracking = false;
@@ -230,10 +245,10 @@ useEffect(() => {
       const handle = await getter.call(item);
       if (!handle || handle.kind !== "directory") return;
       const dirs = (await idbGet<FsNode[]>("handles", "musicDirs")) ?? [];
-      const merged = [
-        ...dirs.filter((d) => d.name !== handle.name),
-        handle as unknown as FsNode,
-      ];
+      const merged = await mergeDirectoryHandle(
+        dirs,
+        handle as unknown as FsNode
+      );
       void idbSet("handles", "musicDirs", merged);
       await usePlayer.getState().loadAllSources(merged);
     };
@@ -250,25 +265,21 @@ useEffect(() => {
     };
   }, []);
 
-  useEffect(() => {
-    void import("@/lib/db").then(({ idbGet }) => {
-      void idbGet<boolean>("prefs", "onboarded").then((done) => {
-        if (!done) usePlayer.getState().setHelpOpen(true);
-      });
-    });
-  }, []);
-
   return (
-    <div className="relative min-h-dvh">
+    <div suppressHydrationWarning className="relative min-h-dvh">
       <Visualizer />
 
       <div className="relative z-10 flex min-h-dvh flex-col">
         <Header immersive={immersive} />
-        {hasTracks ? (
+        {hasTracks && !showHome ? (
           <>
             <main
-              className={`pointer-events-none relative flex flex-1 flex-col justify-end px-5 pb-44 transition-transform duration-700 md:px-12 md:pb-52 ${
+              className={`pointer-events-none relative flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
                 immersive ? "translate-y-6" : ""
+              } ${
+                lyricsOpen 
+                  ? "pb-[55vh] md:pb-52 md:pr-[420px]" 
+                  : "pb-44 md:pb-52"
               }`}
             >
               <MetaLine immersive={immersive} />
@@ -282,6 +293,15 @@ useEffect(() => {
               lyricsOpen={lyricsOpen}
               onToggleLyrics={toggleLyrics}
             />
+            <div
+              className={`fixed left-4 top-20 z-20 hidden transition-all duration-500 lg:block ${
+                immersive
+                  ? "pointer-events-none -translate-y-4 opacity-0"
+                  : "opacity-100"
+              }`}
+            >
+              <FloatingSearch />
+            </div>
             <TrackList immersive={immersive} />
             <ModeSwitcher />
             {lyricsOpen && <LyricsPanel />}

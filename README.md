@@ -1,63 +1,55 @@
-# AURORA — Lecteur de musique génératif
+<div align="center">
+  <img src="./public/icons/icon-512x512.png" alt="Aurora Logo" width="128" />
+  <h1>✨ AURORA</h1>
+  <p><b>Le lecteur de musique génératif offline-first.</b></p>
+  
+  <p>
+    <a href="#télécharger">📥 Télécharger</a> •
+    <a href="#fonctionnalités">🔥 Fonctionnalités</a> •
+    <a href="#technologies">🛠️ Technologies</a>
+  </p>
+</div>
 
-PWA de lecture musicale 100 % hors-ligne. Chaque piste génère un organisme WebGL unique : shader bruit simplex 3D, paramétré par le hash des métadonnées, coloré par la palette de la pochette.
+---
 
-## Stack
+## 🌟 Présentation
+**Aurora** est bien plus qu'un simple lecteur de musique. C'est une expérience immersive conçue pour s'adapter à votre bibliothèque musicale. 
+Il lit vos fichiers `.mp3`, `.flac`, `.wav` locaux et hybride intelligemment l'expérience avec les résultats en ligne via YouTube (grâce à l'API Invidious) tout en offrant des visualisations réactives et des paroles synchronisées.
 
-Next.js 15 (App Router) · React 19 · Tailwind v4 + CSS Modules · GSAP (SplitText) + Lenis · Three.js / R3F + post-processing · Web Audio API · File System Access API · IndexedDB · Web Worker · Playwright
+## 🚀 Télécharger & Utiliser
+Vous pouvez essayer l'application directement depuis votre navigateur ou télécharger les versions natives :
 
-## Lancer
+* 🌐 **[Web (Vercel)](https://aurora-theta-rust.vercel.app/)**
+* 📱 **[Android (.apk)](https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/aurora-mobile.apk)**
+* 💻 **[Windows (.exe)](https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/AURORA.exe)**
 
-```bash
-npm install
-npm run dev        # http://localhost:3000 (Chrome/Edge requis)
-npm run build && npm run start
-npm run test:e2e   # tests Playwright (npx playwright install d'abord)
-```
+## 🔥 Fonctionnalités
+- 🎵 **Offline-first** : Lisez vos musiques stockées sur votre appareil sans aucune connexion internet.
+- 🌍 **Recherche en Ligne** : Impossible de trouver un morceau ? Aurora bascule automatiquement sur les flux YouTube pour le jouer.
+- 🎨 **Fonds Génératifs (WebGL)** : Le fond s'adapte en temps réel aux fréquences audio et aux couleurs de la pochette de l'album !
+- 📝 **Paroles Synchronisées (LRC)** : Affichage automatique des paroles, avec possibilité de décaler la synchronisation pour les musiques vidéo (YouTube).
+- 🎛️ **Égaliseur (EQ)** : Contrôlez les Basses, Médiums et Aigus.
+- 🗂️ **Playlists & Favoris** : Organisez vos musiques comme bon vous semble, le tout sauvegardé dans votre navigateur/téléphone (IndexedDB).
 
-## Fonctionnalités
+## 🛠️ Technologies
+Aurora est construit avec des technologies modernes et performantes :
+- **Framework** : [Next.js 15](https://nextjs.org/) + React 19
+- **Style** : [Tailwind CSS 4](https://tailwindcss.com/)
+- **Visualisations 3D** : [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) & Three.js
+- **Animations** : [GSAP](https://gsap.com/) & Lenis (Smooth Scroll)
+- **Base de Données Locale** : IndexedDB
+- **Applications Natives** : [Capacitor](https://capacitorjs.com/) (Android) & [Electron](https://www.electronjs.org/) (Windows)
 
-**Bibliothèque** — multi-dossiers persistés (IndexedDB), restauration automatique au lancement, **4 vues** : File (recherche + drag & drop + virtualisation), Albums (grille pochettes), Playlists personnalisées, Stats d'écoute (temps total + top titres).
+## 🏗️ Développement
 
-**Audio** — crossfade réglable (double élément + ramps de gain), égaliseur 3 bandes + **8 presets** (Rock, Pop, Jazz, Bass, Vocal…), normalisation du volume par piste (RMS), vitesse 0.5–1.5× (pitch préservé), skip silence, minuterie sommeil, boucle **A-B** (touche `B`), détection beat + **BPM réel**.
+1. Installer les dépendances :
+   ```bash
+   npm install
+   ```
+2. Lancer le serveur de développement :
+   ```bash
+   npm run dev
+   ```
 
-**Visuel** — 4 modes (Organisme / Tunnel / Métaballs / Particules) avec transition morphing, bloom post-processing, réglage fin par piste (fréquence/vitesse/amplitude, mémorisé), mode **ambient** (économie d'écran après 3 min d'inactivité), qualité adaptative FPS.
-
-**Contenu & OS** — paroles `.lrc` synchronées (détection auto à côté des fichiers), export **PNG**, enregistrement **WebM**, **mini-lecteur Picture-in-Picture**, glisser-déposer un dossier depuis l'explorateur.
-
-**PWA** — installable, offline, toast de mise à jour, onboarding première visite, UI française.
-
-## Raccourcis
-
-`Espace` lecture · `Shift+←/→` piste · `1-4` modes · `F` plein écran · `B` boucle A-B
-
-## Architecture
-
-```
-src/
-├── app/                  layout, page (orchestration), globals
-├── components/
-│   ├── Visualizer.tsx    Canvas + bloom + morph + routage modes
-│   ├── Blob/Particles/Rig, scenes/{Backdrop,Tunnel,Metaballs}
-│   ├── PerfGuard.tsx     qualité adaptative
-│   ├── TrackList.tsx     4 onglets + virtualisation + DnD
-│   ├── Timeline.tsx      waveform + seek + A-B + skip silence
-│   ├── EqPanel.tsx       presets + vitesse/crossfade/sleep/…
-│   ├── LyricsPanel.tsx   paroles .lrc synchronisées
-│   ├── PipPlayer.tsx     Picture-in-Picture
-│   ├── VisualTuner.tsx   réglages visuels par piste
-│   └── … (Header, PlayerBar, Onboarding, UpdateToast, CustomCursor…)
-├── lib/
-│   ├── audio-engine.ts   double élément, crossfade, EQ, gains
-│   ├── metadata.worker.ts Web Worker (tags + palette OffscreenCanvas)
-│   ├── analysis.ts       peaks + RMS (waveform, normalisation)
-│   ├── bpm.ts / beat.ts / lyrics.ts / db.ts / fs-scanner.ts
-│   └── shaders/          GLSL (simplex, vertex, fragment)
-├── store/player-store.ts zustand (bibliothèque, lecture, préférences)
-tests/e2e/               smoke Playwright
-.github/workflows/ci.yml build + e2e
-```
-
-## Déploiement
-
-L'app est 100 % client-side : déployable tel quel sur Vercel/Netlify (HTTPS requis pour la File System Access API). Chaque visiteur choisit son propre dossier musical — rien ne transite par un serveur.
+## 📜 Licence
+Développé avec passion.

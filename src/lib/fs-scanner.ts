@@ -7,6 +7,7 @@ interface FsNode {
   name: string;
   values(): AsyncIterableIterator<FsNode>;
   getFile?(): Promise<File>;
+  isSameEntry?(other: FsNode): Promise<boolean>;
   queryPermission?(descriptor: {
     mode: "read" | "readwrite";
   }): Promise<FsPermissionState>;
@@ -40,6 +41,35 @@ export async function pickMusicDirectory(): Promise<FsNode | null> {
     if (error instanceof DOMException && error.name === "AbortError") return null;
     throw error;
   }
+}
+
+export function sourceLabels(dirs: FsNode[]): string[] {
+  const counts = new Map<string, number>();
+  return dirs.map((dir) => {
+    const count = (counts.get(dir.name) ?? 0) + 1;
+    counts.set(dir.name, count);
+    return count === 1 ? dir.name : `${dir.name} (${count})`;
+  });
+}
+
+export async function mergeDirectoryHandle(
+  dirs: FsNode[],
+  next: FsNode
+): Promise<FsNode[]> {
+  const merged = [...dirs];
+  for (let index = 0; index < merged.length; index++) {
+    const current = merged[index];
+    try {
+      if (await current.isSameEntry?.(next)) {
+        merged[index] = next;
+        return merged;
+      }
+    } catch {
+      void 0;
+    }
+  }
+  merged.push(next);
+  return merged;
 }
 
 export async function scanMusicFolder(

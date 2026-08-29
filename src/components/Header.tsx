@@ -19,6 +19,8 @@ export default function Header({ immersive }: { immersive: boolean }) {
   const setQueueOpen = usePlayer((s) => s.setQueueOpen);
   const openFolder = usePlayer((s) => s.openFolder);
   const setHelpOpen = usePlayer((s) => s.setHelpOpen);
+  const showHome = usePlayer((s) => s.showHome);
+  const setShowHome = usePlayer((s) => s.setShowHome);
   const bloom = usePlayer((s) => s.bloom);
   const toggleBloom = usePlayer((s) => s.toggleBloom);
   const track = usePlayer((s) => s.tracks[s.current]);
@@ -230,9 +232,30 @@ export default function Header({ immersive }: { immersive: boolean }) {
           type="button"
           data-cursor="magnetic"
           onClick={() => void openFolder()}
-          className="rounded-full border border-white/12 bg-white/5 px-4 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/75 transition-colors duration-300 hover:border-white/30 hover:text-white md:px-5"
+          aria-label="Ajouter un dossier local"
+          title="Ajouter un dossier local"
+          className="grid size-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/50 transition-colors duration-300 hover:border-white/30 hover:text-white"
         >
-          Dossier
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M1.5 3.5A1.5 1.5 0 0 1 3 2h3.5l1.5 1.5H13a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H3a1.5 1.5 0 0 1-1.5-1.5v-9Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          data-cursor="magnetic"
+          onClick={() => setShowHome(!showHome)}
+          aria-label={showHome ? "Retour au lecteur" : "Accueil"}
+          title={showHome ? "Retour au lecteur" : "Accueil"}
+          className={`grid size-9 place-items-center rounded-full border transition-colors duration-300 ${
+            showHome
+              ? "border-white/40 bg-white/10 text-white"
+              : "border-white/12 bg-white/5 text-white/50 hover:border-white/30 hover:text-white"
+          }`}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M8 1L1 7H3V14H6V10H10V14H13V7H15L8 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
         {count > 0 && (

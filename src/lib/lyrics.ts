@@ -14,9 +14,9 @@ export function parseLrc(text: string): LyricsCue[] {
     while ((match = lineRe.exec(rawLine)) !== null) {
       const minutes = parseInt(match[1], 10);
       const seconds = parseInt(match[2], 10);
-      const fraction = match[3] ? parseInt(match[3], 10) : 0;
-      const ms = fraction > 99 ? fraction : fraction * 10;
-      stamps.push(minutes * 60 + seconds + ms / 1000);
+      const fractionStr = match[3] || "0";
+      const fraction = parseInt(fractionStr.padEnd(3, "0"), 10);
+      stamps.push(minutes * 60 + seconds + fraction / 1000);
       lastEnd = lineRe.lastIndex;
     }
     if (stamps.length === 0) continue;

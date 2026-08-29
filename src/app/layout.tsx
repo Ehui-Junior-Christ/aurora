@@ -52,6 +52,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${syne.variable} ${spaceGrotesk.variable}`}
     >
+      <head>
+        <link rel="preconnect" href="https://www.youtube.com" />
+        <link rel="preconnect" href="https://www.googleapis.com" />
+      </head>
       <body suppressHydrationWarning className="font-sans antialiased">
         <ServiceWorkerRegister />
         <SmoothScroll>{children}</SmoothScroll>

@@ -18,6 +18,6 @@ test.describe("AURORA smoke", () => {
 
   test("le bouton dossier est présent", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Dossier" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dossier", exact: true })).toBeVisible();
   });
 });

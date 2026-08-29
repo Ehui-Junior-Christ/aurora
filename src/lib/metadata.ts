@@ -160,6 +160,7 @@ export async function parseTrack(file: File): Promise<Track> {
   return {
     id,
     file,
+    isOnline: false,
     title,
     artist,
     album,
