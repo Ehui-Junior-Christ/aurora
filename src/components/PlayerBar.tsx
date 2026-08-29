@@ -71,24 +71,25 @@ export default function PlayerBar({
       }`}
     >
       <div className="glass-strong rounded-[26px] px-4 py-3.5 shadow-[0_28px_90px_-24px_rgba(0,0,0,0.95)] md:px-6 md:py-4">
-        <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 md:grid-cols-[minmax(0,250px)_1fr_minmax(0,240px)]">
-          <div className="flex items-center gap-3 overflow-hidden max-md:hidden">
+        <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,250px)_1fr_minmax(0,240px)] md:items-center md:gap-4">
+          {/* Cover & Title */}
+          <div className="flex items-center gap-3 min-w-0">
             {track?.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={track.coverUrl}
                 alt=""
-                className="size-14 shrink-0 rounded-xl object-cover"
+                className="size-10 md:size-14 shrink-0 rounded-lg md:rounded-xl object-cover"
               />
             ) : (
               <div
-                className="grid size-14 shrink-0 place-items-center rounded-xl"
+                className="grid size-10 md:size-14 shrink-0 place-items-center rounded-lg md:rounded-xl"
                 style={{
                   background:
                     "linear-gradient(135deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c3) 55%, transparent))",
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                <svg className="hidden md:block" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
                   <path
                     d="M7 15V5.8a1 1 0 0 1 .76-.97l6-1.5A1 1 0 0 1 15 4.3v8.2M7 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm10-2.5a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM7 8.5l8-2"
                     stroke="rgba(255,255,255,.9)"
@@ -99,42 +100,47 @@ export default function PlayerBar({
                 </svg>
               </div>
             )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{track?.title}</p>
-              <p className="truncate text-xs text-white/45">{track?.artist}</p>
-            </div>
-          </div>
-
-          <div className="col-span-2 flex items-center gap-3 overflow-hidden md:hidden">
-            {track?.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={track.coverUrl}
-                alt=""
-                className="size-10 shrink-0 rounded-lg object-cover"
-              />
-            ) : (
-              <div
-                className="size-10 shrink-0 rounded-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c3) 55%, transparent))",
-                }}
-              />
-            )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold">{track?.title ?? "—"}</p>
-              <p className="truncate text-[10px] text-white/45">{track?.artist}</p>
+              <p className="truncate text-xs md:text-sm font-semibold">{track?.title ?? "—"}</p>
+              <p className="truncate text-[10px] md:text-xs text-white/45">{track?.artist}</p>
+            </div>
+            
+            {/* Mobile-only Play/Pause */}
+            <div className="flex items-center gap-2 md:hidden">
+              <button
+                type="button"
+                data-cursor="magnetic"
+                onClick={toggle}
+                aria-label={playing ? "Pause" : "Lecture"}
+                className="relative grid size-10 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-md"
+              >
+                <span className={`transition-opacity duration-200 ml-0.5 ${playing ? "opacity-0" : "opacity-100"}`}>
+                  <PlayIcon />
+                </span>
+                <span className={`absolute transition-opacity duration-200 ${playing ? "opacity-100" : "opacity-0"}`}>
+                  <PauseIcon />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => next()}
+                className="grid size-9 place-items-center rounded-full text-white/65 hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                  <path d="M7.3 8 2 4.5v7L7.3 8Zm1.4-3.5v7L14 8 8.7 4.5Z" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <div className="col-span-2 flex items-center justify-center gap-1 md:col-auto md:justify-center md:gap-2.5">
+          {/* Main Controls (Desktop & Mobile 2nd row) */}
+          <div className="flex items-center justify-between md:justify-center gap-1 md:gap-2.5">
             <button
               type="button"
               data-cursor="magnetic"
               onClick={prev}
               aria-label="Piste précédente"
-              className="grid size-9 place-items-center rounded-full text-white/65 transition-colors hover:text-white"
+              className="hidden md:grid size-9 place-items-center rounded-full text-white/65 transition-colors hover:text-white"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                 <path d="M8.7 8 14 4.5v7L8.7 8ZM7.3 4.5v7L2 8l5.3-3.5Z" />
@@ -146,7 +152,7 @@ export default function PlayerBar({
               data-cursor="magnetic"
               onClick={toggle}
               aria-label={playing ? "Pause" : "Lecture"}
-              className="relative grid size-12 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-md transition-transform duration-300 hover:scale-105 active:scale-95"
+              className="hidden md:grid relative size-12 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-md transition-transform duration-300 hover:scale-105 active:scale-95"
               style={{
                 boxShadow:
                   "0 0 24px color-mix(in srgb, var(--c2) 35%, transparent)",
@@ -173,7 +179,7 @@ export default function PlayerBar({
               data-cursor="magnetic"
               onClick={() => next()}
               aria-label="Piste suivante"
-              className="grid size-9 place-items-center rounded-full text-white/65 transition-colors hover:text-white"
+              className="hidden md:grid size-9 place-items-center rounded-full text-white/65 transition-colors hover:text-white"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                 <path d="M7.3 8 2 4.5v7L7.3 8Zm1.4-3.5v7L14 8 8.7 4.5Z" />
@@ -259,8 +265,11 @@ export default function PlayerBar({
             </button>
           </div>
 
-          <div className="col-span-2 flex items-center justify-end gap-3 md:col-auto md:gap-4">
-            <Timeline />
+          {/* Right Controls */}
+          <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 order-3 w-full md:w-auto">
+            <div className="flex-1 md:w-auto">
+              <Timeline />
+            </div>
             <div className="relative">
               <button
                 type="button"

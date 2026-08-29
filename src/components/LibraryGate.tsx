@@ -112,7 +112,7 @@ export default function LibraryGate() {
             </p>
             <h1
               data-gate
-              className="font-display max-w-5xl text-[clamp(2.6rem,8.5vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight"
+              className="font-display max-w-5xl text-[clamp(2rem,8.5vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight"
             >
               Chaque piste
               <br />
@@ -120,7 +120,7 @@ export default function LibraryGate() {
             </h1>
             <p
               data-gate
-              className="mt-8 max-w-md text-sm leading-relaxed text-white/50"
+              className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-white/50"
             >
               Cherche le titre ou l&apos;artiste de ton choix, et AURORA se charge du reste. Des visuels WebGL génératifs accompagnent chaque musique en temps réel.
             </p>

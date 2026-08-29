@@ -119,7 +119,7 @@ export default function Header({ immersive }: { immersive: boolean }) {
         <span
           translate="no"
           suppressHydrationWarning
-          className="notranslate font-display text-lg font-extrabold tracking-[0.28em]"
+          className="notranslate font-display text-base md:text-lg font-extrabold tracking-[0.28em]"
         >
           AURORA
         </span>

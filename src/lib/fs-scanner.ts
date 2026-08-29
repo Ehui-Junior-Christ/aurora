@@ -1,4 +1,12 @@
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
 const AUDIO_RE = /\.(mp3|wav|flac|ogg|oga|m4a|aac|opus|webm)$/i;
+
+export interface AudioScannerPlugin {
+  scanAudio(): Promise<{ tracks: Array<{ id: string; title: string; artist: string; album: string; duration: number; path: string }> }>;
+}
+
+export const AudioScanner = registerPlugin<AudioScannerPlugin>("AudioScanner");
 
 type FsPermissionState = "granted" | "denied" | "prompt";
 
@@ -25,7 +33,12 @@ type PickerWindow = Window & {
   }) => Promise<FsNode>;
 };
 
+export function isNativeAndroid(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+}
+
 export function supportsFileSystemAccess(): boolean {
+  if (isNativeAndroid()) return true;
   return (
     typeof window !== "undefined" &&
     typeof (window as PickerWindow).showDirectoryPicker === "function"

@@ -5,8 +5,11 @@ import {
   scanMusicFolder,
   supportsFileSystemAccess,
   baseName,
+  isNativeAndroid,
+  AudioScanner,
   type FsNode,
 } from "@/lib/fs-scanner";
+import { Capacitor } from "@capacitor/core";
 import { parseTrack } from "@/lib/metadata";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
@@ -402,6 +405,23 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       dirs = legacy ? [legacy] : undefined;
     }
     set({ supported: supportsFileSystemAccess() });
+
+    if (isNativeAndroid()) {
+      set({ scanning: true, error: null });
+      try {
+        const result = await AudioScanner.scanAudio();
+        const nativeTracks: Track[] = result.tracks.map((t) => ({
+          ...t,
+          url: Capacitor.convertFileSrc(t.path),
+          isOnline: false,
+        }));
+        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
+      } catch (e) {
+        set({ error: "Erreur lors du scan automatique", scanning: false });
+      }
+      return;
+    }
+
     if (!dirs || dirs.length === 0) return;
 
     const granted: FsNode[] = [];
@@ -439,6 +459,23 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       return;
     }
     set({ error: null });
+
+    if (isNativeAndroid()) {
+      set({ scanning: true });
+      try {
+        const result = await AudioScanner.scanAudio();
+        const nativeTracks: Track[] = result.tracks.map((t) => ({
+          ...t,
+          url: Capacitor.convertFileSrc(t.path),
+          isOnline: false,
+        }));
+        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
+      } catch (e) {
+        set({ error: "Erreur lors du scan", scanning: false });
+      }
+      return;
+    }
+
     try {
       const dir = await pickMusicDirectory();
       if (!dir) return;
