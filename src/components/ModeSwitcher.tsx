@@ -83,10 +83,11 @@ export default function ModeSwitcher() {
   const setVisualMode = usePlayer((s) => s.setVisualMode);
   const autoMode = usePlayer((s) => s.autoMode);
   const setAutoMode = usePlayer((s) => s.setAutoMode);
+  const lyricsOpen = usePlayer((s) => s.lyricsOpen);
   const [tunerOpen, setTunerOpen] = useState(false);
 
   return (
-    <div className={`glass fixed bottom-[calc(11.5rem+env(safe-area-inset-bottom))] left-2 z-[45] flex items-center gap-0.5 rounded-full p-1 md:bottom-32 md:left-5 md:gap-1 transition-opacity duration-300 ${usePlayer(s => s.lyricsOpen) ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : ''}`}>
+    <div className={`glass fixed bottom-[calc(11.5rem+env(safe-area-inset-bottom))] left-2 z-[45] flex items-center gap-0.5 rounded-full p-1 md:bottom-32 md:left-5 md:gap-1 transition-opacity duration-300 ${lyricsOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'}`}>
       <button
         type="button"
         data-cursor="magnetic"
