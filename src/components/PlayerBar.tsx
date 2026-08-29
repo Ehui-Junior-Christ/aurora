@@ -302,7 +302,6 @@ export default function PlayerBar({
                   <circle cx="13" cy="5.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
                 </svg>
               </button>
-              {eqOpen && <EqPanel onClose={() => setEqOpen(false)} />}
             </div>
             <div className={`${styles.volume} hidden items-center gap-2 md:flex`}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
@@ -322,6 +321,7 @@ export default function PlayerBar({
           </div>
         </div>
       </div>
+      {eqOpen && <EqPanel onClose={() => setEqOpen(false)} />}
     </div>
   );
 }
