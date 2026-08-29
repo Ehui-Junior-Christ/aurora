@@ -278,8 +278,8 @@ export default function Home() {
                 immersive ? "translate-y-6" : ""
               } ${
                 lyricsOpen 
-                  ? "pb-[55vh] md:pb-52 md:pr-[420px]" 
-                  : "pb-44 md:pb-52"
+                  ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-52 md:pr-[420px]" 
+                  : "opacity-100 pb-44 md:pb-52"
               }`}
             >
               <MetaLine immersive={immersive} />
