@@ -106,7 +106,16 @@ export default function PlayerBar({
             </div>
             
             {/* Mobile-only Play/Pause */}
-            <div className="flex items-center gap-2 md:hidden">
+            <div className="flex items-center gap-1 sm:gap-2 md:hidden">
+              <button
+                type="button"
+                onClick={() => prev()}
+                className="grid size-9 place-items-center rounded-full text-white/65 hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                  <path d="M8.7 8 14 4.5v7L8.7 8ZM7.3 4.5v7L2 8l5.3-3.5Z" />
+                </svg>
+              </button>
               <button
                 type="button"
                 data-cursor="magnetic"
