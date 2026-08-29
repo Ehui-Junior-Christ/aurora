@@ -112,7 +112,8 @@ export default function LibraryGate() {
             </p>
             <h1
               data-gate
-              className="font-display max-w-5xl text-4xl md:text-6xl lg:text-[7.5rem] font-extrabold uppercase leading-[0.92] tracking-tight break-words"
+              className="font-display max-w-5xl text-4xl md:text-6xl lg:text-[7.5rem] font-extrabold uppercase leading-[0.92] tracking-tight break-words hyphens-auto"
+              lang="fr"
             >
               Chaque piste
               <br />
