@@ -1,0 +1,63 @@
+# ==========================================================================
+# DÉPLOIEMENT AUTOMATIQUE SUR INFINITYFREE (hébergement de test)
+# --------------------------------------------------------------------------
+# À chaque "git push" sur la branche master, GitHub envoie par FTP les
+# fichiers modifiés dans le dossier htdocs/ du site InfinityFree.
+# Lancement manuel possible : onglet "Actions" du dépôt > "Déploiement
+# InfinityFree" > "Run workflow".
+#
+# À configurer UNE FOIS sur GitHub (dépôt > Settings > Secrets and variables
+# > Actions > New repository secret) avec les infos FTP d'InfinityFree :
+#   FTP_SERVER    ex. ftpupload.net
+#   FTP_USERNAME  ex. if0_12345678
+#   FTP_PASSWORD  mot de passe FTP (= mot de passe du compte d'hébergement)
+#
+# Jamais envoyés (ou effacés) par ce déploiement :
+#   - config/config.local.php (identifiants : à déposer une seule fois à la main)
+#   - les CV et les photos/vidéos envoyés depuis le site (uploads/, medias/)
+#   - les fichiers réservés au PC (lanceur .bat, routeur du serveur local...)
+# ==========================================================================
+name: Déploiement InfinityFree
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Un seul déploiement à la fois (un nouveau push attend la fin du précédent)
+concurrency:
+  group: deploiement-infinityfree
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Envoyer les fichiers par FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /htdocs/
+          # Seuls les fichiers modifiés depuis le dernier envoi partent (fichier
+          # d'état .ftp-deploy-sync-state.json sur le serveur)
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .github/**
+            .vscode/**
+            config/config.local.php
+            uploads/cv/*.pdf
+            medias/evenements/*.jpg
+            medias/evenements/*.jpeg
+            medias/evenements/*.png
+            medias/evenements/*.webp
+            medias/evenements/*.mp4
+            medias/evenements/*.webm
+            lancer.bat
+            router.php

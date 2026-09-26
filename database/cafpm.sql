@@ -143,6 +143,51 @@ CREATE TABLE IF NOT EXISTS tentatives (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------------------------
+-- Table des événements / activités de CAFPM (galerie, carrousel de l'accueil)
+-- Gérés dans le back-office : admin/evenements.php
+-- slug      = adresse lisible (evenement.php?e=<slug>), générée depuis le titre
+--             à la création, unique, puis conservée (les liens restent valides)
+-- resume    = texte court affiché dans le carrousel ; description = texte complet
+-- publie    = 1 : visible sur le site ; a_la_une = 1 : dans le carrousel
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS evenements (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    titre           VARCHAR(150) NOT NULL,
+    slug            VARCHAR(170) NOT NULL,
+    date_evenement  DATE NOT NULL,
+    lieu            VARCHAR(150) NOT NULL DEFAULT '',
+    resume          VARCHAR(300) NOT NULL DEFAULT '',
+    description     TEXT NULL,
+    publie          TINYINT(1) NOT NULL DEFAULT 1,
+    a_la_une        TINYINT(1) NOT NULL DEFAULT 1,
+    cree_le         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    mis_a_jour_le   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_slug_evenement (slug),
+    INDEX idx_publie_date (publie, date_evenement)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------------------------
+-- Médias (photos, vidéos, liens YouTube) d'un événement
+-- type       = 'image' | 'video' | 'youtube'
+-- fichier    = nom du fichier stocké dans medias/evenements/ (image, video)
+-- youtube_id = identifiant de 11 caractères de la vidéo (type youtube)
+-- ordre      = ordre d'affichage (du plus petit au plus grand)
+-- Pas de clé étrangère : la suppression d'un événement efface ses médias
+-- (lignes + fichiers) depuis le back-office (includes/evenements.php).
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS evenement_medias (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    evenement_id  INT UNSIGNED NOT NULL,
+    type          VARCHAR(10)  NOT NULL,
+    fichier       VARCHAR(255) NOT NULL DEFAULT '',
+    youtube_id    VARCHAR(20)  NOT NULL DEFAULT '',
+    legende       VARCHAR(300) NOT NULL DEFAULT '',
+    ordre         INT NOT NULL DEFAULT 0,
+    cree_le       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_evenement (evenement_id, ordre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------------------------
 -- Version de la structure (utilisée par includes/db.php, ne pas modifier)
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS version_schema (

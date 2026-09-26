@@ -196,7 +196,9 @@ function lire_flash(): array
 /**
  * En-têtes de sécurité des pages privées (espace client, back-office) :
  * - Content-Security-Policy : seuls nos propres fichiers (et Google Fonts)
- *   sont autorisés, aucun script inline ;
+ *   sont autorisés, aucun script inline ; seule exception : les images de
+ *   img.youtube.com (miniatures des vidéos YouTube des événements, admin) ;
+ *   media-src 'self' = vidéos des événements servies par le site lui-même ;
  * - page non affichable dans une iframe (anti-clickjacking) ;
  * - pas de mise en cache (données personnelles) ;
  * - Referrer-Policy : l'adresse de la page (qui peut contenir un jeton de
@@ -204,7 +206,7 @@ function lire_flash(): array
  */
 function entetes_pages_privees(): void
 {
-    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://img.youtube.com; media-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: same-origin');

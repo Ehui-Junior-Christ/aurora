@@ -14,3 +14,6 @@ define('DB_PASS', 'mot_de_passe');     // Mot de passe
 
 // Mode développement : true UNIQUEMENT sur votre PC (jamais en production)
 define('MODE_DEV', false);
+
+// Adresse publique du site, sans "/" final (liens envoyés par email)
+define('SITE_URL', 'https://www.cafpm.ci');

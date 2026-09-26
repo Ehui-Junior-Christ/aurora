@@ -4,9 +4,15 @@
    --------------------------------------------------------------------------
    Affiche toutes les actualités du tableau $actualites (config/contenu.php).
    Chaque carte mène à l'article complet : actualite.php?a=<slug>
+   Le sélecteur « Actualités | Événements » en haut mène à evenements.php.
+   Tout en haut : grand carrousel des activités de CAFPM (événements publiés
+   et « à la une » dans l'admin) ; absent s'il n'y a aucun événement.
    ========================================================================== */
 
 require_once __DIR__ . '/partials/amorce.php';
+require_once __DIR__ . '/includes/evenements-affichage.php';
+
+$evenements_une = evenements_a_la_une(8); // Diapositives du grand carrousel
 
 $titre_page       = 'Actualités & opportunités';
 $description_page = "Les dernières actualités de CAFPM : offres de missions, formations et services RH à Abidjan.";
@@ -24,8 +30,32 @@ require __DIR__ . '/partials/header.php';
     <main id="contenu">
         <?php require __DIR__ . '/partials/bandeau-page.php'; ?>
 
+        <?php if ($evenements_une): ?>
+        <!-- GRAND CARROUSEL « NOS ACTIVITÉS EN IMAGES » -->
+        <section class="page-section evt-carrousel-page" aria-labelledby="titre-carrousel-page">
+            <div class="container">
+                <div class="evt-entete">
+                    <div>
+                        <span class="section-eyebrow">Nos événements</span>
+                        <h2 class="evt-carrousel-titre" id="titre-carrousel-page">Nos activités en images</h2>
+                    </div>
+                    <a href="<?= e(lien_site('evenements.php')) ?>" class="news-link">Tous les événements &rarr;</a>
+                </div>
+                <?php
+                $carrousel_evenements = $evenements_une;
+                $carrousel_id         = 'actualites';
+                $carrousel_titre_id   = 'titre-carrousel-page';
+                $carrousel_grand      = true;
+                require __DIR__ . '/partials/carrousel-evenements.php';
+                ?>
+            </div>
+        </section>
+        <?php endif; ?>
+
         <section class="page-section">
             <div class="container">
+                <?php $onglet_actif = 'actualites'; require __DIR__ . '/partials/onglets-actualites.php'; ?>
+
                 <div class="news-grid news-grid-page">
                     <?php foreach ($actualites as $actu): ?>
                     <article class="news-card">

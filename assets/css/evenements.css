@@ -1,0 +1,908 @@
+/* ==========================================================================
+   ÉVÉNEMENTS : carrousel de l'accueil, sélecteur Actualités | Événements,
+   liste (evenements.php), détail + galerie (evenement.php), visionneuse
+   --------------------------------------------------------------------------
+   Complète style.css et pages.css (variables --color-*, --space-*,
+   --radius-*, --shadow-*). Comportements : assets/js/evenements.js.
+   Toutes les images ont un cadre de proportions fixes (aspect-ratio) :
+   pas de saut de mise en page pendant leur chargement.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. VISUELS COMMUNS (couverture, pastille lecture, compteur de médias)
+   -------------------------------------------------------------------------- */
+.evt-visuel {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: var(--color-navy-light);
+}
+/* Événement sans aucun média : visuel de remplacement */
+.evt-visuel-vide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--color-navy);
+}
+/* Anneau décoratif jaune, comme dans le bandeau des pages intérieures */
+.evt-visuel-vide::after {
+    content: '';
+    position: absolute;
+    right: -15%;
+    top: -25%;
+    width: 60%;
+    aspect-ratio: 1;
+    border: 32px solid rgba(252, 227, 3, 0.12);
+    border-radius: 50%;
+}
+.evt-visuel-vide span {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: 0.08em;
+    color: var(--color-gold);
+}
+
+/* Pastille "lecture" au centre d'une vidéo (YouTube ou fichier) */
+.evt-pastille-lecture {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 72px;
+    height: 72px;
+    margin: -36px 0 0 -36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 4px; /* Centrage optique du triangle */
+    background: var(--color-gold);
+    color: var(--color-navy);
+    box-shadow: 0 8px 24px rgba(10, 25, 48, 0.35);
+    transition: transform var(--transition-fast);
+    pointer-events: none;
+}
+
+/* Nombre de photos / vidéos (coin de la couverture) */
+.evt-compteur {
+    position: absolute;
+    left: var(--space-2);
+    bottom: var(--space-2);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(10, 25, 48, 0.85);
+    color: var(--color-white);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+}
+
+/* Façade YouTube : miniature + bouton lecture ; remplacée par l'iframe au clic */
+.yt-facade {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: #000;
+    cursor: pointer;
+    display: block;
+}
+.yt-facade img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.92;
+    transition: opacity var(--transition-fast);
+}
+.yt-facade:hover img,
+.yt-facade:focus-visible img {
+    opacity: 1;
+}
+.yt-facade:hover .evt-pastille-lecture,
+.yt-facade:focus-visible .evt-pastille-lecture {
+    transform: scale(1.08);
+}
+.yt-facade:focus-visible {
+    outline: 3px solid var(--color-gold);
+    outline-offset: -3px;
+}
+.yt-iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #000;
+}
+
+/* En-tête avec titre à gauche et lien à droite (carrousel, autres événements) */
+.evt-entete {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+.evt-entete .news-link {
+    margin-top: 0;
+}
+.evt-entete .news-link:hover {
+    gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   2. CARROUSEL DE L'ACCUEIL (« Nos activités en images »)
+   Sans JavaScript : défilement horizontal natif (scroll-snap).
+   Avec JavaScript (.carrousel-actif) : diapositives déplacées par transform.
+   -------------------------------------------------------------------------- */
+.evt-carrousel-bloc {
+    margin-top: var(--space-12);
+}
+.evt-carrousel-titre {
+    font-size: 2rem;
+    line-height: 1.2;
+}
+
+.carrousel {
+    position: relative;
+}
+.carrousel-fenetre {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+    background: var(--color-navy);
+}
+.carrousel-piste {
+    display: flex;
+}
+.carrousel-actif .carrousel-fenetre {
+    overflow: hidden;
+    touch-action: pan-y; /* Défilement vertical de la page conservé, glisser horizontal géré en JS */
+}
+.carrousel-actif .carrousel-piste {
+    transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+}
+.carrousel-actif .carrousel-piste.en-glisse {
+    transition: none;
+    cursor: grabbing;
+}
+
+/* Une diapositive : grande image à gauche, texte sur fond bleu marine à droite */
+.carrousel-diapo {
+    flex: 0 0 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    background: var(--color-navy);
+    color: var(--color-white);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.carrousel-media {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--color-navy-light);
+}
+.carrousel-media-lien {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.carrousel-media-lien .evt-visuel {
+    transition: transform 0.8s ease;
+}
+.carrousel-media-lien:hover .evt-visuel {
+    transform: scale(1.03);
+}
+.carrousel-texte {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-6) var(--space-6);
+    min-width: 0;
+    --focus-ring: var(--color-gold); /* Anneau de focus jaune sur fond sombre */
+}
+.carrousel-meta {
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--color-gold);
+}
+.carrousel-titre {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    line-height: 1.25;
+    color: var(--color-white);
+    overflow-wrap: anywhere;
+}
+.carrousel-resume {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9375rem;
+    text-align: justify;
+    hyphens: auto;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.carrousel-texte .btn {
+    margin-top: var(--space-1);
+}
+
+/* Barre de commandes : pause | points | flèches */
+.carrousel-commandes {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+.carrousel-commandes[hidden] {
+    display: none;
+}
+.carrousel-bouton {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--color-gray-200);
+    background: var(--color-white);
+    color: var(--color-navy);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+.carrousel-bouton:hover {
+    background: var(--color-gold);
+    border-color: var(--color-gold);
+}
+.carrousel-bouton:active {
+    transform: scale(0.94);
+}
+.carrousel-fleches {
+    display: flex;
+    gap: var(--space-1);
+}
+/* Bouton pause : une icône à la fois selon l'état */
+.carrousel-pause .icone-lecture,
+.carrousel-pause.en-pause .icone-pause {
+    display: none;
+}
+.carrousel-pause.en-pause .icone-lecture {
+    display: block;
+}
+.carrousel-pause[hidden] {
+    display: none;
+}
+
+/* Points de navigation (zone cliquable de 24px, point visible plus petit) */
+.carrousel-points {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+}
+.carrousel-point {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+}
+.carrousel-point::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--color-gray-200);
+    box-shadow: inset 0 0 0 1px rgba(10, 25, 48, 0.25);
+    transition: width var(--transition-fast), background var(--transition-fast);
+}
+.carrousel-point:hover::before {
+    background: var(--color-navy-muted);
+}
+.carrousel-point[aria-current="true"]::before {
+    width: 28px;
+    background: var(--color-navy);
+    box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. SÉLECTEUR « ACTUALITÉS | ÉVÉNEMENTS »
+   -------------------------------------------------------------------------- */
+.onglets-pages {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: var(--space-6);
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: 999px;
+    box-shadow: var(--shadow-sm);
+}
+.onglet-page {
+    padding: 10px var(--space-4);
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-navy);
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.onglet-page:hover {
+    background: var(--color-gray-100);
+}
+.onglet-page[aria-current="page"] {
+    background: var(--color-navy);
+    color: var(--color-white);
+}
+.onglet-page[aria-current="page"]::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    border-radius: 50%;
+    background: var(--color-gold);
+}
+
+/* --------------------------------------------------------------------------
+   4. LISTE DES ÉVÉNEMENTS (cartes) + PAGINATION + ÉTAT VIDE
+   -------------------------------------------------------------------------- */
+.evt-total {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+    margin-bottom: var(--space-3);
+}
+.evt-grille {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+}
+.evt-carte {
+    position: relative; /* Toute la carte est cliquable (lien du titre étendu) */
+    display: flex;
+    flex-direction: column;
+    background: var(--color-white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    border-top: 3px solid transparent;
+    transition: transform var(--transition-spring), box-shadow var(--transition-spring), border-color var(--transition-fast);
+}
+.evt-carte:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-float);
+    border-top-color: var(--color-gold);
+}
+.evt-carte-media {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--color-navy-light);
+}
+.evt-carte-media .evt-visuel {
+    transition: transform 0.6s ease;
+}
+.evt-carte:hover .evt-carte-media .evt-visuel {
+    transform: scale(1.04);
+}
+.evt-carte-media .evt-pastille-lecture {
+    width: 56px;
+    height: 56px;
+    margin: -28px 0 0 -28px;
+}
+.evt-carte-corps {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.evt-carte .news-meta {
+    margin-bottom: var(--space-2);
+}
+.evt-carte-titre {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    margin-bottom: var(--space-2);
+    overflow-wrap: anywhere;
+}
+.evt-carte-titre a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+.evt-carte-titre a:focus-visible {
+    outline: none;
+}
+.evt-carte:has(.evt-carte-titre a:focus-visible) {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+.evt-carte:hover .evt-carte-titre a,
+.evt-carte:hover .news-link {
+    color: var(--color-gold-text);
+}
+.evt-carte p {
+    color: var(--color-navy-muted);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-3);
+    text-align: justify;
+    hyphens: auto;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-8);
+}
+.pagination ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    list-style: none;
+}
+.pagination-lien {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 var(--space-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-gray-200);
+    background: var(--color-white);
+    color: var(--color-navy);
+    font-weight: 600;
+}
+.pagination-lien:hover {
+    border-color: var(--color-navy);
+}
+.pagination-lien[aria-current="page"] {
+    background: var(--color-navy);
+    border-color: var(--color-navy);
+    color: var(--color-white);
+}
+
+/* Aucun événement publié */
+.evt-vide {
+    max-width: 640px;
+    margin: var(--space-4) auto 0;
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    background: var(--color-white);
+    border: 1px dashed var(--color-gray-200);
+    border-radius: var(--radius-lg);
+}
+.evt-vide svg {
+    color: var(--color-navy-muted);
+    margin: 0 auto var(--space-2);
+}
+.evt-vide h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-2);
+}
+.evt-vide p {
+    color: var(--color-navy-muted);
+    margin-bottom: var(--space-4);
+    text-align: justify;
+    text-align-last: center;
+    hyphens: auto;
+}
+
+/* --------------------------------------------------------------------------
+   5. DÉTAIL : GALERIE
+   -------------------------------------------------------------------------- */
+.evt-galerie-nb {
+    font-size: 0.6em;
+    font-weight: 600;
+    color: var(--color-gray-500);
+    white-space: nowrap;
+}
+.evt-galerie-aide {
+    margin-top: var(--space-1);
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+}
+.evt-galerie {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+/* Les vidéos occupent deux colonnes pour rester confortables à regarder */
+.evt-galerie-video,
+.evt-galerie-youtube {
+    grid-column: span 2;
+}
+.evt-galerie figure {
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.evt-galerie figcaption {
+    margin-top: var(--space-1);
+    font-size: 0.875rem;
+    color: var(--color-navy-muted);
+    text-align: justify;
+    hyphens: auto;
+}
+.evt-galerie-bouton,
+.evt-galerie-cadre {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--color-gray-100);
+    box-shadow: var(--shadow-sm);
+}
+.evt-galerie-video .evt-galerie-cadre,
+.evt-galerie-youtube .evt-galerie-cadre {
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+/* Sur 2 colonnes, la vidéo 16/9 est un peu moins haute qu'une photo 4/3 : on aligne en haut */
+.evt-galerie-item {
+    align-self: start;
+}
+.evt-galerie-bouton {
+    cursor: zoom-in;
+}
+.evt-galerie-bouton img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+.evt-galerie-bouton:hover img,
+.evt-galerie-bouton:focus-visible img {
+    transform: scale(1.05);
+}
+.evt-galerie-loupe {
+    position: absolute;
+    right: var(--space-1);
+    bottom: var(--space-1);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 25, 48, 0.8);
+    color: var(--color-white);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.evt-galerie-bouton:hover .evt-galerie-loupe,
+.evt-galerie-bouton:focus-visible .evt-galerie-loupe {
+    opacity: 1;
+}
+.evt-galerie-cadre video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* --------------------------------------------------------------------------
+   6. VISIONNEUSE PLEIN ÉCRAN (photos de la galerie)
+   -------------------------------------------------------------------------- */
+.visionneuse {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: rgba(5, 12, 24, 0.97);
+    color: var(--color-white);
+    --focus-ring: var(--color-gold);
+    animation: visionneuse-entree 0.2s ease-out;
+}
+.visionneuse[hidden] {
+    display: none;
+}
+@keyframes visionneuse-entree {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.visionneuse-haut {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+}
+.visionneuse-compteur {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+.visionneuse-scene {
+    margin: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 0 88px var(--space-4);
+    touch-action: pan-y;
+}
+.visionneuse-image {
+    max-width: 100%;
+    max-height: calc(100% - 48px);
+    min-height: 0;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.visionneuse-legende {
+    max-width: 70ch;
+    text-align: center;
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+.visionneuse-bouton {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-white);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.visionneuse-bouton:hover {
+    background: var(--color-gold);
+    border-color: var(--color-gold);
+    color: var(--color-navy);
+}
+.visionneuse-prec,
+.visionneuse-suiv {
+    position: absolute;
+    top: 50%;
+    margin-top: -26px;
+}
+.visionneuse-prec {
+    left: var(--space-2);
+}
+.visionneuse-suiv {
+    right: var(--space-2);
+}
+.visionneuse-prec[hidden],
+.visionneuse-suiv[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   7. RESPONSIVE
+   -------------------------------------------------------------------------- */
+@media (max-width: 1100px) {
+    .carrousel-diapo {
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    }
+    .carrousel-texte {
+        padding: var(--space-4);
+    }
+    .carrousel-titre {
+        font-size: 1.5rem;
+    }
+    .evt-grille {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 991px) {
+    /* Image au-dessus, texte en dessous */
+    .carrousel-diapo {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+    }
+    .carrousel-media {
+        aspect-ratio: 16 / 9;
+    }
+    .evt-galerie {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .evt-carrousel-bloc {
+        margin-top: var(--space-8);
+    }
+    .evt-carrousel-titre {
+        font-size: 1.5rem;
+    }
+    .carrousel-fenetre {
+        border-radius: var(--radius-md);
+    }
+    .carrousel-texte {
+        padding: var(--space-3);
+        gap: 12px;
+    }
+    .carrousel-titre {
+        font-size: 1.25rem;
+    }
+    .carrousel-resume {
+        -webkit-line-clamp: 4;
+        font-size: 0.875rem;
+    }
+    .carrousel-texte .btn {
+        width: 100%;
+    }
+    .carrousel-bouton {
+        width: 44px;
+        height: 44px;
+    }
+    .evt-pastille-lecture {
+        width: 60px;
+        height: 60px;
+        margin: -30px 0 0 -30px;
+    }
+    .onglets-pages {
+        display: flex;
+        margin-bottom: var(--space-4);
+    }
+    .onglet-page {
+        flex: 1;
+        text-align: center;
+        padding: 10px var(--space-2);
+    }
+    .evt-grille {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-3);
+    }
+    .evt-carte-corps {
+        padding: var(--space-3);
+    }
+    .pagination-texte {
+        display: none; /* Flèches seules sur mobile (les liens gardent leur aria-label) */
+    }
+    .evt-galerie {
+        gap: var(--space-2);
+    }
+    .visionneuse-scene {
+        padding: 0 var(--space-2) 88px;
+    }
+    .visionneuse-prec,
+    .visionneuse-suiv {
+        top: auto;
+        bottom: var(--space-3);
+        margin-top: 0;
+    }
+    .visionneuse-prec {
+        left: calc(50% - 64px);
+    }
+    .visionneuse-suiv {
+        right: calc(50% - 64px);
+    }
+}
+
+@media (max-width: 480px) {
+    .evt-galerie {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .evt-galerie-video,
+    .evt-galerie-youtube {
+        grid-column: auto;
+    }
+    .carrousel-commandes {
+        gap: var(--space-1);
+    }
+}
+
+/* Réduction des animations : pas de glissement ni de zoom */
+@media (prefers-reduced-motion: reduce) {
+    .carrousel-actif .carrousel-piste {
+        transition: none;
+    }
+    .carrousel-media-lien:hover .evt-visuel,
+    .evt-carte:hover .evt-carte-media .evt-visuel,
+    .evt-galerie-bouton:hover img {
+        transform: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   8. GRAND CARROUSEL (page actualites.php, classe .carrousel-grand)
+   Photo plein cadre, texte posé en bas à gauche sur un dégradé sombre
+   (lisible quelle que soit la photo). Sur mobile : texte sous la photo.
+   -------------------------------------------------------------------------- */
+.evt-carrousel-page {
+    padding-bottom: 0;
+}
+.carrousel-grand .carrousel-diapo {
+    display: block;
+    position: relative;
+}
+.carrousel-grand .carrousel-media {
+    aspect-ratio: auto;
+    height: clamp(420px, 68vh, 680px);
+}
+.carrousel-grand .carrousel-texte {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: var(--space-12) var(--space-6) var(--space-6);
+    background: linear-gradient(to top, rgba(10, 25, 48, 0.95) 0%, rgba(10, 25, 48, 0.75) 45%, rgba(10, 25, 48, 0) 100%);
+    pointer-events: none; /* Le clic passe à la photo / vidéo en dessous... */
+}
+.carrousel-grand .carrousel-texte > * {
+    max-width: 760px;
+}
+.carrousel-grand .carrousel-texte .btn {
+    pointer-events: auto; /* ...sauf sur le bouton */
+}
+.carrousel-grand .carrousel-titre {
+    font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+    line-height: 1.15;
+}
+.carrousel-grand .carrousel-resume {
+    font-size: 1.0625rem;
+    -webkit-line-clamp: 3;
+}
+.carrousel-grand .evt-compteur {
+    top: var(--space-3);
+    bottom: auto;
+}
+/* Vidéo YouTube en lecture : le texte s'efface pour laisser voir le lecteur */
+.carrousel-grand .carrousel-diapo:has(.yt-iframe) .carrousel-texte {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .carrousel-grand .carrousel-media {
+        height: auto;
+        aspect-ratio: 16 / 10;
+    }
+    .carrousel-grand .carrousel-texte {
+        position: static;
+        padding: var(--space-3);
+        background: var(--color-navy);
+        pointer-events: auto;
+    }
+    .carrousel-grand .carrousel-diapo:has(.yt-iframe) .carrousel-texte {
+        display: flex;
+    }
+}

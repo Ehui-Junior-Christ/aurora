@@ -37,6 +37,8 @@ if (!headers_sent()) {
     <link rel="stylesheet" href="<?= e(lien_site('style.css')) ?>">
     <!-- Styles des pages intérieures (solutions, actualités, contact, pages légales) -->
     <link rel="stylesheet" href="<?= e(lien_site('assets/css/pages.css')) ?>">
+    <!-- Événements : carrousel de l'accueil, liste, galerie et visionneuse -->
+    <link rel="stylesheet" href="<?= e(lien_site('assets/css/evenements.css')) ?>">
 </head>
 <body>
 

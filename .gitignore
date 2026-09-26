@@ -2,5 +2,11 @@
 uploads/cv/*
 !uploads/cv/.gitkeep
 
+# Photos et vidéos des événements (déposées depuis le back-office)
+# On garde le dossier (.gitkeep) et sa protection (.htaccess)
+medias/evenements/*
+!medias/evenements/.gitkeep
+!medias/evenements/.htaccess
+
 # Identifiants de la base de données (confidentiel)
 config/config.local.php

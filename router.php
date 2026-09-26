@@ -4,7 +4,8 @@
    --------------------------------------------------------------------------
    Le serveur intégré de PHP ignore les fichiers .htaccess : ce routeur
    reproduit leurs règles :
-   1. bloque les dossiers privés (403) et le script admin/creer-admin.php (404)
+   1. bloque les dossiers privés (403), tout ce qui n'est pas une photo ou
+      une vidéo dans medias/ (403) et le script admin/creer-admin.php (404)
    2. laisse PHP servir les fichiers et dossiers qui existent
       (en ajoutant le "/" final aux dossiers, comme Apache)
    3. affiche la page 404.php pour toute adresse inconnue
@@ -20,7 +21,15 @@ if (preg_match('#^/(config|includes|partials|database|uploads)(/|$)#i', $chemin)
     exit('Accès interdit');
 }
 
-// 1b. Script réservé à la ligne de commande et fichiers techniques (dossiers cachés
+// 1b. Dossier public des médias d'événements (medias/) : seuls les photos et vidéos
+//     sont servies. Tout le reste (.php, .htaccess...) est refusé : sans cette règle,
+//     le serveur local EXÉCUTERAIT un fichier .php déposé dans ce dossier.
+if (preg_match('#^/medias(/|$)#i', $chemin) && !preg_match('#^/medias/[^/]+/[A-Za-z0-9_-]+\.(jpe?g|png|webp|mp4|webm)$#i', $chemin)) {
+    http_response_code(403);
+    exit('Accès interdit');
+}
+
+// 1c. Script réservé à la ligne de commande et fichiers techniques (dossiers cachés
 //     comme .git, lanceur .bat, script SQL, ce routeur) : on fait comme s'ils n'existaient pas
 if (preg_match('#^/admin/creer-admin\.php$#i', $chemin)
     || preg_match('#/\.(?!well-known)|\.(bat|sql|md)$|^/router\.php$#i', $chemin)) {

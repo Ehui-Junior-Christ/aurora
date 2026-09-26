@@ -10,5 +10,7 @@ require __DIR__ . '/modales.php';  // Connexion, tiroirs entreprise/candidat, no
 ?>
 
     <script src="<?= e(lien_site('main.js')) ?>"></script>
+    <!-- Événements : carrousel, visionneuse photo, vidéos YouTube (sans effet sur les autres pages) -->
+    <script src="<?= e(lien_site('assets/js/evenements.js')) ?>" defer></script>
 </body>
 </html>

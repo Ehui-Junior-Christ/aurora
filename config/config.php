@@ -28,6 +28,13 @@ define('EMAIL_EXPEDITEUR', 'no-reply@cafpm.ci');
 define('DOSSIER_CV',   __DIR__ . '/../uploads/cv/'); // Dossier de stockage des CV
 define('TAILLE_MAX_CV', 5 * 1024 * 1024);             // 5 Mo maximum
 
+/* --- 4b. Médias des événements (photos / vidéos PUBLIQUES, voir includes/evenements.php)
+   Les limites du serveur (upload_max_filesize, post_max_size) sont dans .user.ini --- */
+define('DOSSIER_MEDIAS_EVENEMENTS', __DIR__ . '/../medias/evenements/'); // Stockage sur le disque
+define('URL_MEDIAS_EVENEMENTS',     'medias/evenements/');               // Adresse relative à la racine du site
+define('TAILLE_MAX_IMAGE',  8 * 1024 * 1024);                            // 8 Mo par photo
+define('TAILLE_MAX_VIDEO', 50 * 1024 * 1024);                            // 50 Mo par vidéo
+
 /* --- Fuseau horaire d'Abidjan (dates "il y a 2 h", dates des demandes...) --- */
 date_default_timezone_set('Africa/Abidjan');
 
@@ -47,8 +54,13 @@ if (MODE_DEV) {
 }
 
 /* --- 6. Adresse publique du site (utilisée dans les liens envoyés par email,
-   ex. "mot de passe oublié"). À adapter si le nom de domaine change. --- */
-define('SITE_URL', MODE_DEV ? 'http://localhost:8000' : 'https://www.cafpm.ci');
+   ex. "mot de passe oublié"), sans "/" final.
+   Se règle dans config/config.local.php pour chaque serveur (ex. hébergement
+   de test : define('SITE_URL', 'https://cafpm.alwaysdata.net');).
+   Valeur par défaut ci-dessous si elle n'y est pas définie. --- */
+if (!defined('SITE_URL')) {
+    define('SITE_URL', MODE_DEV ? 'http://localhost:8000' : 'https://www.cafpm.ci');
+}
 
 /* --- 7. Démarrage de la session (sécurité CSRF, espace client, back-office admin)
    Pas de session en ligne de commande (ex. script admin/creer-admin.php). --- */

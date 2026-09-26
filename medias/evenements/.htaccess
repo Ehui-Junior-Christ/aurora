@@ -1,0 +1,18 @@
+# ==========================================================================
+# SÉCURITÉ DU DOSSIER DES MÉDIAS D'ÉVÉNEMENTS (photos et vidéos PUBLIQUES)
+# Les fichiers sont déposés depuis le back-office (admin/evenement-modifier.php)
+# sous un nom aléatoire. Ici :
+#   - pas de liste des fichiers du dossier ;
+#   - aucun script ne peut être exécuté (même si un fichier .php arrivait ici) ;
+#   - le navigateur ne "devine" pas le type des fichiers (nosniff).
+# Pas de php_flag (provoque une erreur 500 sur les hébergements PHP-FPM).
+# ==========================================================================
+Options -Indexes
+
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|shtml|asp|aspx|jsp|htaccess)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
