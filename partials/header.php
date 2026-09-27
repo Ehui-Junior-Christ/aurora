@@ -34,11 +34,11 @@ if (!headers_sent()) {
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <title><?= e($titre_complet) ?></title>
     <link rel="icon" href="<?= e(lien_site('assets/favicon.svg')) ?>" type="image/svg+xml">
-    <link rel="stylesheet" href="<?= e(lien_site('style.css')) ?>">
+    <link rel="stylesheet" href="<?= e(lien_site('style.css') . version_fichier('style.css')) ?>">
     <!-- Styles des pages intérieures (solutions, actualités, contact, pages légales) -->
-    <link rel="stylesheet" href="<?= e(lien_site('assets/css/pages.css')) ?>">
+    <link rel="stylesheet" href="<?= e(lien_site('assets/css/pages.css') . version_fichier('assets/css/pages.css')) ?>">
     <!-- Événements : carrousel de l'accueil, liste, galerie et visionneuse -->
-    <link rel="stylesheet" href="<?= e(lien_site('assets/css/evenements.css')) ?>">
+    <link rel="stylesheet" href="<?= e(lien_site('assets/css/evenements.css') . version_fichier('assets/css/evenements.css')) ?>">
 </head>
 <body>
 

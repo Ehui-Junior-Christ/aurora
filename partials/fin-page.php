@@ -10,10 +10,10 @@ require __DIR__ . '/modales.php';       // Connexion, tiroirs entreprise/candida
 require __DIR__ . '/consentement.php';  // Bandeau de consentement aux cookies
 ?>
 
-    <script src="<?= e(lien_site('main.js')) ?>"></script>
+    <script src="<?= e(lien_site('main.js') . version_fichier('main.js')) ?>"></script>
     <!-- Événements : carrousel, visionneuse photo, vidéos YouTube (sans effet sur les autres pages) -->
-    <script src="<?= e(lien_site('assets/js/evenements.js')) ?>" defer></script>
+    <script src="<?= e(lien_site('assets/js/evenements.js') . version_fichier('assets/js/evenements.js')) ?>" defer></script>
     <!-- Bandeau de cookies + statistiques de visite (uniquement avec l'accord du visiteur) -->
-    <script src="<?= e(lien_site('assets/js/consentement.js')) ?>" defer data-api="<?= e(lien_site('api/statistiques.php')) ?>"></script>
+    <script src="<?= e(lien_site('assets/js/consentement.js') . version_fichier('assets/js/consentement.js')) ?>" defer data-api="<?= e(lien_site('api/statistiques.php')) ?>"></script>
 </body>
 </html>

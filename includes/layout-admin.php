@@ -47,9 +47,9 @@ function admin_entete(string $titre, string $page_active = '', ?array $admin = n
     <meta name="robots" content="noindex, nofollow">
     <title><?= e($titre) ?> - Administration <?= e(SITE_NOM) ?></title>
     <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="../style.css">
-    <link rel="stylesheet" href="../assets/css/admin.css">
-    <script src="admin.js" defer></script>
+    <link rel="stylesheet" href="../style.css<?= version_fichier('style.css') ?>">
+    <link rel="stylesheet" href="../assets/css/admin.css<?= version_fichier('assets/css/admin.css') ?>">
+    <script src="admin.js<?= version_fichier('admin/admin.js') ?>" defer></script>
 </head>
 <body class="admin-body<?= $admin ? '' : ' admin-body-connexion' ?>">
     <?php if ($admin): ?>

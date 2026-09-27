@@ -20,6 +20,7 @@
    - date_fr()        : affiche une date au format français
    - il_y_a()         : date relative ("il y a 2 h", "hier", "12 sept.")
    - date_du_jour()   : date du jour en toutes lettres ("jeudi 24 septembre")
+   - version_fichier() : "?v=..." à ajouter aux fichiers CSS/JS (anti-cache)
    - erreur_mot_de_passe() : contrôle la solidité d'un nouveau mot de passe
    - libelle_statut() : texte lisible d'un statut de demande
    ========================================================================== */
@@ -251,6 +252,19 @@ function il_y_a(?string $date): string
     $mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
     $texte = (int) date('j', $moment) . ' ' . $mois[(int) date('n', $moment) - 1];
     return date('Y', $moment) === date('Y') ? $texte : $texte . ' ' . date('Y', $moment);
+}
+
+/**
+ * Anti-cache des fichiers CSS / JS : renvoie "?v=<date de modification>".
+ * Ex. style.css?v=1727400000. Quand le fichier change (mise à jour du site),
+ * son adresse change aussi : les navigateurs téléchargent la nouvelle version
+ * au lieu de garder l'ancienne en mémoire.
+ * $chemin : chemin depuis la racine du site (ex. 'assets/css/pages.css').
+ */
+function version_fichier(string $chemin): string
+{
+    $fichier = dirname(__DIR__) . '/' . $chemin;
+    return is_file($fichier) ? '?v=' . filemtime($fichier) : '';
 }
 
 /**
