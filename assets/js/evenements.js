@@ -24,13 +24,16 @@
        ========================================================================== */
     const facadesRemplacees = new Map(); // iframe créée -> bouton façade d'origine
 
-    function lancerYoutube(facade) {
+    // auto = true : lancement automatique par le carrousel (sans le son, les
+    // navigateurs refusant la lecture automatique avec le son ; le focus reste en place)
+    function lancerYoutube(facade, auto = false) {
         const id = facade.dataset.youtubeId || '';
-        if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;
+        if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
 
         const iframe = document.createElement('iframe');
         iframe.className = 'yt-iframe';
-        iframe.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0';
+        iframe.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1'
+            + (auto ? '&mute=1' : '');
         iframe.title = facade.dataset.titre || 'Vidéo YouTube';
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.allowFullscreen = true;
@@ -39,8 +42,35 @@
 
         facadesRemplacees.set(iframe, facade);
         facade.replaceWith(iframe);
-        iframe.focus(); // Le focus clavier suit : il ne se perd pas en haut de page
+        if (!auto) iframe.focus(); // Clic du visiteur : le focus clavier suit le lecteur
+        return iframe;
     }
+
+    /* État des lecteurs YouTube (lecture, fin) reçu par messages : pas besoin de
+       charger la bibliothèque YouTube. Le lecteur n'envoie ces messages qu'après
+       un message "listening" de notre part (envoyé quand il a fini de charger). */
+    const suiviYoutube = new Map(); // fenêtre du lecteur -> fonction(état)
+
+    function suivreYoutube(iframe, surEtat) {
+        iframe.addEventListener('load', () => {
+            if (!iframe.contentWindow) return;
+            suiviYoutube.set(iframe.contentWindow, surEtat);
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
+        });
+    }
+
+    window.addEventListener('message', (e) => {
+        if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
+        const surEtat = suiviYoutube.get(e.source);
+        if (!surEtat || typeof e.data !== 'string') return;
+        let donnees;
+        try { donnees = JSON.parse(e.data); } catch (erreur) { return; }
+        // États YouTube : 1 = lecture, 0 = terminée
+        if (donnees.event === 'onStateChange') surEtat(donnees.info);
+        else if (donnees.event === 'infoDelivery' && donnees.info && typeof donnees.info.playerState === 'number') {
+            surEtat(donnees.info.playerState);
+        }
+    });
 
     // Remet la miniature à la place du lecteur (vidéo arrêtée), ex. quand la
     // diapositive du carrousel qui la contient est masquée
@@ -97,7 +127,23 @@
         if (!fenetre || !piste || total === 0) return;
 
         carrousel.classList.add('carrousel-actif');
-        if (total < 2) return; // Une seule diapositive : ni flèches, ni points, ni défilement
+        if (total < 2) {
+            // Une seule diapositive : ni flèches, ni points, ni défilement ;
+            // sa vidéo éventuelle se lance quand même toute seule (sans le son, en boucle)
+            if (!reduceMotion.matches) {
+                const video = diapos[0].querySelector('video');
+                const facade = diapos[0].querySelector('.yt-facade');
+                if (video) {
+                    video.muted = true;
+                    video.loop = true;
+                    const lecture = video.play();
+                    if (lecture && lecture.catch) lecture.catch(() => {});
+                } else if (facade) {
+                    lancerYoutube(facade, true);
+                }
+            }
+            return;
+        }
 
         const commandes = carrousel.querySelector('.carrousel-commandes');
         const points = Array.from(carrousel.querySelectorAll('.carrousel-point'));
@@ -111,6 +157,62 @@
         let survol = false;                    // Souris au-dessus du carrousel
         let focusDedans = false;               // Focus clavier dans le carrousel
         let minuterie = null;
+        let videoEnCours = false;              // Vidéo lancée automatiquement : on attend sa fin
+        let secours = null;                    // Reprise du défilement si la vidéo ne démarre pas
+
+        /* --- Vidéos : lecture automatique (sans le son) de la diapositive affichée ---
+           Le défilement automatique attend la fin de la vidéo, puis passe à la suivante.
+           Lecture automatique bloquée par le navigateur : reprise normale après 8 s. */
+        function finVideo() {
+            clearTimeout(secours);
+            if (!videoEnCours) return;
+            videoEnCours = false;
+            if (enLecture && !survol && !focusDedans) afficher(index + 1);
+            actualiserDefilement();
+        }
+
+        function attendreVideo() {
+            videoEnCours = true;
+            actualiserDefilement(); // Suspend la minuterie pendant la vidéo
+            clearTimeout(secours);
+            secours = setTimeout(() => {
+                if (videoEnCours) {
+                    videoEnCours = false; // La vidéo n'a pas démarré : défilement normal
+                    actualiserDefilement();
+                }
+            }, 8000);
+        }
+
+        function lancerVideoAuto(diapo) {
+            clearTimeout(secours);
+            videoEnCours = false;
+            if (!enLecture || reduceMotion.matches) return;
+
+            const video = diapo.querySelector('video');
+            if (video) {
+                video.muted = true;
+                video.playsInline = true;
+                video.dataset.auto = '1'; // Distingue ce lancement d'un clic du visiteur
+                attendreVideo();
+                video.onended = finVideo;
+                video.onplaying = () => clearTimeout(secours); // Elle joue : on attend sa fin
+                const lecture = video.play();
+                if (lecture && lecture.catch) lecture.catch(() => { /* bloquée : le secours reprend la main */ });
+                return;
+            }
+
+            const facade = diapo.querySelector('.yt-facade');
+            if (facade) {
+                const iframe = lancerYoutube(facade, true);
+                if (!iframe) return;
+                attendreVideo();
+                suivreYoutube(iframe, (etat) => {
+                    if (diapos[index] !== diapo) return; // Diapositive déjà quittée
+                    if (etat === 1) clearTimeout(secours); // Elle joue : on attend sa fin
+                    if (etat === 0) finVideo();
+                });
+            }
+        }
 
         /* --- Affichage d'une diapositive --- */
         function afficher(numero) {
@@ -124,6 +226,7 @@
                 else point.removeAttribute('aria-current');
             });
             if (precedent !== index) arreterVideos(diapos[precedent]);
+            lancerVideoAuto(diapos[index]);
 
             // Images des diapositives voisines chargées à l'avance (pas d'image vide en arrivant)
             [index - 1, index + 1].forEach(n => {
@@ -133,7 +236,7 @@
 
         /* --- Défilement automatique --- */
         function actualiserDefilement() {
-            const actif = enLecture && !survol && !focusDedans && !document.hidden;
+            const actif = enLecture && !survol && !focusDedans && !document.hidden && !videoEnCours;
             if (actif && !minuterie) {
                 minuterie = setInterval(() => afficher(index + 1), DELAI_DEFILEMENT);
             } else if (!actif && minuterie) {
@@ -189,7 +292,10 @@
         piste.addEventListener('click', (e) => {
             if (e.target.closest('.yt-facade')) changerLecture(false);
         });
-        piste.addEventListener('play', () => changerLecture(false), true);
+        piste.addEventListener('play', (e) => {
+            if (e.target.dataset && e.target.dataset.auto === '1') return; // Lancement automatique
+            changerLecture(false);
+        }, true);
 
         /* --- Glisser au doigt (ou à la souris) : pointer events --- */
         let depart = null;       // Position du doigt au début du geste
@@ -255,8 +361,8 @@
         fenetre.addEventListener('dragstart', (e) => e.preventDefault());
 
         /* --- Démarrage --- */
-        afficher(0);
         appliquerPreferenceMouvement();
+        afficher(0); // Lance aussi la vidéo de la 1re diapositive s'il y en a une
         if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', appliquerPreferenceMouvement);
     }
 
