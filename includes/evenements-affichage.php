@@ -81,7 +81,7 @@ function afficher_visuel_evenement(array $evenement, bool $prioritaire = false):
 
     if ($media['type'] === 'video') {
         // #t=0.1 : le navigateur affiche la première image de la vidéo
-        echo '<video class="evt-visuel" src="' . e(lien_site($media['url'])) . '#t=0.1" muted preload="metadata" playsinline'
+        echo '<video class="evt-visuel" src="' . e(lien_site($media['url'])) . '#t=0.1" muted preload="metadata" playsinline controlslist="nodownload" disablepictureinpicture'
             . ' aria-label="' . e($alt) . '"></video>' . "\n";
         echo '<span class="evt-pastille-lecture" aria-hidden="true">' . icone_lecture() . "</span>\n";
         return;

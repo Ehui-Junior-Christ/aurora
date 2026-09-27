@@ -126,7 +126,7 @@ require __DIR__ . '/partials/header.php';
                             </button>
                             <?php elseif ($media['type'] === 'video'): ?>
                             <div class="evt-galerie-cadre">
-                                <video src="<?= e(lien_site($media['url'])) ?>" controls preload="metadata" playsinline aria-label="<?= e($alt) ?>"></video>
+                                <video src="<?= e(lien_site($media['url'])) ?>" controls controlslist="nodownload noremoteplayback" disablepictureinpicture preload="metadata" playsinline aria-label="<?= e($alt) ?>"></video>
                             </div>
                             <?php else: ?>
                             <div class="evt-galerie-cadre">

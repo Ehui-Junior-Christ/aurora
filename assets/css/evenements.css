@@ -915,3 +915,17 @@
     border-left: 3px solid var(--color-gold);
     padding-left: var(--space-1);
 }
+
+/* Protection des photos / vidéos : pas de sélection ni de menu "enregistrer"
+   à l'appui long sur mobile (complète la section 4 de assets/js/evenements.js) */
+.evt-visuel,
+.carrousel img,
+.carrousel video,
+.evt-galerie img,
+.evt-galerie video,
+.visionneuse img {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+}

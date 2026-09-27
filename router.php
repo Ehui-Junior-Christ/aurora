@@ -28,6 +28,16 @@ if (preg_match('#^/medias(/|$)#i', $chemin) && !preg_match('#^/medias/[^/]+/[A-Z
     http_response_code(403);
     exit('Accès interdit');
 }
+// 1b bis. Anti-téléchargement direct (même règle que medias/evenements/.htaccess) :
+//     une photo / vidéo n'est servie que si elle est demandée par une page du site
+if (preg_match('#^/medias/#i', $chemin)) {
+    $origine = parse_url($_SERVER['HTTP_REFERER'] ?? '', PHP_URL_HOST);
+    $site    = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '');
+    if (!$origine || strcasecmp($origine, $site) !== 0) {
+        http_response_code(403);
+        exit('Accès interdit');
+    }
+}
 
 // 1c. Script réservé à la ligne de commande et fichiers techniques (dossiers cachés
 //     comme .git, lanceur .bat, script SQL, ce routeur) : on fait comme s'ils n'existaient pas

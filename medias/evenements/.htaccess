@@ -16,3 +16,14 @@ Options -Indexes
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
 </IfModule>
+
+# ANTI-TÉLÉCHARGEMENT DIRECT : une photo ou une vidéo n'est envoyée que si elle
+# est demandée par une page de CE site (en-tête Referer = même nom de domaine).
+# Adresse tapée directement, "ouvrir dans un nouvel onglet", affichage depuis un
+# autre site : accès refusé (403). (Le motif \1 vérifie que le domaine du
+# Referer est identique au domaine du site.)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_HOST}@@%{HTTP_REFERER} !^([^@]+)@@https?://\1(:\d+)?/ [NC]
+    RewriteRule \.(jpe?g|png|webp|mp4|webm)$ - [F,NC]
+</IfModule>

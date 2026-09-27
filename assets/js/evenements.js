@@ -32,7 +32,7 @@
 
         const iframe = document.createElement('iframe');
         iframe.className = 'yt-iframe';
-        iframe.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1'
+        iframe.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1'
             + (auto ? '&mute=1' : '');
         iframe.title = facade.dataset.titre || 'Vidéo YouTube';
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
@@ -46,45 +46,6 @@
         return iframe;
     }
 
-    /* État des lecteurs YouTube (lecture, fin) reçu par messages : pas besoin de
-       charger la bibliothèque YouTube. Le lecteur n'envoie ces messages qu'après
-       un message "listening" de notre part (envoyé quand il a fini de charger). */
-    const suiviYoutube = new Map(); // fenêtre du lecteur -> fonction(état)
-
-    function suivreYoutube(iframe, surEtat) {
-        iframe.addEventListener('load', () => {
-            if (!iframe.contentWindow) return;
-            suiviYoutube.set(iframe.contentWindow, surEtat);
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
-        });
-    }
-
-    window.addEventListener('message', (e) => {
-        if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
-        const surEtat = suiviYoutube.get(e.source);
-        if (!surEtat || typeof e.data !== 'string') return;
-        let donnees;
-        try { donnees = JSON.parse(e.data); } catch (erreur) { return; }
-        // États YouTube : 1 = lecture, 0 = terminée
-        if (donnees.event === 'onStateChange') surEtat(donnees.info);
-        else if (donnees.event === 'infoDelivery' && donnees.info && typeof donnees.info.playerState === 'number') {
-            surEtat(donnees.info.playerState);
-        }
-    });
-
-    // Remet la miniature à la place du lecteur (vidéo arrêtée), ex. quand la
-    // diapositive du carrousel qui la contient est masquée
-    function arreterVideos(conteneur) {
-        conteneur.querySelectorAll('.yt-iframe').forEach(iframe => {
-            const facade = facadesRemplacees.get(iframe);
-            if (facade) {
-                iframe.replaceWith(facade);
-                facadesRemplacees.delete(iframe);
-            }
-        });
-        conteneur.querySelectorAll('video').forEach(video => video.pause());
-    }
-
     document.addEventListener('click', (e) => {
         const facade = e.target.closest('.yt-facade');
         if (facade) lancerYoutube(facade);
@@ -93,7 +54,7 @@
     /* ==========================================================================
        2. CARROUSEL
        ========================================================================== */
-    const DELAI_DEFILEMENT = 6500; // Millisecondes entre deux diapositives
+    const DELAI_DEFILEMENT = 5000; // Millisecondes entre deux diapositives (photos ET vidéos)
     const FOCUSABLES = 'a[href], button, video[controls], iframe, [tabindex]';
 
     // Masque (ou réaffiche) une diapositive pour tous : yeux, clavier, lecteurs d'écran
@@ -157,35 +118,12 @@
         let survol = false;                    // Souris au-dessus du carrousel
         let focusDedans = false;               // Focus clavier dans le carrousel
         let minuterie = null;
-        let videoEnCours = false;              // Vidéo lancée automatiquement : on attend sa fin
-        let secours = null;                    // Reprise du défilement si la vidéo ne démarre pas
 
         /* --- Vidéos : lecture automatique (sans le son) de la diapositive affichée ---
-           Le défilement automatique attend la fin de la vidéo, puis passe à la suivante.
-           Lecture automatique bloquée par le navigateur : reprise normale après 8 s. */
-        function finVideo() {
-            clearTimeout(secours);
-            if (!videoEnCours) return;
-            videoEnCours = false;
-            if (enLecture && !survol && !focusDedans) afficher(index + 1);
-            actualiserDefilement();
-        }
-
-        function attendreVideo() {
-            videoEnCours = true;
-            actualiserDefilement(); // Suspend la minuterie pendant la vidéo
-            clearTimeout(secours);
-            secours = setTimeout(() => {
-                if (videoEnCours) {
-                    videoEnCours = false; // La vidéo n'a pas démarré : défilement normal
-                    actualiserDefilement();
-                }
-            }, 8000);
-        }
-
+           Le carrousel garde son rythme régulier (toutes les 5 s) : la vidéo joue
+           pendant que sa diapositive est affichée, puis s'arrête quand on la quitte.
+           (Les navigateurs n'autorisent la lecture automatique que sans le son.) */
         function lancerVideoAuto(diapo) {
-            clearTimeout(secours);
-            videoEnCours = false;
             if (!enLecture || reduceMotion.matches) return;
 
             const video = diapo.querySelector('video');
@@ -193,25 +131,12 @@
                 video.muted = true;
                 video.playsInline = true;
                 video.dataset.auto = '1'; // Distingue ce lancement d'un clic du visiteur
-                attendreVideo();
-                video.onended = finVideo;
-                video.onplaying = () => clearTimeout(secours); // Elle joue : on attend sa fin
                 const lecture = video.play();
-                if (lecture && lecture.catch) lecture.catch(() => { /* bloquée : le secours reprend la main */ });
+                if (lecture && lecture.catch) lecture.catch(() => { /* lecture bloquée : on reste sur l'image */ });
                 return;
             }
-
             const facade = diapo.querySelector('.yt-facade');
-            if (facade) {
-                const iframe = lancerYoutube(facade, true);
-                if (!iframe) return;
-                attendreVideo();
-                suivreYoutube(iframe, (etat) => {
-                    if (diapos[index] !== diapo) return; // Diapositive déjà quittée
-                    if (etat === 1) clearTimeout(secours); // Elle joue : on attend sa fin
-                    if (etat === 0) finVideo();
-                });
-            }
+            if (facade) lancerYoutube(facade, true);
         }
 
         /* --- Affichage d'une diapositive --- */
@@ -236,7 +161,7 @@
 
         /* --- Défilement automatique --- */
         function actualiserDefilement() {
-            const actif = enLecture && !survol && !focusDedans && !document.hidden && !videoEnCours;
+            const actif = enLecture && !survol && !focusDedans && !document.hidden;
             if (actif && !minuterie) {
                 minuterie = setInterval(() => afficher(index + 1), DELAI_DEFILEMENT);
             } else if (!actif && minuterie) {
@@ -480,4 +405,26 @@
         scene.addEventListener('pointercancel', () => { departX = null; });
         image.addEventListener('dragstart', (e) => e.preventDefault());
     }
+
+    /* ==========================================================================
+       4. PROTECTION DES PHOTOS ET VIDÉOS DES ÉVÉNEMENTS
+       Rend le téléchargement direct plus difficile : pas de menu du clic droit
+       ("Enregistrer l'image sous..."), pas de glisser-déposer, pas de bouton
+       de téléchargement dans les lecteurs vidéo. (Le serveur refuse aussi
+       l'accès direct aux fichiers : voir medias/evenements/.htaccess.)
+       Une capture d'écran reste toujours possible : aucune protection web
+       ne peut l'empêcher.
+       ========================================================================== */
+    const MEDIAS_PROTEGES = '.evt-visuel, .carrousel img, .carrousel video, .evt-galerie img, .evt-galerie video, .visionneuse img, .yt-facade img';
+
+    document.addEventListener('contextmenu', (e) => {
+        if (e.target.closest(MEDIAS_PROTEGES)) e.preventDefault();
+    });
+    document.addEventListener('dragstart', (e) => {
+        if (e.target.closest(MEDIAS_PROTEGES)) e.preventDefault();
+    });
+    document.querySelectorAll('video').forEach(video => {
+        video.setAttribute('controlslist', 'nodownload noremoteplayback');
+        video.disablePictureInPicture = true;
+    });
 })();
