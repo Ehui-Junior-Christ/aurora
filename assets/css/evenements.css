@@ -906,3 +906,12 @@
         display: flex;
     }
 }
+
+/* Légende de la photo / vidéo affichée (carrousel : une diapositive par média) */
+.carrousel-legende {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-white);
+    border-left: 3px solid var(--color-gold);
+    padding-left: var(--space-1);
+}

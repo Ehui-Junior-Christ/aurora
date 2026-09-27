@@ -95,6 +95,40 @@ function afficher_visuel_evenement(array $evenement, bool $prioritaire = false):
 }
 
 /**
+ * Diapositives du carrousel : UNE diapositive par photo / vidéo ajoutée dans
+ * l'admin (et non une par événement), pour faire défiler toutes les images.
+ * Chaque diapositive reprend l'événement, avec :
+ *   - 'couverture'     : le média affiché sur cette diapositive
+ *   - 'legende_diapo'  : sa légende (ou '')
+ *   - 'position_media' : ex. "Photo 2 sur 3" (ou '' s'il n'y a qu'un média)
+ * Un événement sans média garde une diapositive (visuel de remplacement).
+ * $maximum : nombre total de diapositives (évite un carrousel interminable).
+ */
+function diapositives_carrousel(array $evenements, int $maximum = 15): array
+{
+    $diapos = [];
+    foreach ($evenements as $evenement) {
+        $medias = $evenement['medias'] ?: [null];
+        $total  = count($evenement['medias']);
+
+        foreach ($medias as $rang => $media) {
+            $diapo                   = $evenement;
+            $diapo['couverture']     = $media;
+            $diapo['legende_diapo']  = $media['legende'] ?? '';
+            $diapo['position_media'] = $total > 1
+                ? ($media['type'] === 'image' ? 'Photo' : 'Vidéo') . ' ' . ($rang + 1) . ' sur ' . $total
+                : '';
+            $diapos[] = $diapo;
+
+            if (count($diapos) >= $maximum) {
+                return $diapos;
+            }
+        }
+    }
+    return $diapos;
+}
+
+/**
  * Icône "lecture" (triangle) en SVG, décorative.
  */
 function icone_lecture(): string
