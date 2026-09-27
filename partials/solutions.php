@@ -32,7 +32,7 @@
                     <form class="search-form" action="<?= e(lien_site('api/recherche.php')) ?>" method="post">
                         <div class="search-main-input">
                             <label for="recherche-q" class="sr-only">Métier ou poste recherché</label>
-                            <input type="text" id="recherche-q" name="q" placeholder="Ex. : Agent d'entretien, Comptable, Vendeur... (ou laissez vide pour tout voir)">
+                            <input type="text" id="recherche-q" name="q" placeholder="Métier (ou vide pour tout voir)">
                             <button type="submit" class="btn btn-primary">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                 Rechercher
@@ -46,7 +46,7 @@
                                 <?php endforeach; ?>
                             </select>
                             <select name="experience" aria-label="Niveau d'expérience">
-                                <option value="">Niveau d'expérience</option>
+                                <option value="">Expérience</option>
                                 <?php foreach ($niveaux_experience as $niveau): ?>
                                 <option><?= e($niveau) ?></option>
                                 <?php endforeach; ?>

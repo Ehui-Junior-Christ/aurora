@@ -128,7 +128,7 @@ function admin_pied(): void
 function paginer(int $total, int $par_page = 50): array
 {
     $pages = max(1, (int) ceil($total / $par_page));
-    $page  = min($pages, max(1, (int) ($_GET['page'] ?? 1)));
+    $page  = min($pages, max(1, entier($_GET, 'page', 1)));
 
     return [
         'page'     => $page,

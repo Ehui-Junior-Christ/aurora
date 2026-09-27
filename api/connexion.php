@@ -14,6 +14,7 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/fonctions.php';
 require_once __DIR__ . '/../includes/anti-force-brute.php';
+require_once __DIR__ . '/../includes/auth-client.php'; // memoriser_client()
 
 // 1. Sécurité et champs
 exiger_post();
@@ -51,8 +52,7 @@ try {
 
 // 5. Connexion réussie : nouvel identifiant de session (sécurité) + mémorisation du client
 session_regenerate_id(true);
-$_SESSION['client_id']         = (int) $client['id'];
-$_SESSION['client_entreprise'] = $client['entreprise'];
+memoriser_client((int) $client['id'], $client['entreprise'], $client['mot_de_passe']);
 
 // Adresse du tableau de bord à partir de la racine du site (ex. "/espace-client/", ou
 // "/cafpm/espace-client/" si le site est dans un sous-dossier) : fonctionne depuis n'importe quelle page

@@ -929,3 +929,15 @@
     -webkit-touch-callout: none;
     -webkit-user-drag: none;
 }
+
+/* Grand carrousel : bouton lecture YouTube placé AU-DESSUS du texte (plus sur le titre) */
+.carrousel-grand .yt-facade .evt-pastille-lecture {
+    top: 32%;
+}
+@media (max-width: 768px) {
+    .carrousel-grand .yt-facade .evt-pastille-lecture { top: 50%; } /* Texte sous la photo : bouton centré */
+}
+/* Vidéo YouTube lancée : le compteur "Vidéo n sur N" ne recouvre plus le lecteur */
+.carrousel-media:has(.yt-iframe) .evt-compteur {
+    display: none;
+}

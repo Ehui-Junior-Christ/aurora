@@ -56,7 +56,7 @@ espace_entete('Tableau de bord', $client);
                         Aucune demande pour le moment.
                     <?php else: ?>
                         <?= count($demandes) ?> demande<?= count($demandes) > 1 ? 's' : '' ?>
-                        &middot; <?= $en_cours ?> en cours de traitement
+                        &middot; <?= $en_cours ?> non terminée<?= $en_cours > 1 ? 's' : '' ?>
                     <?php endif; ?>
                 </p>
             </div>

@@ -23,7 +23,7 @@ require_once __DIR__ . '/../includes/evenements.php';
 $admin = exiger_admin();
 
 // 1. Événement demandé (0 = création)
-$id        = max(0, (int) ($_GET['id'] ?? 0));
+$id        = max(0, entier($_GET, 'id'));
 $evenement = null;
 $medias    = [];
 
@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 2d. Suppression d'un média (vérifie qu'il appartient bien à cet événement)
         if ($action === 'media_supprimer' && $evenement) {
-            $media_id = (int) ($_POST['media_id'] ?? 0);
+            $media_id = entier($_POST, 'media_id');
             $requete  = db()->prepare('SELECT fichier FROM evenement_medias WHERE id = ? AND evenement_id = ?');
             $requete->execute([$media_id, $id]);
             $fichier = $requete->fetchColumn();

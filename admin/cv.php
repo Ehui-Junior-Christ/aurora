@@ -16,7 +16,7 @@ require_once __DIR__ . '/../includes/auth-admin.php';
 exiger_admin();
 
 // 2. Recherche du candidat
-$id = (int) ($_GET['id'] ?? 0);
+$id = entier($_GET, 'id');
 try {
     $requete = db()->prepare('SELECT nom, fichier_cv FROM candidats WHERE id = ? LIMIT 1');
     $requete->execute([$id]);

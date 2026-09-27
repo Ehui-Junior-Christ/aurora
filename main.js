@@ -62,6 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById(modalId);
         if (!modal) return;
         if (activeModal && activeModal !== modal) closeModal(false);
+        // Une notification encore affichée ne doit pas cacher le bas de la fenêtre
+        document.querySelectorAll('.toast.show').forEach(t => t.classList.remove('show'));
 
         lastTrigger = trigger || document.activeElement;
         modal.classList.add('active');

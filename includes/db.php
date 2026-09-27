@@ -34,6 +34,9 @@ function db(): PDO
             PDO::ATTR_TIMEOUT            => 2,                      // Abandon après 2 s si MySQL ne répond pas (le site reste rapide)
         ]);
 
+        // Même heure que PHP (Abidjan = UTC+0) pour les dates "il y a…" et les statistiques
+        $pdo->exec("SET time_zone = '+00:00'");
+
         installer_tables($pdo);
     }
 

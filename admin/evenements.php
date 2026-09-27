@@ -20,7 +20,7 @@ $admin = exiger_admin();
 // 1. Suppression d'un événement
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = champ('action', 20);
-    $id     = (int) ($_POST['id'] ?? 0);
+    $id     = entier($_POST, 'id');
 
     if (!csrf_valide()) {
         flash('erreur', 'Session expirée. Veuillez réessayer.');

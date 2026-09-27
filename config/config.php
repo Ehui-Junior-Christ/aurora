@@ -65,6 +65,7 @@ if (!defined('SITE_URL')) {
 /* --- 7. Démarrage de la session (sécurité CSRF, espace client, back-office admin)
    Pas de session en ligne de commande (ex. script admin/creer-admin.php). --- */
 if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    ini_set('session.gc_maxlifetime', '7200'); // Sessions gardées 2 h (comme la déconnexion pour inactivité)
     session_start([
         'cookie_httponly' => true,   // Cookie inaccessible au JavaScript
         'cookie_samesite' => 'Lax',  // Protection contre les requêtes externes

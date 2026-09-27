@@ -1257,7 +1257,7 @@ img {
 /* Icône affichée selon l'état (voir main.js) */
 .toast-icone-succes { color: #4ADE80; }
 .toast-icone-erreur { color: #F87171; display: none; }
-.toast.toast-erreur { border-left-color: var(--color-erreur); }
+.toast.toast-erreur { border-left-color: var(--color-erreur); background: #7F1D1D; } /* Fond rouge foncé : erreur visible d'un coup d'œil */
 .toast.toast-erreur .toast-icone-succes { display: none; }
 .toast.toast-erreur .toast-icone-erreur { display: block; }
 /* Toast de recherche : icône loupe jaune */
@@ -2004,6 +2004,9 @@ img {
 /* ==========================================================================
    TEXTES JUSTIFIÉS (toutes les sections)
    ========================================================================== */
+.bandeau-cta p,
+.encart-newsletter p,
+.form-mention,
 .hero-content p,
 .about-text p,
 .search-left p,
@@ -2394,4 +2397,22 @@ body.cookies-ouvert {
     }
     .cookies-actions .cookies-bouton { flex: 1; min-width: 0; }
     .footer-legal .lien-cookies { margin-left: 0; margin-right: var(--space-2); }
+}
+
+/* ==========================================================================
+   CORRECTIONS DE RECETTE (tests du site public)
+   ========================================================================== */
+/* Mobile / tablette : le voile sombre passe AU-DESSUS de la photo du hero
+   (texte blanc lisible), le texte au-dessus du voile */
+@media (max-width: 768px) {
+    .hero-bg { z-index: 0; }
+    .hero::before { z-index: 1; }
+    .hero-inner { z-index: 2; }
+}
+
+/* Liens "Lire la suite" / "En savoir plus" : zone de clic d'au moins 24 px (mobile) */
+.news-link,
+.link-arrow {
+    display: inline-block;
+    padding-block: 3px;
 }

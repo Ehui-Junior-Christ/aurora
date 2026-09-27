@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 1b. Suppression d'un compte
         if ($action === 'supprimer') {
-            $id  = (int) ($_POST['id'] ?? 0);
+            $id  = entier($_POST, 'id');
             $pdo = db();
             $pdo->beginTransaction();
             $pdo->prepare('UPDATE demandes SET client_id = NULL WHERE client_id = ?')->execute([$id]);

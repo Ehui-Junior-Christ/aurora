@@ -22,7 +22,7 @@ $entreprise    = champ('entreprise', 150);
 $contact       = champ('contact', 150);
 $secteur       = champ('secteur', 100);
 $profil        = champ('profil', 150);
-$nombre_postes = (int) ($_POST['nombre_postes'] ?? 0);
+$nombre_postes = entier($_POST, 'nombre_postes');
 $message       = champ('message', 2000);
 
 // Contrôle : champs obligatoires

@@ -33,12 +33,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('erreur', $erreur_mdp);
         } else {
             // Nouveau hash + annulation des éventuels liens "mot de passe oublié" encore valides
+            $nouveau_hash = password_hash($nouveau, PASSWORD_DEFAULT);
             db()->prepare('UPDATE clients SET mot_de_passe = ? WHERE id = ?')
-                ->execute([password_hash($nouveau, PASSWORD_DEFAULT), $client['id']]);
+                ->execute([$nouveau_hash, $client['id']]);
             db()->prepare('UPDATE reinitialisations SET utilise = 1 WHERE client_id = ?')
                 ->execute([$client['id']]);
 
             session_regenerate_id(true); // Nouvel identifiant de session par sécurité
+            // Cette session reste connectée ; les autres sessions (ancien mot de passe) sont déconnectées
+            memoriser_client((int) $client['id'], $client['entreprise'], $nouveau_hash);
             flash('succes', 'Votre mot de passe a bien été modifié.');
             rediriger('index.php');
         }

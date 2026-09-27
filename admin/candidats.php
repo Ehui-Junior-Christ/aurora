@@ -18,7 +18,7 @@ $admin = exiger_admin();
 
 // 1. Changement de statut d'un candidat
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id     = (int) ($_POST['id'] ?? 0);
+    $id     = entier($_POST, 'id');
     $statut = champ('statut', 20);
 
     if (!csrf_valide()) {

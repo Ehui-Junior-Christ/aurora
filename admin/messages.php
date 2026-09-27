@@ -14,7 +14,7 @@ $admin = exiger_admin();
 
 // 1. Marquer lu / non lu
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id = (int) ($_POST['id'] ?? 0);
+    $id = entier($_POST, 'id');
     $lu = ($_POST['lu'] ?? '') === '1' ? 1 : 0;
 
     if (!csrf_valide()) {

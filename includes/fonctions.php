@@ -21,6 +21,7 @@
    - il_y_a()         : date relative ("il y a 2 h", "hier", "12 sept.")
    - date_du_jour()   : date du jour en toutes lettres ("jeudi 24 septembre")
    - version_fichier() : "?v=..." à ajouter aux fichiers CSS/JS (anti-cache)
+   - entier()         : lit un nombre entier dans $_GET / $_POST (tableau refusé)
    - erreur_mot_de_passe() : contrôle la solidité d'un nouveau mot de passe
    - libelle_statut() : texte lisible d'un statut de demande
    ========================================================================== */
@@ -252,6 +253,17 @@ function il_y_a(?string $date): string
     $mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
     $texte = (int) date('j', $moment) . ' ' . $mois[(int) date('n', $moment) - 1];
     return date('Y', $moment) === date('Y') ? $texte : $texte . ' ' . date('Y', $moment);
+}
+
+/**
+ * Lit un nombre entier envoyé dans l'adresse ou un formulaire, ex. entier($_POST, 'id').
+ * Une valeur qui n'est pas un simple nombre (ex. un tableau "?id[]=5", que PHP
+ * convertirait en 1) donne la valeur par défaut.
+ */
+function entier(array $source, string $cle, int $defaut = 0): int
+{
+    $valeur = $source[$cle] ?? null;
+    return (is_string($valeur) || is_int($valeur)) && is_numeric($valeur) ? (int) $valeur : $defaut;
 }
 
 /**

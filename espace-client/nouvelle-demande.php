@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!csrf_valide()) {
         flash('erreur', 'Session expirée. Veuillez renvoyer le formulaire.');
-    } elseif ($valeurs['contact'] === '' || $valeurs['secteur'] === '' || $valeurs['profil'] === ''
+    } elseif ($valeurs['contact'] === '' || !in_array($valeurs['secteur'], $domaines, true) || $valeurs['profil'] === ''
               || $nombre_postes < 1 || $nombre_postes > 9999) {
         flash('erreur', 'Merci de remplir tous les champs obligatoires.');
     } else {

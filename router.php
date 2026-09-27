@@ -15,6 +15,13 @@
 $chemin_brut = (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); // Tel que tapé (ex. /mon%20fichier)
 $chemin      = rawurldecode($chemin_brut);                                   // Décodé (ex. /mon fichier)
 
+// 0. Antislash "\" ou octet nul dans l'adresse : sous Windows, "\" sert de separateur de
+//    dossiers et permettrait de contourner les regles ci-dessous (ex. /uploads%5ccv%5c...)
+if (strpbrk($chemin, "\\\0") !== false) {
+    http_response_code(404);
+    exit('Page introuvable');
+}
+
 // 1a. Dossiers interdits au navigateur (CV des candidats, configuration, etc.)
 if (preg_match('#^/(config|includes|partials|database|uploads)(/|$)#i', $chemin)) {
     http_response_code(403);
