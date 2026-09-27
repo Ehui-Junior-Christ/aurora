@@ -294,6 +294,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const ok = result && result.succes === true;
             showToast(toastEl, result && result.message, !ok);
 
+            // Signale l'envoi réussi (statistiques de visite : assets/js/consentement.js).
+            // Émis avant onSuccess, qui peut vider le formulaire.
+            if (ok) document.dispatchEvent(new CustomEvent('cafpm:formulaire-envoye', { detail: { form, result } }));
+
             if (ok && onSuccess) onSuccess(result);
 
             // Le serveur peut demander une redirection (ex. connexion -> espace-client/) :

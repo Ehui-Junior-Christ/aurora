@@ -27,6 +27,7 @@ $traitements = [
     ['Formulaire de contact', 'Nom, email, téléphone (facultatif), sujet, message', 'Répondre à votre demande', '1 an à compter du dernier échange'],
     ['Newsletter', 'Adresse email', 'Vous envoyer nos actualités, offres et dates de formation', "Jusqu'à votre désinscription"],
     ['Espace client', 'Adresse email, mot de passe (enregistré sous forme chiffrée, jamais en clair)', 'Vous permettre de suivre vos demandes en toute sécurité', 'Pendant la durée de la relation commerciale'],
+    ['Statistiques de visite (uniquement si vous les acceptez, voir la section 7)', "Identifiant aléatoire, pages consultées, site de provenance (domaine), type d'appareil, actions effectuées sur le site (sans le contenu des formulaires), date et heure. Pas d'adresse IP", 'Mesurer la fréquentation du site et améliorer nos services', '13 mois, puis effacement automatique'],
 ];
 
 require __DIR__ . '/partials/header.php';
@@ -44,7 +45,7 @@ require __DIR__ . '/partials/header.php';
                     <p>Formalités auprès de l'ARTCI : <span class="a-completer">[À compléter : référence du récépissé de déclaration ou de l'autorisation délivrée par l'ARTCI]</span></p>
 
                     <h2>2. Données collectées, finalités et durées de conservation</h2>
-                    <p>Nous collectons uniquement les données que vous nous transmettez volontairement via les formulaires du site :</p>
+                    <p>Nous collectons uniquement les données que vous nous transmettez volontairement via les formulaires du site, ainsi que, si vous les acceptez, des statistiques de visite rattachées à un identifiant aléatoire (et non à votre identité) :</p>
                 </div>
 
                 <div class="tableau-conteneur" tabindex="0">
@@ -72,7 +73,7 @@ require __DIR__ . '/partials/header.php';
 
                 <div class="prose prose-legale">
                     <p class="a-completer">[À valider par CAFPM : durées de conservation proposées ci-dessus]</p>
-                    <p>Les critères saisis dans la barre de recherche de profils ne sont pas enregistrés : ils servent uniquement à afficher les profils anonymes correspondants. En cas d'échec de connexion à l'espace client, l'adresse IP et l'email saisi sont conservés au maximum 24 heures, afin de protéger les comptes contre les tentatives d'intrusion.</p>
+                    <p>Les critères saisis dans la barre de recherche de profils servent à afficher les profils anonymes correspondants. Ils ne sont pas conservés, sauf si vous avez accepté les statistiques de visite : le métier recherché et le nombre de résultats sont alors comptés, sans aucune donnée permettant de vous identifier (voir la section 7). En cas d'échec de connexion à l'espace client, l'adresse IP et l'email saisi sont conservés au maximum 24 heures, afin de protéger les comptes contre les tentatives d'intrusion.</p>
 
                     <h2>3. Base légale des traitements</h2>
                     <p>Selon les cas, le traitement de vos données repose sur :</p>
@@ -100,9 +101,11 @@ require __DIR__ . '/partials/header.php';
                     <p>Pour exercer ces droits, écrivez-nous à <a href="mailto:<?= e(EMAIL_RECEPTION) ?>"><?= e(EMAIL_RECEPTION) ?></a> ou via notre <a href="<?= e(lien_site('contact.php?sujet=Autre')) ?>">formulaire de contact</a>, en précisant votre demande. Une preuve d'identité pourra vous être demandée. Nous vous répondons dans les meilleurs délais.</p>
                     <p>Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de l'Autorité de Régulation des Télécommunications/TIC de Côte d'Ivoire (ARTCI), autorité de protection des données à caractère personnel : <a href="https://www.artci.ci" target="_blank" rel="noopener">www.artci.ci</a>.</p>
 
-                    <h2>7. Cookies</h2>
-                    <p>Le site utilise uniquement un cookie technique de session, indispensable à la sécurité des formulaires et à la connexion à l'espace client. Il est supprimé à la fermeture du navigateur. Aucun cookie publicitaire ou de mesure d'audience n'est utilisé.</p>
-                    <p>Les polices de caractères du site sont chargées depuis le service Google Fonts : à cette occasion, votre navigateur transmet votre adresse IP aux serveurs de Google. Aucune autre donnée n'est partagée avec ce service.</p>
+                    <h2>7. Cookies et statistiques de visite</h2>
+                    <p>Le site utilise un cookie technique de session, indispensable à la sécurité des formulaires et à la connexion à l'espace client (supprimé à la fermeture du navigateur), ainsi qu'un cookie qui mémorise pendant 6 mois votre choix dans le bandeau de cookies. Aucun cookie publicitaire n'est utilisé.</p>
+                    <p>Avec votre accord uniquement, nous mesurons la fréquentation du site à l'aide de statistiques hébergées sur notre propre serveur, sans service tiers : pages consultées, site de provenance (nom de domaine seulement), type d'appareil et certaines actions (ouverture et envoi réussi des formulaires, recherche de profils, lecture de vidéos, clics sur nos coordonnées). Ces informations sont rattachées à un identifiant aléatoire (cookie <strong>cafpm_visiteur</strong>, 13 mois maximum) et non à votre identité ; votre adresse IP n'est pas enregistrée. Elles sont <strong>conservées 13 mois</strong>, puis effacées automatiquement. <span class="a-completer">[À valider par CAFPM : durée de conservation des statistiques]</span></p>
+                    <p>Les polices de caractères du site sont chargées depuis le service Google Fonts, et les vidéos des événements peuvent être lues avec le lecteur YouTube : à cette occasion, votre adresse IP est transmise à Google.</p>
+                    <p>Le détail des cookies, leurs durées et la manière de retirer votre consentement à tout moment figurent dans notre <a href="<?= e(lien_site('cookies.php')) ?>">politique de cookies</a>.</p>
 
                     <h2>8. Modification de la politique</h2>
                     <p>Cette politique peut être mise à jour pour tenir compte de l'évolution de nos services ou de la réglementation. La date de dernière mise à jour figure ci-dessous.</p>

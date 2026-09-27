@@ -46,6 +46,25 @@
         return iframe;
     }
 
+    // Remet la miniature à la place du lecteur (vidéo arrêtée), ex. quand la
+    // diapositive du carrousel qui la contient est masquée
+    function arreterVideos(conteneur) {
+        conteneur.querySelectorAll('.yt-iframe').forEach(iframe => {
+            const facade = facadesRemplacees.get(iframe);
+            if (facade) {
+                iframe.replaceWith(facade);
+                facadesRemplacees.delete(iframe);
+            }
+        });
+        conteneur.querySelectorAll('video').forEach(video => video.pause());
+    }
+
+    // Le lecteur YouTube dépose des cookies : lancement automatique seulement si
+    // le visiteur a accepté les cookies (bandeau, assets/js/consentement.js)
+    function cookiesAcceptes() {
+        return document.cookie.split('; ').includes('cafpm_consentement=oui');
+    }
+
     document.addEventListener('click', (e) => {
         const facade = e.target.closest('.yt-facade');
         if (facade) lancerYoutube(facade);
@@ -99,7 +118,7 @@
                     video.loop = true;
                     const lecture = video.play();
                     if (lecture && lecture.catch) lecture.catch(() => {});
-                } else if (facade) {
+                } else if (facade && cookiesAcceptes()) {
                     lancerYoutube(facade, true);
                 }
             }
@@ -136,7 +155,7 @@
                 return;
             }
             const facade = diapo.querySelector('.yt-facade');
-            if (facade) lancerYoutube(facade, true);
+            if (facade && cookiesAcceptes()) lancerYoutube(facade, true);
         }
 
         /* --- Affichage d'une diapositive --- */

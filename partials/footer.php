@@ -4,6 +4,7 @@
    La newsletter est envoyée à api/newsletter.php (via main.js)
    Les liens "Espace client / Candidat / Entreprise" ouvrent les fenêtres
    de modales.php ; leur href (contact.php) sert de secours sans JavaScript.
+   « Gérer les cookies » rouvre le bandeau de consentement (partials/consentement.php).
    ========================================================================== */
 $lien_accueil_pied = (($page_active ?? '') === 'accueil') ? '#hero' : lien_site('index.php');
 ?>
@@ -79,6 +80,9 @@ $lien_accueil_pied = (($page_active ?? '') === 'accueil') ? '#hero' : lien_site(
                 <nav class="footer-legal" aria-label="Informations légales">
                     <a href="<?= e(lien_site('mentions-legales.php')) ?>">Mentions légales</a>
                     <a href="<?= e(lien_site('confidentialite.php')) ?>">Politique de confidentialité</a>
+                    <a href="<?= e(lien_site('cookies.php')) ?>">Cookies</a>
+                    <!-- Rouvre le bandeau de cookies (assets/js/consentement.js) -->
+                    <button type="button" class="lien-cookies" data-cookies-gerer aria-controls="cookies-bandeau">Gérer les cookies</button>
                     <a href="<?= e(lien_site('contact.php')) ?>">Contact</a>
                 </nav>
             </div>

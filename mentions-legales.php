@@ -63,7 +63,7 @@ require __DIR__ . '/partials/header.php';
 
                     <h2>6. Données personnelles et cookies</h2>
                     <p>Les données collectées via les formulaires du site (demandes de personnel, candidatures, contact, newsletter) sont traitées conformément à la loi n° 2013-450 du 19 juin 2013 relative à la protection des données à caractère personnel. Pour tout savoir sur leur utilisation et sur vos droits, consultez notre <a href="<?= e(lien_site('confidentialite.php')) ?>">politique de confidentialité</a>.</p>
-                    <p>Le site utilise uniquement un cookie technique de session, nécessaire à la sécurité des formulaires et au fonctionnement de l'espace client. Aucun cookie publicitaire ou de mesure d'audience n'est déposé.</p>
+                    <p>Le site utilise un cookie technique de session, nécessaire à la sécurité des formulaires et au fonctionnement de l'espace client, ainsi que, avec votre accord uniquement, un cookie de mesure d'audience servant à des statistiques de visite hébergées sur le site. Aucun cookie publicitaire n'est déposé. Le détail figure dans notre <a href="<?= e(lien_site('cookies.php')) ?>">politique de cookies</a>.</p>
 
                     <h2>7. Droit applicable</h2>
                     <p>Les présentes mentions légales sont régies par le droit ivoirien. En cas de litige, et à défaut de solution amiable, les juridictions d'Abidjan seront seules compétentes.</p>

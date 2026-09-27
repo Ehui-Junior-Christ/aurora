@@ -188,6 +188,57 @@ CREATE TABLE IF NOT EXISTS evenement_medias (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------------------------
+-- STATISTIQUES DE FRÉQUENTATION (hébergées sur le site, sans service tiers)
+-- Enregistrées par api/statistiques.php UNIQUEMENT si le visiteur a accepté
+-- les cookies de mesure d'audience (bandeau de consentement), consultées
+-- dans admin/statistiques.php. Aucune adresse IP ni user-agent complet.
+-- visiteur = identifiant aléatoire du cookie cafpm_visiteur (32 caractères)
+-- Lignes de plus de 13 mois effacées automatiquement (includes/statistiques.php).
+-- --------------------------------------------------------------------------
+
+-- Pages vues
+-- chemin   = adresse de la page sans paramètres (sauf ?s=, ?a=, ?e= : slugs)
+-- referent = domaine du site d'où vient le visiteur ('' = accès direct)
+-- entree   = 1 si le visiteur arrive de l'extérieur (1re page d'une visite)
+-- appareil = 'mobile' | 'tablette' | 'ordinateur' (déduit du navigateur)
+CREATE TABLE IF NOT EXISTS stats_vues (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    visiteur   CHAR(32)     NOT NULL,
+    chemin     VARCHAR(255) NOT NULL,
+    referent   VARCHAR(100) NOT NULL DEFAULT '',
+    entree     TINYINT(1)   NOT NULL DEFAULT 0,
+    appareil   VARCHAR(12)  NOT NULL DEFAULT 'ordinateur',
+    cree_le    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_vues_date (cree_le, visiteur),
+    INDEX idx_vues_chemin (chemin, cree_le)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Actions des visiteurs (clics, envois de formulaires, lectures de vidéo...)
+-- nom    = nom de l'action (liste blanche STATS_EVENEMENTS, includes/statistiques.php)
+-- detail = précision courte (métier recherché, événement consulté...)
+-- valeur = nombre associé (ex. nombre de résultats d'une recherche), sinon NULL
+CREATE TABLE IF NOT EXISTS stats_evenements (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    visiteur   CHAR(32)     NOT NULL,
+    nom        VARCHAR(40)  NOT NULL,
+    detail     VARCHAR(100) NOT NULL DEFAULT '',
+    valeur     INT NULL,
+    chemin     VARCHAR(255) NOT NULL DEFAULT '',
+    cree_le    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_evt_date (cree_le),
+    INDEX idx_evt_nom (nom, cree_le)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Choix exprimés dans le bandeau de cookies : simple compteur par jour
+-- (aucun identifiant), pour calculer le taux d'acceptation. choix = 'oui' | 'non'
+CREATE TABLE IF NOT EXISTS stats_consentements (
+    jour       DATE NOT NULL,
+    choix      VARCHAR(3) NOT NULL,
+    nombre     INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (jour, choix)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------------------------
 -- Version de la structure (utilisée par includes/db.php, ne pas modifier)
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS version_schema (

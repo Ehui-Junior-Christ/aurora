@@ -770,3 +770,107 @@
     .espace-actions .btn { width: 100%; }
     .admin-connexion { padding: var(--space-4) var(--space-3); }
 }
+
+/* ==========================================================================
+   5. STATISTIQUES (admin/statistiques.php, classes "stats-")
+   Graphique en SVG généré par le PHP : les couleurs sont données ici
+   (aucun style inline, compatible avec la CSP des pages privées).
+   ========================================================================== */
+.chiffre-fixe:hover span { color: var(--color-gray-500); text-decoration: none; }
+.stats-sous-titre { font-size: 0.8125rem; color: var(--color-gray-500); }
+.stats-panneau-graphique { margin-bottom: var(--space-3); }
+
+/* Graphique : axe (valeurs) à gauche, barres à droite, dates en dessous */
+.stats-graphique {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.stats-axe {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: calc(220px + 1em);   /* Chaque valeur centrée sur sa ligne de repère */
+    margin-top: -0.5em;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--color-gray-500);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.stats-trace svg { display: block; width: 100%; height: 220px; overflow: visible; }
+.stats-repere { stroke: var(--color-gray-200); stroke-width: 1; stroke-dasharray: 3 3; }
+.stats-base { stroke: #94A3B8; stroke-width: 1; }
+.stats-zone { fill: transparent; }
+.stats-colonne { fill: var(--color-navy); }
+.stats-jour:hover .stats-zone { fill: var(--color-gray-100); }
+.stats-jour:hover .stats-colonne { fill: #B45309; }
+.stats-dates {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    height: 1.5rem;
+    padding-top: 6px;
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+}
+.stats-dates span { display: flex; justify-content: center; white-space: nowrap; overflow: visible; }
+.stats-details { padding: 0 var(--space-3) var(--space-3); }
+.stats-details summary { cursor: pointer; color: var(--color-navy-light); font-weight: 600; font-size: 0.875rem; }
+.stats-details .tableau-conteneur { margin-top: var(--space-2); max-height: 320px; overflow-y: auto; box-shadow: none; }
+
+/* Grilles de panneaux (2 colonnes, 1 sur petit écran) */
+.stats-grille {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+    margin-bottom: var(--space-3);
+}
+
+/* Tableaux compacts dans les panneaux (pas de largeur minimale) */
+.stats-tableau { border: none; border-radius: 0 0 var(--radius-md) var(--radius-md); box-shadow: none; }
+.tableau-stats { min-width: 0; }
+.tableau-stats td, .tableau-stats th { padding: 10px var(--space-3); }
+.tableau-stats .nombre { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
+.tableau-stats tbody tr:last-child td { border-bottom: none; }
+.stats-libelle { display: block; color: var(--color-navy); }
+.stats-chemin { display: block; font-size: 0.75rem; color: var(--color-gray-500); overflow-wrap: anywhere; }
+.stats-zero td { color: #94A3B8; }
+.stats-alerte { color: #B45309; font-weight: 700; }
+.stats-note { padding: var(--space-1) var(--space-3) var(--space-2); font-size: 0.8125rem; color: var(--color-gray-500); }
+
+/* Barres de proportion sous les libellés */
+.stats-barre { display: block; width: 100%; max-width: 280px; height: 6px; margin-top: 6px; }
+.stats-barre-fond { fill: var(--color-gray-100); }
+.stats-barre-valeur { fill: var(--color-navy); }
+
+/* Listes courtes (provenance, appareils) */
+.stats-liste { list-style: none; }
+.stats-liste li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 var(--space-2);
+    padding: 12px var(--space-3);
+    font-size: 0.875rem;
+}
+.stats-liste li + li { border-top: 1px solid var(--color-gray-100); }
+.stats-liste-texte { overflow-wrap: anywhere; color: var(--color-gray-800); }
+.stats-liste-texte small { color: var(--color-gray-500); }
+.stats-liste strong { color: var(--color-navy); font-variant-numeric: tabular-nums; text-align: right; }
+.stats-liste strong small { font-weight: 500; color: var(--color-gray-500); }
+.stats-liste .stats-barre { grid-column: 1 / -1; max-width: none; }
+
+@media (max-width: 1100px) {
+    .stats-grille { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    .stats-graphique { padding: var(--space-2) var(--space-2) var(--space-1); }
+    .stats-axe { height: calc(180px + 1em); }
+    .stats-trace svg { height: 180px; }
+    .tableau-stats td, .tableau-stats th { padding: 10px var(--space-2); }
+    .stats-liste li { padding: 12px var(--space-2); }
+    .stats-details { padding: 0 var(--space-2) var(--space-2); }
+    .panneau-entete { flex-wrap: wrap; }
+}

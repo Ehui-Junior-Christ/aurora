@@ -20,13 +20,14 @@ require_once __DIR__ . '/fonctions.php';
 
 /* Menu latéral : fichier => [clé, libellé] */
 const MENU_ADMIN = [
-    'index.php'      => ['accueil',    'Tableau de bord'],
-    'demandes.php'   => ['demandes',   'Demandes'],
-    'candidats.php'  => ['candidats',  'Candidats'],
-    'evenements.php' => ['evenements', 'Événements'],
-    'messages.php'   => ['messages',   'Messages'],
-    'newsletter.php' => ['newsletter', 'Newsletter'],
-    'clients.php'    => ['clients',    'Comptes clients'],
+    'index.php'        => ['accueil',      'Tableau de bord'],
+    'statistiques.php' => ['statistiques', 'Statistiques'],
+    'demandes.php'     => ['demandes',     'Demandes'],
+    'candidats.php'    => ['candidats',    'Candidats'],
+    'evenements.php'   => ['evenements',   'Événements'],
+    'messages.php'     => ['messages',     'Messages'],
+    'newsletter.php'   => ['newsletter',   'Newsletter'],
+    'clients.php'      => ['clients',      'Comptes clients'],
 ];
 
 /**
