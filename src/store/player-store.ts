@@ -291,6 +291,158 @@ function pushMediaPosition(force = false): void {
   );
 }
 
+let lastCrossfadeId: string | null = null;
+
+/** Silence bounds of the current local track (from analyzeTrack). */
+let silence: {
+  id: string;
+  start: number;
+  end: number;
+  endFired: boolean;
+} | null = null;
+
+function loadSilenceBounds(track: Track): void {
+  silence = null;
+  if (!track.file || track.isOnline) return;
+  void getCachedAnalysis(track.id, track.file).then((analysis) => {
+    const state = usePlayer.getState();
+    if (!analysis || state.tracks[state.current]?.id !== track.id) return;
+    if (analysis.start === undefined || analysis.end === undefined) return;
+    silence = {
+      id: track.id,
+      start: analysis.start,
+      end: analysis.end,
+      endFired: false,
+    };
+    if (state.skipSilence && analysis.start > 0.5 && engine.currentTime < analysis.start - 0.3) {
+      engine.seek(analysis.start);
+    }
+  });
+}
+
+/** Effective end of the current track (trailing silence trimmed if enabled). */
+function effectiveEnd(trackId: string, duration: number): number {
+  const state = usePlayer.getState();
+  if (
+    state.skipSilence &&
+    silence &&
+    silence.id === trackId &&
+    silence.end < duration - 1
+  ) {
+    return silence.end;
+  }
+  return duration;
+}
+
+function playbackTick(): void {
+  const get = usePlayer.getState;
+  const state = get();
+  if (state.playing) pushMediaPosition();
+  const { a, b } = state.abLoop;
+  if (a !== null && b !== null && engine.currentTime >= b) {
+    engine.seek(a);
+  }
+  if (!state.playing || state.current < 0) return;
+  if (engine.ytActive) return; // crossfade / silence: local tracks only
+  const track = state.tracks[state.current];
+  if (!track) return;
+  const dur = engine.duration;
+  const time = engine.currentTime;
+  if (!Number.isFinite(dur) || dur <= 0) return;
+
+  if (state.skipSilence && silence && silence.id === track.id) {
+    if (silence.start > 0.5 && time < silence.start - 0.3 && (a === null || b === null)) {
+      engine.seek(silence.start);
+      return;
+    }
+    if (time < silence.end - 2) silence.endFired = false;
+  }
+
+  const end = effectiveEnd(track.id, dur);
+  if (state.crossfade > 0) {
+    if (track.id === lastCrossfadeId) return;
+    if (end > state.crossfade + 2 && end - time <= state.crossfade) {
+      lastCrossfadeId = track.id;
+      get().next(true);
+    }
+    return;
+  }
+  if (end < dur && time >= end && silence && !silence.endFired) {
+    silence.endFired = true;
+    get().next(true);
+  }
+}
+
+/** Engine event listeners + the 100 ms playback ticker (installed once). */
+function wireEngine(): void {
+  const set = usePlayer.setState;
+  const get = usePlayer.getState;
+  if (wired || typeof window === "undefined") return;
+  wired = true;
+  {
+    for (const el of engine.getElements()) {
+      el.addEventListener("play", (event) => {
+        if (event.target !== engine.el) return;
+        set({ playing: true });
+        setMediaPlaybackState(true);
+        pushMediaPosition(true);
+      });
+      el.addEventListener("pause", (event) => {
+        if (event.target !== engine.el) return;
+        set({ playing: false });
+        setMediaPlaybackState(false);
+        pushMediaPosition(true);
+      });
+      el.addEventListener("ended", (event) => {
+        if (event.target !== engine.el) return;
+        get().next(true);
+      });
+      el.addEventListener("loadedmetadata", (event) => {
+        if (event.target !== engine.el) return;
+        set({
+          duration: Number.isFinite(el.duration) ? el.duration : 0,
+        });
+        pushMediaPosition(true);
+      });
+      el.addEventListener("ratechange", (event) => {
+        if (event.target !== engine.el) return;
+        pushMediaPosition(true);
+      });
+    }
+    
+    setInterval(playbackTick, 100);
+
+    engine.onYtStateChange = (state) => {
+      // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
+      if (state === 1) {
+        ytErrorStreak = 0;
+        set({ playing: true, duration: engine.duration });
+        setMediaPlaybackState(true);
+        pushMediaPosition(true);
+      } else if (state === 2) {
+        set({ playing: false });
+        setMediaPlaybackState(false);
+        pushMediaPosition(true);
+      } else if (state === 0) {
+        set({ playing: false });
+        setMediaPlaybackState(false);
+        get().next(true);
+      }
+    };
+    engine.onYtError = (error) => {
+      console.warn("YouTube Error:", error);
+      ytErrorStreak++;
+      set({ playing: false });
+      get().setPlaybackError(ytErrorMessage(error));
+      // Skip to the next track (deleted/blocked video) but stop after a few
+      // consecutive failures instead of looping forever over the queue.
+      if (error !== -1 && ytErrorStreak < 3 && get().tracks.length > 1) {
+        get().next(true);
+      }
+    };
+  }
+}
+
 export const usePlayer = create<PlayerState>((set, get) => ({
   tracks: [],
   sources: [],
@@ -683,90 +835,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const track = tracks[index];
     if (!track) return;
 
-    if (!wired && typeof window !== "undefined") {
-      wired = true;
-      for (const el of engine.getElements()) {
-        el.addEventListener("play", (event) => {
-          if (event.target !== engine.el) return;
-          set({ playing: true });
-          setMediaPlaybackState(true);
-          pushMediaPosition(true);
-        });
-        el.addEventListener("pause", (event) => {
-          if (event.target !== engine.el) return;
-          set({ playing: false });
-          setMediaPlaybackState(false);
-          pushMediaPosition(true);
-        });
-        el.addEventListener("ended", (event) => {
-          if (event.target !== engine.el) return;
-          get().next(true);
-        });
-        el.addEventListener("loadedmetadata", (event) => {
-          if (event.target !== engine.el) return;
-          set({
-            duration: Number.isFinite(el.duration) ? el.duration : 0,
-          });
-          pushMediaPosition(true);
-        });
-        el.addEventListener("ratechange", (event) => {
-          if (event.target !== engine.el) return;
-          pushMediaPosition(true);
-        });
-      }
-      
-      let lastCrossfadeId: string | null = null;
-      setInterval(() => {
-        const state = get();
-        if (state.playing) pushMediaPosition();
-        const { a, b } = state.abLoop;
-        if (a !== null && b !== null && engine.currentTime >= b) {
-          engine.seek(a);
-        }
-        if (state.crossfade <= 0 || !state.playing || state.current < 0) return;
-        if (engine.ytActive) return; // Crossfade doesn't work well with YouTube iframe yet
-        
-        const track = state.tracks[state.current];
-        if (!track || track.id === lastCrossfadeId) return;
-        
-        const dur = engine.duration;
-        const time = engine.currentTime;
-        // Si la piste est assez longue et qu'on atteint la zone de crossfade
-        if (dur > state.crossfade + 2 && dur - time <= state.crossfade) {
-          lastCrossfadeId = track.id;
-          get().next(true);
-        }
-      }, 100);
-
-      engine.onYtStateChange = (state) => {
-        // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
-        if (state === 1) {
-          ytErrorStreak = 0;
-          set({ playing: true, duration: engine.duration });
-          setMediaPlaybackState(true);
-          pushMediaPosition(true);
-        } else if (state === 2) {
-          set({ playing: false });
-          setMediaPlaybackState(false);
-          pushMediaPosition(true);
-        } else if (state === 0) {
-          set({ playing: false });
-          setMediaPlaybackState(false);
-          get().next(true);
-        }
-      };
-      engine.onYtError = (error) => {
-        console.warn("YouTube Error:", error);
-        ytErrorStreak++;
-        set({ playing: false });
-        get().setPlaybackError(ytErrorMessage(error));
-        // Skip to the next track (deleted/blocked video) but stop after a few
-        // consecutive failures instead of looping forever over the queue.
-        if (error !== -1 && ytErrorStreak < 3 && get().tracks.length > 1) {
-          get().next(true);
-        }
-      };
-    }
+    wireEngine();
 
     const previous = current >= 0 ? tracks[current] : null;
     if (previous && previous.id !== track.id) {
@@ -843,6 +912,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     } else {
       engine.setTrackGain(1);
     }
+    if (get().skipSilence) loadSilenceBounds(track);
+    else silence = null;
 
     set({ lyrics: [], lyricsAvailable: false });
     const applyCues = (cues: LyricsCue[]) => {
@@ -1157,6 +1228,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setSkipSilence(skipSilence) {
     set({ skipSilence });
     savePref("skipSilence", skipSilence);
+    const track = get().tracks[get().current];
+    if (skipSilence && track && (!silence || silence.id !== track.id)) {
+      loadSilenceBounds(track);
+    }
   },
 
   setNormalize(normalize) {
