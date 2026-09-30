@@ -345,8 +345,9 @@ function DesktopDock({
   return (
     <div className="relative">
       <div className="glass-strong rounded-[26px] px-6 py-4 shadow-(--shadow-dock)">
-        <div className="grid grid-cols-[minmax(0,250px)_1fr_minmax(0,240px)] items-center gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+        {/* md/lg: timeline gets its own row; xl: single row, timeline takes the slack. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2.5 [grid-template-areas:'meta_ctrl_side''time_time_time'] xl:grid-cols-[minmax(0,250px)_auto_minmax(0,1fr)_auto] xl:gap-x-6 xl:[grid-template-areas:'meta_ctrl_time_side']">
+          <div className="flex min-w-0 items-center gap-3 [grid-area:meta]">
             <Cover className="size-14 rounded-xl" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{track?.title ?? "—"}</p>
@@ -354,7 +355,7 @@ function DesktopDock({
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-2.5">
+          <div className="flex items-center justify-center gap-2.5 [grid-area:ctrl]">
             <button
               type="button"
               data-cursor="magnetic"
@@ -398,10 +399,11 @@ function DesktopDock({
             </ToggleButton>
           </div>
 
-          <div className="flex items-center justify-end gap-4">
-            <div className="flex-1">
-              <Timeline />
-            </div>
+          <div className="min-w-0 [grid-area:time]">
+            <Timeline />
+          </div>
+
+          <div className="flex items-center justify-end gap-4 [grid-area:side]">
             <ToggleButton
               label="Égaliseur et options audio"
               active={eqOpen}
