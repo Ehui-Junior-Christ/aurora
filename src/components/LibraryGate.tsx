@@ -183,7 +183,7 @@ export default function LibraryGate() {
             >
               Chaque piste
               <br />
-              <span className="text-gradient inline-block">respire différemment.</span>
+              <span className="text-gradient">respire différemment.</span>
             </h1>
             </div>
             </div>
