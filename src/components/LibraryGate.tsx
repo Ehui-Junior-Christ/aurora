@@ -70,8 +70,9 @@ export default function LibraryGate() {
     };
   }, [scanning, needsPermission]);
 
-  // Hero parallax: the headline drifts slower than the page and dims a
-  // little as it leaves. Reads the untransformed wrapper, writes the inner.
+  // Hero parallax: the headline lifts a little faster than the page (so it
+  // never drifts into the copy below) and dims as it leaves. Reads the
+  // untransformed wrapper, writes the inner one.
   const heroRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const outer = heroRef.current;
@@ -83,7 +84,7 @@ export default function LibraryGate() {
       raf = 0;
       const scrolled = Math.max(0, start - outer.getBoundingClientRect().top);
       const progress = Math.min(1, scrolled / window.innerHeight);
-      inner.style.transform = `translate3d(0, ${(scrolled * 0.22).toFixed(1)}px, 0)`;
+      inner.style.transform = `translate3d(0, ${(-scrolled * 0.18).toFixed(1)}px, 0)`;
       inner.style.opacity = String(1 - progress * 0.6);
     };
     const onScroll = () => {
@@ -182,7 +183,7 @@ export default function LibraryGate() {
             >
               Chaque piste
               <br />
-              <span className="text-gradient">respire différemment.</span>
+              <span className="text-gradient inline-block">respire différemment.</span>
             </h1>
             </div>
             </div>
