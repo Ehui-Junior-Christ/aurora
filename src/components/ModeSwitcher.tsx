@@ -142,10 +142,12 @@ export default function ModeSwitcher({
   immersive?: boolean;
 }) {
   const hidden = immersive;
+  // On small screens the library sheet covers this area.
+  const queueOpen = usePlayer((s) => s.queueOpen);
   return (
     <>
       <DesktopModeBar hidden={hidden} />
-      <MobileModePill hidden={hidden || !!lyricsOpen} />
+      <MobileModePill hidden={hidden || !!lyricsOpen || queueOpen} />
     </>
   );
 }

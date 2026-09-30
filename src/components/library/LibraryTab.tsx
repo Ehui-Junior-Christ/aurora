@@ -71,7 +71,7 @@ export default function LibraryTab({ onMore }: { onMore: (track: Track) => void 
           >
             {(Object.keys(SORT_LABELS) as LibrarySortKey[]).map((key) => (
               <option key={key} value={key} className="bg-[#0b0b12]">
-                {SORT_LABELS[key]}
+                {key === "default" ? "Par défaut" : SORT_LABELS[key]}
               </option>
             ))}
           </select>

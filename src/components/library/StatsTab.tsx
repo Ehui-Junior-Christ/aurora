@@ -15,7 +15,7 @@ import { EmptyState, formatDuration } from "./shared";
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded-(--radius-card) border border-white/10 bg-white/[0.04] px-3 py-3">
-      <p className="font-display text-lead font-extrabold leading-none tabular-nums">{value}</p>
+      <p className="text-lead font-semibold leading-none tabular-nums">{value}</p>
       <p className="mt-1.5 text-micro uppercase tracking-[0.16em] text-ink-2">{label}</p>
     </div>
   );

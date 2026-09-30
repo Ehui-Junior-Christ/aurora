@@ -216,7 +216,7 @@ function Panel({
                   aria-controls="lib-tabpanel"
                   tabIndex={tab === entry.id ? 0 : -1}
                   onClick={() => onTab(entry.id)}
-                  className={`relative min-h-10 truncate px-1 text-xs font-semibold transition-colors md:text-micro md:uppercase md:tracking-[0.08em] ${
+                  className={`relative min-h-10 truncate px-1 text-xs font-semibold transition-colors ${
                     tab === entry.id ? "text-white" : "text-ink-2 hover:text-white"
                   }`}
                 >

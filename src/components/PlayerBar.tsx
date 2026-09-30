@@ -328,7 +328,7 @@ function DesktopDock({
     <div className="relative">
       <div className="glass-strong rounded-[26px] px-6 py-4 shadow-(--shadow-dock)">
         {/* md/lg: timeline gets its own row; xl: single row, timeline takes the slack. */}
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2.5 [grid-template-areas:'meta_ctrl_side''time_time_time'] xl:grid-cols-[minmax(0,250px)_auto_minmax(0,1fr)_auto] xl:gap-x-6 xl:[grid-template-areas:'meta_ctrl_time_side']">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2.5 [grid-template-areas:'meta_ctrl_side''time_time_time'] xl:grid-cols-[minmax(0,250px)_auto_minmax(0,1fr)_auto] xl:gap-x-6 xl:[grid-template-areas:'meta_ctrl_time_side']">
           <div className="flex min-w-0 items-center gap-3 [grid-area:meta]">
             <Cover className="size-14 rounded-xl" />
             <div className="min-w-0 flex-1">
