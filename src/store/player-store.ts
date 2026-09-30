@@ -30,6 +30,13 @@ import {
   updateMediaPosition,
 } from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
+import {
+  emptyStats,
+  migrateStats,
+  recordListen,
+  recordPlay,
+  type ListeningStats,
+} from "@/lib/stats";
 
 let wired = false;
 let searchSeq = 0; // ignores out-of-order online search responses
@@ -125,10 +132,7 @@ export interface Playlist {
   trackIds: string[];
 }
 
-export interface ListeningStats {
-  plays: Record<string, number>;
-  seconds: number;
-}
+export type { ListeningStats };
 
 export interface PlayOptions {
   autoplay?: boolean;
@@ -389,7 +393,10 @@ let resumeListenersInstalled = false;
 function installResumeListeners(): void {
   if (resumeListenersInstalled || typeof window === "undefined") return;
   resumeListenersInstalled = true;
-  const flush = () => savePlaybackPosition(true);
+  const flush = () => {
+    savePlaybackPosition(true);
+    flushListening(true);
+  };
   window.addEventListener("pagehide", flush);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
@@ -424,6 +431,36 @@ async function resumeLastSession(): Promise<void> {
   usePlayer
     .getState()
     .play(index, { autoplay: false, startAt, countPlay: false });
+}
+
+// ---- Listening time accounting --------------------------------------------
+
+let pendingListen: { track: Track; seconds: number } | null = null;
+let lastListenTick = 0;
+let lastListenFlush = 0;
+const LISTEN_FLUSH_MS = 15000;
+
+/** Counts real listened time (wall clock while playing), not positions. */
+function accumulateListening(track: Track | undefined, playing: boolean): void {
+  const now = Date.now();
+  const delta = lastListenTick ? Math.min(1000, now - lastListenTick) : 0;
+  lastListenTick = now;
+  if (!playing || !track || delta <= 0) return;
+  if (pendingListen && pendingListen.track.id !== track.id) flushListening(true);
+  if (!pendingListen) pendingListen = { track, seconds: 0 };
+  pendingListen.seconds += delta / 1000;
+  if (now - lastListenFlush > LISTEN_FLUSH_MS) flushListening(true);
+}
+
+function flushListening(force = false): void {
+  if (!pendingListen || pendingListen.seconds <= 0) return;
+  if (!force && Date.now() - lastListenFlush < LISTEN_FLUSH_MS) return;
+  lastListenFlush = Date.now();
+  const { track, seconds } = pendingListen;
+  pendingListen = null;
+  const stats = recordListen(usePlayer.getState().stats, track, seconds);
+  usePlayer.setState({ stats });
+  savePref("stats", stats);
 }
 
 let sleepFading = false;
@@ -496,6 +533,7 @@ function playbackTick(): void {
   const get = usePlayer.getState;
   if (sleepTick()) return;
   const state = get();
+  accumulateListening(state.tracks[state.current], state.playing);
   if (state.playing) {
     pushMediaPosition();
     savePlaybackPosition();
@@ -634,7 +672,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   pendingDirName: "",
   helpOpen: false,
   playlists: [],
-  stats: { plays: {}, seconds: 0 },
+  stats: emptyStats(),
   crossfade: 0,
   speed: 1,
   skipSilence: false,
@@ -815,10 +853,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (typeof skipSilence === "boolean") prefs.skipSilence = skipSilence;
     if (typeof normalize === "boolean") prefs.normalize = normalize;
     if (stats && typeof stats === "object") {
-      prefs.stats = {
-        plays: stats.plays ?? {},
-        seconds: typeof stats.seconds === "number" ? stats.seconds : 0,
-      };
+      // v1 {plays, seconds} → v2 (dated history, artists, hours): lossless.
+      prefs.stats = migrateStats(stats);
     }
     if (Array.isArray(playlists?.values) && playlists.values.length > 0) {
       prefs.playlists = playlists.values;
@@ -996,7 +1032,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   play(index, options = {}) {
-    const { tracks, stats, normalize, current } = get();
+    const { tracks, normalize } = get();
     const autoplay = options.autoplay ?? true;
     const countPlay = options.countPlay ?? autoplay;
     // Crossfading into a paused, resumed track makes no sense.
@@ -1007,18 +1043,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     wireEngine();
 
-    const previous = current >= 0 ? tracks[current] : null;
-    if (previous && previous.id !== track.id) {
-      const elapsed = engine.currentTime;
-      if (elapsed > 0) {
-        const nextStats: ListeningStats = {
-          plays: { ...stats.plays },
-          seconds: stats.seconds + elapsed,
-        };
-        set({ stats: nextStats });
-        savePref("stats", nextStats);
-      }
-    }
+    flushListening(true);
 
     if (track.file) {
       engine.load(track.file, crossfade * 1000, loadOptions);
@@ -1047,11 +1072,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
 
     if (countPlay) {
-      const nextStats: ListeningStats = {
-        plays: { ...get().stats.plays },
-        seconds: get().stats.seconds,
-      };
-      nextStats.plays[track.id] = (nextStats.plays[track.id] ?? 0) + 1;
+      const nextStats = recordPlay(get().stats, track);
       set({ stats: nextStats });
       savePref("stats", nextStats);
     }
@@ -1387,7 +1408,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   resetStats() {
-    const stats: ListeningStats = { plays: {}, seconds: 0 };
+    pendingListen = null;
+    const stats = emptyStats();
     set({ stats });
     savePref("stats", stats);
   },
