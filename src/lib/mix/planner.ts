@@ -162,36 +162,41 @@ export function planTransition(req: PlanRequest): TransitionPlan | null {
     return planFade(req, relation, gridOk ? a : null);
   }
 
-  let bars = barsFor(style, a, b, settings, harm);
+  const maxBars = barsFor(style, a, b, settings, harm);
   const minT = Math.max(req.minStart, a.duration * 0.35);
-  const endLimit = Math.min(a.fadeEnd + 2, a.audibleEnd);
-
-  while (bars >= 1) {
+  // The outgoing fader is ~0 at the very end: allow ending up to a beat
+  // after the last audible sound.
+  const endLimit = a.audibleEnd + localPeriod(a.beats, a.beats.length - 1);
+  const lead = style === "echo" ? 4 : style === "cut" ? 8 : 0;
+  let best: { k: number; bars: number; cost: number } | null = null;
+  // Every length from the preferred one down: the best compromise between
+  // the phrase position (start of the outro) and the length wins.
+  for (let bars = maxBars, halvings = 0; bars >= 1; bars = bars > 4 ? bars / 2 : bars - 1, halvings++) {
     const beatsLen = bars * 4;
-    const cands = [
+    const cands = new Set([
       ...phraseCandidates(a, 8),
       ...phraseCandidates(a, 4),
       ...(bars <= 2 ? phraseCandidates(a, 1) : []),
-    ];
-    let best: { k: number; cost: number } | null = null;
+    ]);
     for (const k of cands) {
       // echo / cut: the "event" (cut) is on the boundary, the build before it.
-      const lead = style === "echo" ? 4 : style === "cut" ? 8 : 0;
       const k0 = k - lead;
-      if (k0 < 0 || k + beatsLen - lead >= a.beats.length) continue;
+      if (k0 < 0 || k0 + beatsLen >= a.beats.length) continue;
       const t0 = a.beats[k0];
-      const tEnd = style === "echo" || style === "cut" ? a.beats[k] + 2 : a.beats[k0 + beatsLen];
+      const tEnd = lead > 0 ? a.beats[k] + 2 : a.beats[k0 + beatsLen];
       if (t0 < minT || tEnd > endLimit) continue;
-      const phraseBonus = (k - a.phraseBeat) % 32 === 0 ? 0 : 2;
-      // Target: blend/filter start at the outro, echo/cut hit the outro start.
-      const target = style === "echo" || style === "cut" ? a.outroStart : a.outroStart;
-      const at = style === "echo" || style === "cut" ? a.beats[k] : t0;
-      const cost = Math.abs(at - target) / (localPeriod(a.beats, k) * 4) + phraseBonus;
-      if (!best || cost < best.cost) best = { k: k0, cost };
+      const barSec = localPeriod(a.beats, k) * 4;
+      // Target: blend/filter start at the outro, echo/cut hit it. Starting
+      // earlier cuts the body of the track: weigh it more.
+      const at = lead > 0 ? a.beats[k] : t0;
+      const early = Math.max(0, a.outroStart - at) / barSec;
+      const late = Math.max(0, at - a.outroStart) / barSec;
+      const phrase = (k - a.phraseBeat) % 32 === 0 ? 0 : 1.5;
+      const cost = 1.5 * early + late + phrase + 1.5 * halvings;
+      if (!best || cost < best.cost) best = { k: k0, bars, cost };
     }
-    if (best) return build(req, style, bars, best.k, tm, relation);
-    bars = bars > 4 ? bars / 2 : bars - 1;
   }
+  if (best) return build(req, style, best.bars, best.k, tm, relation);
   return planFade(req, relation, gridOk ? a : null);
 }
 

@@ -47,7 +47,7 @@ for (const style of ["auto", "blend", "filter", "echo", "cut", "fade"] as (MixSt
   check(`${style}: mix-out on a bar line`, p.style === "fade" ? true : onBar);
   const kb = B.beats.findIndex((t) => Math.abs(t - p.inStart) < 1e-3);
   if (p.sync && p.style !== "echo") check(`${style}: mix-in on a B downbeat`, kb >= 0 && (kb - B.downbeat) % 4 === 0);
-  check(`${style}: ends before A fades`, endT <= A.audibleEnd + 0.01);
+  check(`${style}: ends by the end of A (<= 1 beat after its last sound)`, endT <= A.audibleEnd + 60 / A.bpm + 0.01);
 
   // Automation invariants
   const ev = buildAutomation(p);
@@ -73,7 +73,7 @@ check("124→96 BPM: no tempo sync, echo/fade", !!pc && !pc.sync && (pc.style ==
 const pNoSync = planTransition({ a: A, b: B, minStart: 30, settings: { ...DEFAULT_MIX_SETTINGS, enabled: true, tempoSync: false } });
 check("tempo sync disabled → not synced", !!pNoSync && !pNoSync.sync, `style=${pNoSync?.style}`);
 const pLate = planTransition({ a: A, b: B, minStart: A.outroStart + 5, settings: { ...DEFAULT_MIX_SETTINGS, enabled: true } });
-check("late start (after seek) still plans before the end", !!pLate && pLate.outStart >= A.outroStart + 5 && pLate.outStart + pLate.dur <= A.audibleEnd + 0.01, `style=${pLate?.style} out=${pLate?.outStart.toFixed(2)} bars=${pLate?.bars}`);
+check("late start (after seek) still plans before the end", !!pLate && pLate.outStart >= A.outroStart + 5 && pLate.outStart + pLate.dur <= A.audibleEnd + 60 / A.bpm + 0.01, `style=${pLate?.style} out=${pLate?.outStart.toFixed(2)} bars=${pLate?.bars}`);
 
 // Harmonic ordering on fake analyses: expect a smooth Camelot walk.
 const lib = [
