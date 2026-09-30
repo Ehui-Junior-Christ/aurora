@@ -12,6 +12,7 @@ import Borealis from "./scenes/Borealis";
 import Liquid from "./scenes/Liquid";
 import Prism from "./scenes/Prism";
 import Spectrum from "./scenes/Spectrum";
+import Vinyl from "./scenes/Vinyl";
 import Galaxy from "./scenes/Galaxy";
 import Metaballs from "./scenes/Metaballs";
 import Nebula from "./scenes/Nebula";
@@ -70,6 +71,7 @@ function SceneContent() {
       {mode === "prism" && <Prism />}
       {mode === "liquid" && <Liquid />}
       {mode === "spectrum" && <Spectrum />}
+      {mode === "vinyl" && <Vinyl />}
       {bloom && !qualityLow && (
         <EffectComposer multisampling={0}>
           <Bloom
