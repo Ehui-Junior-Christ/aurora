@@ -1723,12 +1723,20 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     currentFromQueue = false;
     savePref("lastTrackId", track.id);
+    // A preloaded element fired "loadedmetadata" while inactive (ignored by
+    // the listeners), so read its duration now.
+    const knownDuration =
+      gapless && Number.isFinite(engine.duration) ? engine.duration : 0;
     set({
       current: index,
-      duration: 0,
+      duration: knownDuration,
       lyricsOffset: 0,
       abLoop: { a: null, b: null },
     });
+    if (knownDuration > 0) {
+      rememberDuration(knownDuration);
+      pushMediaPosition(true);
+    }
 
     if (get().autoMode) {
       set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
