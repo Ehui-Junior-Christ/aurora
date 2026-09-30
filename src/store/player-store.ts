@@ -23,6 +23,7 @@ import {
   type OnlineMusicResult,
 } from "@/lib/invidious";
 import { fnv1a } from "@/lib/hash";
+import { replayGainMultiplier } from "@/lib/replaygain";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
 import {
   installMediaSessionHandlers,
@@ -1533,7 +1534,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     // has not switched tracks in the meantime.
     const isCurrent = () => get().tracks[get().current]?.id === track.id;
 
-    if (normalize && track.file) {
+    const replayGain = normalize ? replayGainMultiplier(track.replayGain) : undefined;
+    if (replayGain !== undefined) {
+      // ReplayGain tags are authoritative; RMS analysis is only a fallback.
+      engine.setTrackGain(replayGain);
+    } else if (normalize && track.file) {
       void getCachedAnalysis(track.id, track.file).then((analysis) => {
         if (analysis && isCurrent()) {
           engine.setTrackGain(normalizationGain(analysis.rms, true));
@@ -1897,7 +1902,22 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setNormalize(normalize) {
     set({ normalize });
     savePref("normalize", normalize);
-    if (!normalize) engine.setTrackGain(1);
+    if (!normalize) {
+      engine.setTrackGain(1);
+      return;
+    }
+    const track = get().tracks[get().current];
+    if (!track) return;
+    const rg = replayGainMultiplier(track.replayGain);
+    if (rg !== undefined) engine.setTrackGain(rg);
+    else if (track.file) {
+      void getCachedAnalysis(track.id, track.file).then((analysis) => {
+        const state = get();
+        if (analysis && state.normalize && state.tracks[state.current]?.id === track.id) {
+          engine.setTrackGain(normalizationGain(analysis.rms, true));
+        }
+      });
+    }
   },
 
   setSleep(minutes) {

@@ -4,7 +4,8 @@ import {
   type RgbPixel,
 } from "./palette";
 import { fnv1a } from "./hash";
-import type { PaletteColor } from "./types";
+import { readReplayGain } from "./replaygain";
+import type { PaletteColor, ReplayGainInfo } from "./types";
 
 interface WorkerContext {
   onmessage: ((event: MessageEvent) => void) | null;
@@ -19,6 +20,7 @@ interface TagsPayload {
   album: string;
   coverBlob?: Blob;
   palette: PaletteColor[];
+  replayGain?: ReplayGainInfo;
 }
 
 interface RawTagsPayload {
@@ -111,7 +113,8 @@ async function readTags(
     palette =
       FALLBACK_PALETTES[fnv1a(title + album) % FALLBACK_PALETTES.length];
   }
-  return { title, artist, album, coverBlob, palette };
+  const replayGain = await readReplayGain(file);
+  return { title, artist, album, coverBlob, palette, replayGain };
 }
 
 ctx.onmessage = (event: MessageEvent) => {

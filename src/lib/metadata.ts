@@ -2,7 +2,8 @@ import jsmediatags from "jsmediatags/dist/jsmediatags.min.js";
 import { fnv1a } from "./hash";
 import { extractPalette, FALLBACK_PALETTES } from "./palette";
 import { idbGet, idbSet } from "./db";
-import type { PaletteColor, Track } from "./types";
+import { readReplayGain } from "./replaygain";
+import type { PaletteColor, ReplayGainInfo, Track } from "./types";
 
 interface RawTags {
   title?: string;
@@ -19,6 +20,7 @@ interface WorkerTagsResult {
   album: string;
   coverBlob?: Blob;
   palette: PaletteColor[];
+  replayGain?: ReplayGainInfo;
   error?: string;
 }
 
@@ -106,6 +108,7 @@ export async function parseTrack(file: File): Promise<Track> {
   let album = "Unknown Album";
   let coverUrl: string | undefined;
   let palette: PaletteColor[] | null = null;
+  let replayGain: ReplayGainInfo | undefined;
 
   const requestSeqLocal = ++requestSeq;
   let workerResult: WorkerTagsResult | null = null;
@@ -120,11 +123,13 @@ export async function parseTrack(file: File): Promise<Track> {
     artist = workerResult.artist;
     album = workerResult.album;
     palette = workerResult.palette;
+    replayGain = workerResult.replayGain;
     if (workerResult.coverBlob) {
       coverUrl = URL.createObjectURL(workerResult.coverBlob);
     }
   } else {
     const tags = await readTagsMain(file);
+    replayGain = await readReplayGain(file);
     title = tags?.title?.trim() || fallbackTitle;
     artist = tags?.artist?.trim() || "Unknown Artist";
     album = tags?.album?.trim() || "Unknown Album";
@@ -168,5 +173,6 @@ export async function parseTrack(file: File): Promise<Track> {
     palette,
     seed: fnv1a(`${title}|${artist}|${album}`),
     bpm: cached?.bpm ?? undefined,
+    ...(replayGain ? { replayGain } : {}),
   };
 }

@@ -545,7 +545,8 @@ class AudioEngine {
 
   setTrackGain(multiplier: number): void {
     if (this.trackGain) {
-      this.trackGain.gain.value = Math.min(3, Math.max(0.4, multiplier));
+      // Wide bounds: ReplayGain on loud masters is often below -8 dB.
+      this.trackGain.gain.value = Math.min(4, Math.max(0.1, multiplier));
     }
   }
 
