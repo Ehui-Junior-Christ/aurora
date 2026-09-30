@@ -11,9 +11,22 @@ export interface AudioSource {
   revokeUrl?: boolean;
 }
 
+export interface LoadOptions {
+  /**
+   * false = prepare the track paused (resume on startup). YouTube is then
+   * cued instead of loaded so it does not start by itself. Default true.
+   */
+  autoplay?: boolean;
+  /** Initial position in seconds. */
+  startAt?: number;
+}
+
 /** Minimal typing of the YouTube IFrame Player API surface we use. */
 interface YTPlayer {
-  loadVideoById(videoId: string): void;
+  loadVideoById(
+    videoId: string | { videoId: string; startSeconds?: number }
+  ): void;
+  cueVideoById(videoId: { videoId: string; startSeconds?: number }): void;
   playVideo(): void;
   pauseVideo(): void;
   stopVideo(): void;
@@ -81,6 +94,7 @@ class AudioEngine {
   private ytFailed = false;
   private ytPendingId: string | null = null;
   private ytPendingPlay = false;
+  private ytPendingStart = 0;
   private ytState = -1;
   private ytLoadTimer: ReturnType<typeof setTimeout> | null = null;
   public ytActive = false;
@@ -208,8 +222,13 @@ class AudioEngine {
     const id = this.ytPendingId;
     if (id) {
       this.ytPendingId = null;
-      this.ytPlayer.loadVideoById(id);
-      if (!this.ytPendingPlay) this.ytPlayer.pauseVideo();
+      const startSeconds = this.ytPendingStart;
+      this.ytPendingStart = 0;
+      if (this.ytPendingPlay) {
+        this.ytPlayer.loadVideoById({ videoId: id, startSeconds });
+      } else {
+        this.ytPlayer.cueVideoById({ videoId: id, startSeconds });
+      }
     } else if (this.ytPendingPlay) {
       this.ytPlayer.playVideo();
     }
@@ -220,6 +239,7 @@ class AudioEngine {
     this.ytActive = false;
     this.ytPendingId = null;
     this.ytPendingPlay = false;
+    this.ytPendingStart = 0;
     this.ytDuration = 0;
     if (this.ytReady && this.ytPlayer) this.ytPlayer.stopVideo();
   }
@@ -315,12 +335,39 @@ class AudioEngine {
     if (this.context.state === "suspended") void this.context.resume();
   }
 
-  load(file: File, crossfadeMs = 0): void {
+  load(file: File, crossfadeMs = 0, options: LoadOptions = {}): void {
     this.stopYt();
-    this.loadSource({ url: URL.createObjectURL(file), revokeUrl: true }, crossfadeMs);
+    this.loadSource(
+      { url: URL.createObjectURL(file), revokeUrl: true },
+      crossfadeMs,
+      options
+    );
   }
 
-  loadSource(source: AudioSource, crossfadeMs = 0): void {
+  /** Seeks the active element once its metadata is known. */
+  private seekWhenReady(el: HTMLAudioElement, time: number): void {
+    if (!(time > 0)) return;
+    if (el.readyState >= 1) {
+      el.currentTime = time;
+      return;
+    }
+    const src = el.src;
+    el.addEventListener(
+      "loadedmetadata",
+      () => {
+        if (el.src === src) el.currentTime = time;
+      },
+      { once: true }
+    );
+  }
+
+  loadSource(
+    source: AudioSource,
+    crossfadeMs = 0,
+    options: LoadOptions = {}
+  ): void {
+    const autoplay = options.autoplay ?? true;
+    const startAt = Math.max(0, options.startAt ?? 0);
     if (source.url.startsWith("yt:")) {
       // Strip every legacy prefix (`yt:yt:<id>` was stored by older builds).
       const videoId = source.url.replace(/^(?:yt:|online_)+/, "");
@@ -336,12 +383,17 @@ class AudioEngine {
 
       if (this.ytReady && this.ytPlayer) {
         this.ytPendingId = null;
-        this.ytPlayer.loadVideoById(videoId);
+        if (autoplay) {
+          this.ytPlayer.loadVideoById({ videoId, startSeconds: startAt });
+        } else {
+          this.ytPlayer.cueVideoById({ videoId, startSeconds: startAt });
+        }
       } else {
         // Queue it: flushed from onReady (no polling interval that could
         // fire later and hijack a local track).
         this.ytPendingId = videoId;
-        this.ytPendingPlay = true;
+        this.ytPendingPlay = autoplay;
+        this.ytPendingStart = startAt;
         if (this.ytFailed || !this.ytInitStarted) this.initYouTube();
       }
       return;
@@ -370,6 +422,7 @@ class AudioEngine {
       current.el.crossOrigin = source.crossOrigin ?? "";
       current.el.src = source.url;
       current.el.playbackRate = this.desiredRate;
+      this.seekWhenReady(current.el, startAt);
       return;
     }
 
@@ -379,6 +432,7 @@ class AudioEngine {
     next.el.crossOrigin = source.crossOrigin ?? "";
     next.el.src = source.url;
     next.el.playbackRate = this.desiredRate;
+    this.seekWhenReady(next.el, startAt);
 
     const ctx = this.context!;
     const now = ctx.currentTime;

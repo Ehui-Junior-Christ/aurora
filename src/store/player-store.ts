@@ -130,6 +130,12 @@ export interface ListeningStats {
   seconds: number;
 }
 
+export interface PlayOptions {
+  autoplay?: boolean;
+  startAt?: number;
+  countPlay?: boolean;
+}
+
 export interface AbLoop {
   a: number | null;
   b: number | null;
@@ -209,7 +215,11 @@ interface PlayerState {
   reconnect(): Promise<void>;
   openFolder(): Promise<void>;
   loadAllSources(dirs: FsNode[]): Promise<void>;
-  play(index: number): void;
+  /**
+   * Plays the library track at `index`. `options.autoplay: false` prepares it
+   * paused (used by session resume); `countPlay: false` skips play counting.
+   */
+  play(index: number, options?: PlayOptions): void;
   toggle(): void;
   next(auto?: boolean): void;
   prev(): void;
@@ -343,6 +353,79 @@ function effectiveEnd(trackId: string, duration: number): number {
   return duration;
 }
 
+// ---- Session resume -------------------------------------------------------
+
+interface SavedPosition {
+  id: string;
+  t: number;
+}
+
+let lastSavedPosition: SavedPosition | null = null;
+let lastPositionSaveAt = 0;
+const POSITION_SAVE_MS = 5000;
+
+/** Persists the current track + position (throttled unless forced). */
+function savePlaybackPosition(force = false): void {
+  const state = usePlayer.getState();
+  const track = state.tracks[state.current];
+  if (!track) return;
+  const now = Date.now();
+  if (!force && now - lastPositionSaveAt < POSITION_SAVE_MS) return;
+  const t = Math.floor(engine.currentTime * 10) / 10;
+  if (!Number.isFinite(t)) return;
+  if (
+    lastSavedPosition &&
+    lastSavedPosition.id === track.id &&
+    Math.abs(lastSavedPosition.t - t) < 1
+  ) {
+    return;
+  }
+  lastPositionSaveAt = now;
+  lastSavedPosition = { id: track.id, t };
+  savePref("lastPosition", lastSavedPosition);
+}
+
+let resumeListenersInstalled = false;
+function installResumeListeners(): void {
+  if (resumeListenersInstalled || typeof window === "undefined") return;
+  resumeListenersInstalled = true;
+  const flush = () => savePlaybackPosition(true);
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+}
+
+/**
+ * Re-selects the last played track (paused, at the saved position). Online
+ * tracks are looked up in history/favourites (metadata only, never audio).
+ */
+async function resumeLastSession(): Promise<void> {
+  const [lastId, position] = await Promise.all([
+    idbGet<string>("prefs", "lastTrackId"),
+    idbGet<SavedPosition>("prefs", "lastPosition"),
+  ]);
+  if (!lastId) return;
+  const state = usePlayer.getState();
+  if (state.current >= 0) return; // the user already picked something
+  let index = state.tracks.findIndex((t) => t.id === lastId);
+  if (index < 0 && lastId.startsWith("yt:")) {
+    const online =
+      state.history.find((t) => t.id === lastId) ??
+      state.savedOnlineTracks.find((t) => t.id === lastId);
+    if (!online) return;
+    const tracks = [...state.tracks, online];
+    usePlayer.setState({ tracks });
+    index = tracks.length - 1;
+  }
+  if (index < 0) return;
+  const startAt =
+    position && position.id === lastId && position.t > 2 ? position.t : 0;
+  usePlayer
+    .getState()
+    .play(index, { autoplay: false, startAt, countPlay: false });
+}
+
 let sleepFading = false;
 
 function restoreSleepVolume(): void {
@@ -413,7 +496,10 @@ function playbackTick(): void {
   const get = usePlayer.getState;
   if (sleepTick()) return;
   const state = get();
-  if (state.playing) pushMediaPosition();
+  if (state.playing) {
+    pushMediaPosition();
+    savePlaybackPosition();
+  }
   const { a, b } = state.abLoop;
   if (a !== null && b !== null && engine.currentTime >= b) {
     engine.seek(a);
@@ -455,6 +541,7 @@ function wireEngine(): void {
   const get = usePlayer.getState;
   if (wired || typeof window === "undefined") return;
   wired = true;
+  installResumeListeners();
   {
     for (const el of engine.getElements()) {
       el.addEventListener("play", (event) => {
@@ -466,6 +553,7 @@ function wireEngine(): void {
       el.addEventListener("pause", (event) => {
         if (event.target !== engine.el) return;
         set({ playing: false });
+        savePlaybackPosition(true);
         setMediaPlaybackState(false);
         pushMediaPosition(true);
       });
@@ -497,6 +585,7 @@ function wireEngine(): void {
         pushMediaPosition(true);
       } else if (state === 2) {
         set({ playing: false });
+        savePlaybackPosition(true);
         setMediaPlaybackState(false);
         pushMediaPosition(true);
       } else if (state === 0) {
@@ -778,10 +867,14 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       } catch {
         set({ error: "Erreur lors du scan automatique", scanning: false });
       }
+      await resumeLastSession();
       return;
     }
 
-    if (!dirs || dirs.length === 0) return;
+    if (!dirs || dirs.length === 0) {
+      await resumeLastSession(); // online-only session
+      return;
+    }
 
     const granted: FsNode[] = [];
     for (const dir of dirs) {
@@ -884,21 +977,16 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           a.album.localeCompare(b.album) ||
           a.title.localeCompare(b.title)
       );
-      const lastId = await idbGet<string>("prefs", "lastTrackId");
-      const restored = lastId ? tracks.findIndex((t) => t.id === lastId) : -1;
       engine.pause();
       set({
         tracks,
         sources: dirs.map((d) => d.name),
-        current: restored >= 0 ? restored : -1,
+        current: -1,
         playing: false,
         duration: 0,
         scanning: false,
       });
-      if (restored >= 0) {
-        applyPalette(tracks[restored].palette);
-        syncMediaSession(tracks[restored]);
-      }
+      await resumeLastSession();
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "SCAN_FAILED",
@@ -907,8 +995,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
   },
 
-  play(index) {
-    const { tracks, stats, crossfade, normalize, current } = get();
+  play(index, options = {}) {
+    const { tracks, stats, normalize, current } = get();
+    const autoplay = options.autoplay ?? true;
+    const countPlay = options.countPlay ?? autoplay;
+    // Crossfading into a paused, resumed track makes no sense.
+    const crossfade = autoplay ? get().crossfade : 0;
+    const loadOptions = { autoplay, startAt: options.startAt ?? 0 };
     const track = tracks[index];
     if (!track) return;
 
@@ -928,10 +1021,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
 
     if (track.file) {
-      engine.load(track.file, crossfade * 1000);
+      engine.load(track.file, crossfade * 1000, loadOptions);
     } else if (track.streamUrl) {
       // Online (`yt:<id>`) or native Android (Capacitor file URL) tracks.
-      engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
+      engine.loadSource({ url: track.streamUrl }, crossfade * 1000, loadOptions);
     }
     engine.volume = get().muted ? 0 : get().volume;
     applyPalette(track.palette);
@@ -953,15 +1046,19 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
     }
 
-    const nextStats: ListeningStats = {
-      plays: { ...get().stats.plays },
-      seconds: get().stats.seconds,
-    };
-    nextStats.plays[track.id] = (nextStats.plays[track.id] ?? 0) + 1;
-    set({ stats: nextStats });
-    savePref("stats", nextStats);
+    if (countPlay) {
+      const nextStats: ListeningStats = {
+        plays: { ...get().stats.plays },
+        seconds: get().stats.seconds,
+      };
+      nextStats.plays[track.id] = (nextStats.plays[track.id] ?? 0) + 1;
+      set({ stats: nextStats });
+      savePref("stats", nextStats);
+    }
 
-    void engine.play();
+    if (autoplay) void engine.play();
+    else set({ playing: false });
+    lastSavedPosition = { id: track.id, t: loadOptions.startAt };
 
     if (track.file && track.bpm === undefined) {
       void detectBpm(track.file).then((bpm) => {
