@@ -420,3 +420,15 @@ input:not([type]):focus-visible {
   outline: 1px solid color-mix(in srgb, var(--c2) 55%, transparent);
   outline-offset: 0;
 }
+
+/* List entrance: first rows only, delay set inline (40ms steps). */
+@utility stagger-in {
+  animation: stagger-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

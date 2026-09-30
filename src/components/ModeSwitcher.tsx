@@ -200,7 +200,7 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
 
   return (
     <div
-      className={`glass fixed bottom-[calc(var(--dock-h)+var(--space-3)+var(--safe-b))] left-(--gutter) z-(--z-dock) hidden items-center gap-1 rounded-full p-1 transition-all duration-(--dur-4) md:flex ${
+      className={`glass fixed bottom-[calc(var(--dock-h)+var(--space-3)+var(--safe-b))] left-(--gutter) z-(--z-dock) hidden items-center gap-1 rounded-full p-1 transition-all duration-(--dur-4) lg:flex ${
         hidden ? "pointer-events-none translate-y-3 opacity-0" : "opacity-100"
       }`}
     >
@@ -342,7 +342,7 @@ function MobileModePill({ hidden }: { hidden: boolean }) {
   const select = (entry: VisualMode) => setVisualMode(entry);
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <button
         ref={pillRef}
         type="button"

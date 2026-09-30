@@ -280,6 +280,10 @@ export default function Home() {
                 lyricsOpen 
                   ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-[calc(var(--dock-h)+5.5rem)] md:pr-[420px]" 
                   : "opacity-100 pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)]"
+              } ${
+                queueOpen && !immersive && !lyricsOpen
+                  ? "md:pr-[calc(min(380px,100vw-2rem)+var(--gutter)+1rem)]"
+                  : ""
               }`}
             >
               <MetaLine immersive={immersive} />
