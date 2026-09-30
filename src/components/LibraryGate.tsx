@@ -6,6 +6,7 @@ import { usePlayer } from "@/store/player-store";
 import UnifiedSearch from "@/components/UnifiedSearch";
 import { idbGet } from "@/lib/db";
 import type { FsNode } from "@/lib/fs-scanner";
+import { introDelay } from "@/components/fx/Intro";
 
 const FORMATS = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"];
 
@@ -40,6 +41,7 @@ export default function LibraryGate() {
         opacity: 0,
         stagger: 0.09,
         duration: 0.95,
+        delay: introDelay(),
         ease: "power3.out",
       });
     });

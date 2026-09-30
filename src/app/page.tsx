@@ -22,6 +22,7 @@ import Onboarding from "@/components/Onboarding";
 import UpdateToast from "@/components/UpdateToast";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
 import FxRoot from "@/components/fx/FxRoot";
+import Intro from "@/components/fx/Intro";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,
@@ -336,6 +337,7 @@ export default function Home() {
       <UpdateToast />
       <CustomCursor />
       <FxRoot />
+      <Intro />
     </div>
   );
 }

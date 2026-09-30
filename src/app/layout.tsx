@@ -61,6 +61,13 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://www.youtube.com" />
         <link rel="preconnect" href="https://www.googleapis.com" />
+        {/* Intro plays once per session: decided before first paint. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{document.documentElement.dataset.intro=sessionStorage.getItem("aurora:intro")?"skip":"play"}catch(e){document.documentElement.dataset.intro="skip"}',
+          }}
+        />
       </head>
       <body suppressHydrationWarning className="font-sans antialiased">
         <ServiceWorkerRegister />

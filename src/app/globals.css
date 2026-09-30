@@ -450,3 +450,117 @@ input:not([type]):focus-visible {
 [data-magnetic] {
   translate: var(--mx, 0px) var(--my, 0px);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Intro (first load of a session, ~1.15s, never blocks input)        */
+/* ------------------------------------------------------------------ */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-cursor) - 1);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.25rem;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, var(--c1) 14%, transparent), transparent 70%),
+    var(--bg);
+  animation: intro-out 0.34s var(--ease-in-out-quart) 0.82s both;
+}
+
+:root[data-intro="skip"] .intro,
+:root[data-intro="done"] .intro {
+  display: none;
+}
+
+.intro-word {
+  display: flex;
+  font-size: clamp(2.4rem, 11vw, 7rem);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  /* Letter-spacing trails the last glyph: re-centre optically. */
+  margin-right: -0.28em;
+  line-height: 1;
+  animation: intro-word-out 0.34s var(--ease-in-out-quart) 0.82s both;
+}
+
+.intro-mask {
+  display: inline-block;
+  overflow: hidden;
+  padding-block: 0.08em;
+}
+
+.intro-letter {
+  display: inline-block;
+  color: transparent;
+  background: linear-gradient(
+      90deg,
+      #f5f5f7 0 38%,
+      var(--c1) 44%,
+      var(--c2) 50%,
+      var(--c3) 56%,
+      #f5f5f7 62% 100%
+    )
+    no-repeat;
+  background-size: 400% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation:
+    intro-letter-in 0.62s var(--ease-out-expo) calc(var(--i) * 45ms) both,
+    intro-sweep 0.6s ease-in-out calc(0.22s + var(--i) * 40ms) both;
+}
+
+.intro-line {
+  display: block;
+  width: min(14rem, 50vw);
+  height: 1px;
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c2) 60%, transparent);
+  animation: intro-line 0.7s var(--ease-in-out-quart) 0.1s both;
+}
+
+@keyframes intro-letter-in {
+  from {
+    transform: translateY(110%);
+  }
+}
+
+@keyframes intro-sweep {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes intro-line {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes intro-word-out {
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: blur(6px);
+  }
+}
+
+@keyframes intro-out {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 100% 0);
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro {
+    display: none;
+  }
+}
