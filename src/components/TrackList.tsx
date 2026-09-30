@@ -39,8 +39,8 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
         <span
-          className={`w-7 shrink-0 font-mono text-[10px] tracking-widest ${
-            active ? "text-white/80" : "text-white/30"
+          className={`w-7 shrink-0 font-mono text-micro tracking-widest ${
+            active ? "text-white/80" : "text-ink-3"
           }`}
         >
           {active && playing ? (
@@ -61,19 +61,19 @@ function TrackRow({ track, index, active, playing, onPlay, onAdd }: RowProps) {
           >
             {track.title}
           </span>
-          <span className="block truncate text-xs text-white/40">
+          <span className="block truncate text-xs text-ink-2">
             {track.artist}
           </span>
         </span>
       </button>
 
       {track.isOnline && (
-        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
+        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-micro uppercase tracking-[0.16em] text-ink-2">
           web
         </span>
       )}
       {track.bpm ? (
-        <span className="hidden shrink-0 font-mono text-[9px] tracking-widest text-white/30 sm:block">
+        <span className="hidden shrink-0 font-mono text-micro tracking-widest text-ink-3 sm:block">
           {track.bpm} BPM
         </span>
       ) : null}
@@ -204,7 +204,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
   const totalMinutes = Math.floor((stats.seconds % 3600) / 60);
   const visible = filtered.slice(range.start, range.end);
   const tabs: { id: Tab; label: string }[] = [
-    { id: "search", label: "Search" },
+    { id: "search", label: "Recherche" },
     { id: "file", label: "File" },
     { id: "albums", label: "Albums" },
     { id: "playlists", label: "Playlists" },
@@ -224,7 +224,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
       }`}
     >
       <div className="flex items-center justify-between px-4 pb-2 pt-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/45 md:tracking-[0.4em]">
+        <span className="font-mono text-micro uppercase tracking-[0.28em] text-ink-2 md:tracking-[0.4em]">
           bibliothèque · {tracks.length}
         </span>
         <button
@@ -257,10 +257,10 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               setOpenPlaylistId(null);
               setOpenAlbum(null);
             }}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors sm:flex-1 ${
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-micro font-semibold uppercase tracking-[0.12em] transition-colors sm:flex-1 ${
               tab === entry.id
                 ? "bg-white/12 text-white"
-                : "text-white/40 hover:text-white"
+                : "text-ink-2 hover:text-white"
             }`}
           >
             {entry.label}
@@ -289,7 +289,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Rechercher..."
                 aria-label="Rechercher dans la bibliothèque"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition-colors focus:border-white/30"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-ink-3 outline-none transition-colors focus:border-white/30"
               />
             </div>
             <div
@@ -346,7 +346,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   </div>
                 ))}
                 {filtered.length === 0 && (
-                  <p className="px-3 py-8 text-center text-xs text-white/35">
+                  <p className="px-3 py-8 text-center text-xs text-ink-2">
                     Aucun résultat
                   </p>
                 )}
@@ -385,7 +385,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   <p className="truncate text-xs font-semibold text-white/85">
                     {album.album}
                   </p>
-                  <p className="truncate text-[10px] text-white/40">
+                  <p className="truncate text-micro text-ink-2">
                     {album.artist} · {album.indices.length} titres
                   </p>
                 </button>
@@ -407,7 +407,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               </button>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{openAlbumData.album}</p>
-                <p className="truncate text-[10px] text-white/40">
+                <p className="truncate text-micro text-ink-2">
                   {openAlbumData.artist}
                 </p>
               </div>
@@ -426,7 +426,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                       active ? "bg-white/[0.09]" : "hover:bg-white/[0.05]"
                     }`}
                   >
-                    <span className="w-6 font-mono text-[10px] text-white/30">
+                    <span className="w-6 font-mono text-micro text-ink-3">
                       {active && playing ? (
                         <span className="eq" aria-hidden>
                           <i />
@@ -460,7 +460,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   }
                 }}
                 placeholder="Nouvelle playlist..."
-                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-white/30"
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-ink-3 outline-none focus:border-white/30"
               />
               <button
                 type="button"
@@ -477,7 +477,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
               </button>
             </div>
             {playlists.length === 0 && (
-              <p className="px-2 py-6 text-center text-xs text-white/35">
+              <p className="px-2 py-6 text-center text-xs text-ink-2">
                 Ajoute des titres avec le bouton + de la file
               </p>
             )}
@@ -493,7 +493,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                   className="min-w-0 flex-1 text-left"
                 >
                   <p className="truncate text-sm text-white/85">{playlist.name}</p>
-                  <p className="text-[10px] text-white/40">
+                  <p className="text-micro text-ink-2">
                     {playlist.trackIds.length} titres
                   </p>
                 </button>
@@ -529,7 +529,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             </div>
             <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8">
               {playlistTracks.length === 0 && (
-                <p className="px-3 py-6 text-center text-xs text-white/35">
+                <p className="px-3 py-6 text-center text-xs text-ink-2">
                   Playlist vide
                 </p>
               )}
@@ -549,7 +549,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                       <p className={`truncate text-xs ${active ? "font-semibold text-white" : "text-white/75"}`}>
                         {track.title}
                       </p>
-                      <p className="truncate text-[10px] text-white/40">
+                      <p className="truncate text-micro text-ink-2">
                         {track.artist}
                       </p>
                     </button>
@@ -577,15 +577,15 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 {totalHours}h
                 <span className="text-white/40"> {totalMinutes}min</span>
               </p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
+              <p className="mt-1 text-micro uppercase tracking-[0.22em] text-ink-2">
                 temps d’écoute total
               </p>
             </div>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+            <p className="mb-2 font-mono text-micro uppercase tracking-[0.22em] text-ink-2">
               top titres
             </p>
             {topPlayed.length === 0 && (
-              <p className="py-4 text-center text-xs text-white/35">
+              <p className="py-4 text-center text-xs text-ink-2">
                 Écoute quelques morceaux d’abord
               </p>
             )}
@@ -595,12 +595,12 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 <div key={track.id} className="mb-2">
                   <div className="mb-1 flex items-baseline justify-between gap-2">
                     <span className="min-w-0 flex-1 truncate text-xs text-white/75">
-                      <span className="mr-2 font-mono text-[9px] text-white/30">
+                      <span className="mr-2 font-mono text-micro text-ink-3">
                         {String(position + 1).padStart(2, "0")}
                       </span>
                       {track.title}
                     </span>
-                    <span className="font-mono text-[10px] text-white/40">
+                    <span className="font-mono text-micro text-ink-2">
                       {count}×
                     </span>
                   </div>
@@ -620,7 +620,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             <button
               type="button"
               onClick={resetStats}
-              className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:border-white/30 hover:text-white"
+              className="mt-4 w-full rounded-lg border border-white/10 py-2 text-micro uppercase tracking-[0.2em] text-ink-2 transition-colors hover:border-white/30 hover:text-white"
             >
               Réinitialiser
             </button>
@@ -641,11 +641,11 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
             className="glass-strong w-full max-h-[70vh] overflow-y-auto overscroll-contain rounded-2xl p-3"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="mb-2 px-1 font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
+            <p className="mb-2 px-1 font-mono text-micro uppercase tracking-[0.22em] text-ink-2">
               Ajouter à...
             </p>
             {playlists.length === 0 && (
-              <p className="px-1 pb-2 text-xs text-white/40">
+              <p className="px-1 pb-2 text-xs text-ink-2">
                 Crée d’abord une playlist dans l’onglet Playlists
               </p>
             )}
@@ -660,7 +660,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-white/75 transition-colors hover:bg-white/10"
               >
                 {playlist.name}
-                <span className="text-[10px] text-white/35">
+                <span className="text-micro text-ink-2">
                   {playlist.trackIds.length}
                 </span>
               </button>

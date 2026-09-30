@@ -7,7 +7,7 @@ import { useDismissable } from "@/hooks/useDismissable";
 const STEPS = [
   {
     title: "Bienvenue dans AURORA",
-    text: "Un lecteur hybride pour ta musique locale et le streaming gratuit via Invidious.",
+    text: "Un lecteur hybride pour ta musique locale et les morceaux en ligne, lus via le lecteur YouTube officiel.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
         <path
@@ -118,7 +118,7 @@ export default function Onboarding() {
         <h2 id="onboarding-title" className="font-display text-2xl font-bold tracking-tight">
           {current.title}
         </h2>
-        <p id="onboarding-text" aria-live="polite" className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-white/55">
+        <p id="onboarding-text" aria-live="polite" className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-2">
           {current.text}
         </p>
 
@@ -137,7 +137,7 @@ export default function Onboarding() {
           <button
             type="button"
             onClick={close}
-            className="text-xs uppercase tracking-[0.2em] text-white/40 transition-colors hover:text-white"
+            className="text-xs uppercase tracking-[0.2em] text-ink-2 transition-colors hover:text-white"
           >
             Passer
           </button>

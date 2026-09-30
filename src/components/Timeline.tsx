@@ -224,11 +224,11 @@ export default function Timeline() {
         </div>
         <div
           ref={hoverRef}
-          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 font-mono text-[9px] text-white/80 opacity-0 transition-opacity"
+          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 font-mono text-micro text-white/80 opacity-0 transition-opacity"
         />
         <span
           ref={abRef}
-          className="pointer-events-none absolute -top-5 right-0 font-mono text-[9px] tracking-widest text-[var(--c2)]"
+          className="pointer-events-none absolute -top-5 right-0 font-mono text-micro tracking-widest text-[var(--c2)]"
         />
       </div>
       <DurationLabel />

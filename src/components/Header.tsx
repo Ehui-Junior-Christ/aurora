@@ -127,7 +127,7 @@ export default function Header({ immersive }: { immersive: boolean }) {
 
       <div className="flex items-center gap-2 md:gap-3">
         {count > 0 && (
-          <span className="hidden max-w-[220px] truncate rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/55 lg:block">
+          <span className="hidden max-w-[220px] truncate rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-[11px] uppercase tracking-[0.18em] text-ink-2 lg:block">
             {sources.length > 0 && `${sources.length} source${sources.length > 1 ? "s" : ""} · `}
             {count} titres
           </span>

@@ -50,7 +50,7 @@ export default function GlobalProgressBar() {
     <div className="fixed inset-x-0 bottom-0 z-40 h-[calc(16px+env(safe-area-inset-bottom))] select-none">
       <span
         ref={curRef}
-        className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[9px] tabular-nums tracking-wider text-white/45"
+        className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-micro tabular-nums tracking-wider text-ink-2"
       >
         0:00
       </span>
@@ -79,7 +79,7 @@ export default function GlobalProgressBar() {
       </div>
       <span
         ref={durRef}
-        className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[9px] tabular-nums tracking-wider text-white/45"
+        className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-micro tabular-nums tracking-wider text-ink-2"
       >
         0:00
       </span>

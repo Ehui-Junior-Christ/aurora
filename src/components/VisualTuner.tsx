@@ -34,7 +34,7 @@ export default function VisualTuner({
       data-panel
       className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
+        <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Réglage visuel
         </span>
         <button
@@ -53,12 +53,12 @@ export default function VisualTuner({
           </svg>
         </button>
       </div>
-      <p className="mb-3 text-[10px] leading-relaxed text-white/35">
+      <p className="mb-3 text-micro leading-relaxed text-ink-2">
         Multiplicateurs appliqués à l’organisme de cette piste.
       </p>
       {knobs.map((knob) => (
         <div key={knob.key} className="mb-3">
-          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+          <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
             <span>{knob.label}</span>
             <span className="tabular-nums text-white/70">
               ×{preset[knob.key].toFixed(2)}
@@ -86,7 +86,7 @@ export default function VisualTuner({
         type="button"
         data-cursor="magnetic"
         onClick={resetVisualPreset}
-        className="mt-1 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.25em] text-white/55 transition-colors hover:border-white/30 hover:text-white"
+        className="mt-1 w-full rounded-lg border border-white/10 py-2 text-micro uppercase tracking-[0.25em] text-ink-2 transition-colors hover:border-white/30 hover:text-white"
       >
         Réinitialiser
       </button>

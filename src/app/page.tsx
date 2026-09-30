@@ -32,7 +32,7 @@ function MetaLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`meta-${current}`}
-      className={`fade-in-up mb-5 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40 transition-opacity duration-700 ${
+      className={`fade-in-up mb-5 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -53,9 +53,9 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
       <span className="font-display text-xl font-semibold tracking-wide md:text-2xl">
         {track?.artist ?? "—"}
       </span>
-      <span className="text-sm text-white/45">{track?.album ?? ""}</span>
+      <span className="text-sm text-ink-2">{track?.album ?? ""}</span>
       {track?.bpm ? (
-        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[10px] tracking-[0.2em] text-white/50">
+        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-micro tracking-[0.2em] text-ink-2">
           {track.bpm} BPM
         </span>
       ) : null}
@@ -67,7 +67,7 @@ function SeedTag({ immersive }: { immersive: boolean }) {
   const seed = usePlayer((s) => s.tracks[s.current]?.seed ?? 0);
   return (
     <div
-      className={`absolute bottom-64 right-10 hidden text-[10px] uppercase tracking-[0.5em] text-white/30 transition-opacity duration-700 xl:block ${
+      className={`absolute bottom-64 right-10 hidden text-micro uppercase tracking-[0.5em] text-ink-3 transition-opacity duration-700 xl:block ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
       style={{ writingMode: "vertical-rl" }}
@@ -323,7 +323,7 @@ export default function Home() {
             <p className="font-display text-2xl font-bold">
               Dépose ton dossier musique
             </p>
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-ink-2">
               Il sera mémorisé avec tes autres sources
             </p>
           </div>

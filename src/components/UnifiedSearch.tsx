@@ -63,16 +63,16 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
   };
 
   return (
-    <div className="group flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.06]">
-      <div className="size-8 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/[0.06]">
+    <div className="group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/[0.06]">
+      <div className="size-10 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.06]">
         {result.thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={result.thumbnail} alt="" className="size-full object-cover" />
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[10px] font-semibold text-white/85">{result.title}</p>
-        <p className="truncate text-[9px] text-white/42">
+        <p className="truncate text-[13px] font-semibold leading-tight text-ink-1 md:text-sm">{result.title}</p>
+        <p className="mt-0.5 truncate text-xs text-ink-2">
           {result.artist}
           {result.durationText ? ` · ${result.durationText}` : ""}
         </p>
@@ -136,7 +136,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
       }`}
     >
       <div className="p-3 md:p-4">
-        <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40 md:tracking-[0.28em]">
+        <label className="mb-2 block text-micro font-semibold uppercase tracking-[0.22em] text-ink-2 md:tracking-[0.28em]">
           Recherche unifiée
         </label>
         <div className="grid gap-2 md:grid-cols-[1fr_auto]">
@@ -153,7 +153,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
               }}
               placeholder="Artiste, titre, album..."
               aria-label="Rechercher une musique"
-              className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-white/30"
+              className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-ink-3 focus:border-white/30"
             />
           </div>
 
@@ -174,7 +174,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
             {sources.map((source) => (
               <span
                 key={source}
-                className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] py-1 pl-3 pr-1 text-[10px] uppercase tracking-[0.12em] text-white/50 md:tracking-[0.16em]"
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] py-1 pl-3 pr-1 text-micro uppercase tracking-[0.12em] text-ink-2 md:tracking-[0.16em]"
               >
                 <span className="truncate">{source}</span>
                 <button
@@ -197,7 +197,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
         <div data-lenis-prevent className="max-h-[42dvh] overflow-y-auto border-t border-white/10 px-2 py-2">
           {query.trim() === "" && savedOnlineTracks.length > 0 && !onlineSearching && !error && (
             <>
-              <div className="mb-2 px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
+              <div className="mb-2 px-3 pt-2 text-micro font-semibold uppercase tracking-[0.2em] text-ink-2">
                 Vos Favoris (En ligne)
               </div>
               {savedOnlineTracks.map((track) => (
@@ -219,7 +219,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
           )}
 
           {query.trim() === "" && history.length > 0 && !onlineSearching && !error && (
-            <div className="mb-2 px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
+            <div className="mb-2 px-3 pt-2 text-micro font-semibold uppercase tracking-[0.2em] text-ink-2">
               Écoutés récemment
             </div>
           )}
@@ -240,7 +240,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
             ))}
           
           {query.trim() !== "" && onlineSearching && (
-            <p className="px-3 py-4 text-sm text-white/45">Recherche dans le catalogue en ligne...</p>
+            <p className="px-3 py-4 text-sm text-ink-2">Recherche dans le catalogue en ligne...</p>
           )}
           {onlineError && (
             <p className="px-3 py-4 text-sm text-red-200/85">{onlineError}</p>

@@ -103,7 +103,7 @@ export default function PlayerBar({
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs md:text-sm font-semibold">{track?.title ?? "—"}</p>
-              <p className="truncate text-[10px] md:text-xs text-white/45">{track?.artist}</p>
+              <p className="truncate text-micro md:text-xs text-ink-2">{track?.artist}</p>
             </div>
             
             {/* Mobile-only Play/Pause */}

@@ -76,7 +76,7 @@ export default function EqPanel({
       data-lenis-prevent
       className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-40 mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
+        <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Égaliseur
         </span>
         <button
@@ -109,10 +109,10 @@ export default function EqPanel({
               data-cursor="magnetic"
               onClick={() => setEq(preset.values)}
               aria-pressed={active}
-              className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider transition-colors ${
+              className={`rounded-full border px-2.5 py-1 text-micro uppercase tracking-wider transition-colors ${
                 active
                   ? "border-[var(--c2)] bg-[var(--c2)]/10 text-[var(--c2)]"
-                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+                  : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
               }`}
             >
               {preset.name}
@@ -123,7 +123,7 @@ export default function EqPanel({
 
       {BANDS.map((band) => (
         <div key={band.key} className="mb-3">
-          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+          <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
             <span>{band.label}</span>
             <span className="tabular-nums text-white/70">
               {eq[band.key] > 0 ? "+" : ""}
@@ -149,7 +149,7 @@ export default function EqPanel({
       <div className="my-4 h-px bg-white/10" />
 
       <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+        <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
           <span>Vitesse</span>
           <span className="tabular-nums text-white/70">{speed.toFixed(2)}×</span>
         </div>
@@ -167,7 +167,7 @@ export default function EqPanel({
       </div>
 
       <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+        <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
           <span>Crossfade</span>
           <span className="tabular-nums text-white/70">{crossfade} s</span>
         </div>
@@ -206,7 +206,7 @@ export default function EqPanel({
         />
       </label>
 
-      <div className="mb-1 text-[10px] uppercase tracking-[0.2em] text-white/45">
+      <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">
         Minuterie sommeil
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -222,10 +222,10 @@ export default function EqPanel({
               data-cursor="magnetic"
               onClick={() => pickSleep(minutes)}
               aria-pressed={active}
-              className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${
+              className={`rounded-full border px-2.5 py-1 text-micro transition-colors ${
                 active
                   ? "border-[var(--c2)] text-[var(--c2)]"
-                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+                  : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
               }`}
             >
               {minutes === 0 ? "Off" : `${minutes} min`}
@@ -234,7 +234,7 @@ export default function EqPanel({
         })}
       </div>
       {sleepAt !== null && sleepRemainingMin > 0 && (
-        <p className="mt-2 text-[10px] text-white/40">
+        <p className="mt-2 text-micro text-ink-2">
           Pause dans {sleepRemainingMin} min
         </p>
       )}

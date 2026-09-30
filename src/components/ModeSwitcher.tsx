@@ -95,10 +95,10 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
         title="Mode automatique — un visuel par morceau"
         aria-label="Mode automatique"
         aria-pressed={autoMode}
-        className={`relative grid size-8 place-items-center rounded-full text-[9px] font-extrabold tracking-wider transition-colors duration-300 md:size-9 ${
+        className={`relative grid h-8 place-items-center rounded-full px-2.5 text-micro font-extrabold tracking-wider transition-colors duration-300 md:h-9 ${
           autoMode
             ? "bg-[var(--c3)]/25 text-[var(--c3)]"
-            : "text-white/40 hover:text-white"
+            : "text-ink-2 hover:text-white"
         }`}
       >
         AUTO

@@ -45,7 +45,7 @@ export default function LibraryGate() {
     return (
       <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-6 py-16">
         <div className="m-auto flex w-full max-w-md flex-col items-center gap-8 text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-white/40">
+          <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2">
             Analyse de la bibliothèque
           </p>
           <div className="font-display text-7xl font-extrabold tabular-nums md:text-8xl">
@@ -63,7 +63,7 @@ export default function LibraryGate() {
               }}
             />
           </div>
-          <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+          <p className="text-xs uppercase tracking-[0.3em] text-ink-2">
             tags · pochettes · extraction de palette
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function LibraryGate() {
           <>
             <p
               data-gate
-              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40"
+              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2"
             >
               bibliothèque retrouvée
             </p>
@@ -88,7 +88,7 @@ export default function LibraryGate() {
             >
               Bon retour.
             </h1>
-            <p data-gate className="mt-6 max-w-md text-sm leading-relaxed text-white/50">
+            <p data-gate className="mt-6 max-w-md text-sm leading-relaxed text-ink-2">
               Ton dossier « {pendingDirName} » est mémorisé. Une simple
               autorisation du navigateur suffit pour recharger ta bibliothèque.
             </p>
@@ -106,7 +106,7 @@ export default function LibraryGate() {
           <>
             <p
               data-gate
-              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40"
+              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2"
             >
               aurora // lecteur génératif hybride
             </p>
@@ -121,7 +121,7 @@ export default function LibraryGate() {
             </h1>
             <p
               data-gate
-              className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-white/50"
+              className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-ink-2"
             >
               Cherche le titre ou l&apos;artiste de ton choix, et AURORA se charge du reste. Des visuels WebGL génératifs accompagnent chaque musique en temps réel.
             </p>
@@ -146,7 +146,7 @@ export default function LibraryGate() {
               {FORMATS.map((format) => (
                 <li
                   key={format}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-mono text-[10px] tracking-[0.25em] text-white/40"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-mono text-micro tracking-[0.25em] text-ink-2"
                 >
                   {format}
                 </li>
@@ -154,7 +154,7 @@ export default function LibraryGate() {
             </ul>
 
             <div data-gate className="mt-16 flex flex-col items-center gap-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
+              <p className="font-mono text-micro uppercase tracking-[0.2em] text-ink-3">
                 Obtenir l&apos;application
               </p>
               <div className="flex flex-col md:flex-row flex-wrap justify-center gap-4 w-full md:w-auto">

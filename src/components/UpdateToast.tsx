@@ -26,7 +26,7 @@ export default function UpdateToast() {
           type="button"
           data-cursor="magnetic"
           onClick={() => setPlaybackError(null)}
-          className="rounded-full border border-white/20 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/10"
+          className="rounded-full border border-white/20 px-4 py-1.5 text-micro font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/10"
         >
           OK
         </button>
@@ -50,7 +50,7 @@ export default function UpdateToast() {
         type="button"
         data-cursor="magnetic"
         onClick={refreshApp}
-        className="rounded-full border border-white/20 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/10"
+        className="rounded-full border border-white/20 px-4 py-1.5 text-micro font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/10"
       >
         Recharger
       </button>

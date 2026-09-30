@@ -42,12 +42,12 @@ export default function LyricsPanel() {
       className="glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-40 overflow-y-auto rounded-2xl px-6 py-6 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 opacity-100 translate-x-0"
     >
       <div className="mb-4 flex items-center justify-between">
-        <p className="font-mono text-[9px] uppercase tracking-[0.4em] text-white/35">
+        <p className="font-mono text-micro uppercase tracking-[0.4em] text-ink-2">
           paroles
         </p>
         
         {isOnline && (
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[9px] text-white/60">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-micro text-white/60">
             <button type="button" onClick={() => setOffset(offset - 0.5)} className="hover:text-white transition-colors" title="Avancer les paroles" aria-label="Avancer les paroles de 0,5 seconde">-0.5s</button>
             <span className="w-8 text-center text-white/80" aria-live="polite" aria-label={`Décalage des paroles : ${offset.toFixed(1)} secondes`}>{offset > 0 ? `+${offset.toFixed(1)}` : offset.toFixed(1)}s</span>
             <button type="button" onClick={() => setOffset(offset + 0.5)} className="hover:text-white transition-colors" title="Retarder les paroles" aria-label="Retarder les paroles de 0,5 seconde">+0.5s</button>
@@ -65,8 +65,8 @@ export default function LyricsPanel() {
               active
                 ? "font-semibold text-white"
                 : index < activeIndex
-                  ? "text-white/25"
-                  : "text-white/45"
+                  ? "text-ink-3"
+                  : "text-ink-2"
             }`}
           >
             {cue.text}
