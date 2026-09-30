@@ -92,6 +92,11 @@ export async function searchOnlineMusic(
       if (response.status === 403) {
         throw new Error("Quota ou clé API YouTube invalide (403).");
       }
+      if (response.status === 429) {
+        throw new Error(
+          "Quota YouTube du jour épuisé. Réessaie plus tard ou ajoute ta propre clé API dans les réglages."
+        );
+      }
       if (response.status === 400) {
         throw new Error("Clé API YouTube invalide (400).");
       }
