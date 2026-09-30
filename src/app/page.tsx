@@ -310,7 +310,7 @@ export default function Home() {
             <TrackList immersive={immersive} />
             <ModeSwitcher lyricsOpen={lyricsOpen} />
             {lyricsOpen && <LyricsPanel />}
-            <GlobalProgressBar />
+            <GlobalProgressBar immersive={immersive} />
           </>
         ) : (
           <LibraryGate />
