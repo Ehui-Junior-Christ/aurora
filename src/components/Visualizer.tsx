@@ -9,6 +9,7 @@ import Particles from "./Particles";
 import Rig from "./Rig";
 import Backdrop from "./scenes/Backdrop";
 import Borealis from "./scenes/Borealis";
+import Liquid from "./scenes/Liquid";
 import Prism from "./scenes/Prism";
 import Galaxy from "./scenes/Galaxy";
 import Metaballs from "./scenes/Metaballs";
@@ -66,6 +67,7 @@ function SceneContent() {
       )}
       {mode === "borealis" && <Borealis />}
       {mode === "prism" && <Prism />}
+      {mode === "liquid" && <Liquid />}
       {bloom && !qualityLow && (
         <EffectComposer multisampling={0}>
           <Bloom
