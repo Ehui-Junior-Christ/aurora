@@ -194,7 +194,7 @@ export default function UnifiedSearch({ compact = false, onClose }: { compact?: 
       </div>
 
       {(onlineSearching || onlineError || onlineResults.length > 0 || error || (query.trim() === "" && (history.length > 0 || savedOnlineTracks.length > 0))) && (
-        <div className="max-h-[42dvh] overflow-y-auto border-t border-white/10 px-2 py-2">
+        <div data-lenis-prevent className="max-h-[42dvh] overflow-y-auto border-t border-white/10 px-2 py-2">
           {query.trim() === "" && savedOnlineTracks.length > 0 && !onlineSearching && !error && (
             <>
               <div className="mb-2 px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">

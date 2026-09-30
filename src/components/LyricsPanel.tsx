@@ -35,6 +35,10 @@ export default function LyricsPanel() {
 
   return (
     <div
+      role="region"
+      aria-label="Paroles synchronisées"
+      data-panel
+      data-lenis-prevent
       className="glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-40 overflow-y-auto rounded-2xl px-6 py-6 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 opacity-100 translate-x-0"
     >
       <div className="mb-4 flex items-center justify-between">
@@ -44,9 +48,9 @@ export default function LyricsPanel() {
         
         {isOnline && (
           <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[9px] text-white/60">
-            <button onClick={() => setOffset(offset - 0.5)} className="hover:text-white transition-colors" title="Avancer les paroles">-0.5s</button>
-            <span className="w-8 text-center text-white/80">{offset > 0 ? `+${offset.toFixed(1)}` : offset.toFixed(1)}s</span>
-            <button onClick={() => setOffset(offset + 0.5)} className="hover:text-white transition-colors" title="Retarder les paroles">+0.5s</button>
+            <button type="button" onClick={() => setOffset(offset - 0.5)} className="hover:text-white transition-colors" title="Avancer les paroles" aria-label="Avancer les paroles de 0,5 seconde">-0.5s</button>
+            <span className="w-8 text-center text-white/80" aria-live="polite" aria-label={`Décalage des paroles : ${offset.toFixed(1)} secondes`}>{offset > 0 ? `+${offset.toFixed(1)}` : offset.toFixed(1)}s</span>
+            <button type="button" onClick={() => setOffset(offset + 0.5)} className="hover:text-white transition-colors" title="Retarder les paroles" aria-label="Retarder les paroles de 0,5 seconde">+0.5s</button>
           </div>
         )}
       </div>

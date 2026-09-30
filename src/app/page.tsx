@@ -77,6 +77,16 @@ function SeedTag({ immersive }: { immersive: boolean }) {
   );
 }
 
+function TrackAnnouncer() {
+  const title = usePlayer((s) => s.tracks[s.current]?.title ?? "");
+  const artist = usePlayer((s) => s.tracks[s.current]?.artist ?? "");
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {title ? `Lecture : ${title}${artist ? `, ${artist}` : ""}` : ""}
+    </div>
+  );
+}
+
 export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
   const showHome = usePlayer((s) => s.showHome);
@@ -320,6 +330,7 @@ export default function Home() {
         </div>
       )}
 
+      <TrackAnnouncer />
       <Onboarding />
       <UpdateToast />
       <CustomCursor />

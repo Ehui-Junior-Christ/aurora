@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/store/player-store";
 import Timeline from "./Timeline";
 import EqPanel from "./EqPanel";
@@ -45,6 +45,7 @@ export default function PlayerBar({
   const toggleShuffle = usePlayer((s) => s.toggleShuffle);
   const cycleRepeat = usePlayer((s) => s.cycleRepeat);
   const [eqOpen, setEqOpen] = useState(false);
+  const eqTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -110,6 +111,7 @@ export default function PlayerBar({
               <button
                 type="button"
                 onClick={() => prev()}
+                aria-label="Piste précédente"
                 className="grid size-9 place-items-center rounded-full text-white/65 hover:text-white"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
@@ -133,6 +135,7 @@ export default function PlayerBar({
               <button
                 type="button"
                 onClick={() => next()}
+                aria-label="Piste suivante"
                 className="grid size-9 place-items-center rounded-full text-white/65 hover:text-white"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
@@ -203,6 +206,7 @@ export default function PlayerBar({
               onClick={onToggleLyrics}
               disabled={!lyricsAvailable}
               aria-label="Paroles"
+              aria-pressed={lyricsOpen}
               title="Paroles"
               className={`grid size-9 place-items-center rounded-full transition-colors disabled:opacity-25 ${
                 lyricsOpen ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
@@ -223,6 +227,7 @@ export default function PlayerBar({
               data-cursor="magnetic"
               onClick={toggleShuffle}
               aria-label="Lecture aléatoire"
+              aria-pressed={shuffle}
               title="Lecture aléatoire"
               className={`grid size-9 place-items-center rounded-full transition-colors ${
                 shuffle ? "text-[var(--c2)]" : "text-white/45 hover:text-white"
@@ -283,8 +288,11 @@ export default function PlayerBar({
               <button
                 type="button"
                 data-cursor="magnetic"
+                ref={eqTriggerRef}
                 onClick={() => setEqOpen(!eqOpen)}
                 aria-label="Égaliseur et options audio"
+                aria-expanded={eqOpen}
+                aria-controls="eq-panel"
                 title="Égaliseur et options"
                 className={`grid size-8 place-items-center rounded-full transition-colors ${
                   eqOpen ? "text-white" : "text-white/50 hover:text-white"
@@ -321,7 +329,9 @@ export default function PlayerBar({
           </div>
         </div>
       </div>
-      {eqOpen && <EqPanel onClose={() => setEqOpen(false)} />}
+      {eqOpen && (
+        <EqPanel onClose={() => setEqOpen(false)} triggerRef={eqTriggerRef} />
+      )}
     </div>
   );
 }

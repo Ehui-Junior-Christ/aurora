@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { usePlayer, type Playlist } from "@/store/player-store";
+import { useDismissable } from "@/hooks/useDismissable";
 import UnifiedSearch from "@/components/UnifiedSearch";
 import type { Track } from "@/lib/types";
 
@@ -125,6 +126,11 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const dragIndex = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  useDismissable(addMenuRef, () => setAddMenuTrackId(null), {
+    enabled: addMenuTrackId !== null,
+    outside: false,
+  });
 
   const filtered = useMemo(
     () =>
@@ -207,7 +213,10 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
 
   return (
     <aside
-      aria-label="File d'attente"
+      id="library-panel"
+      aria-label="Bibliothèque"
+      data-panel
+      data-lenis-prevent
       className={`glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-20 flex flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 ${
         queueOpen && !immersive
           ? "translate-x-0 opacity-100"
@@ -230,11 +239,19 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
         </button>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto px-3 pb-2">
+      <div
+        role="tablist"
+        aria-label="Sections de la bibliothèque"
+        className="flex gap-1 overflow-x-auto px-3 pb-2"
+      >
         {tabs.map((entry) => (
           <button
             key={entry.id}
             type="button"
+            role="tab"
+            id={`lib-tab-${entry.id}`}
+            aria-selected={tab === entry.id}
+            aria-controls="lib-tabpanel"
             onClick={() => {
               setTab(entry.id);
               setOpenPlaylistId(null);
@@ -251,358 +268,365 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
         ))}
       </div>
 
-      {tab === "search" && (
-        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
-          <UnifiedSearch />
-        </div>
-      )}
-
-      {tab === "file" && (
-        <>
-          <div className="px-3 pb-2">
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Rechercher..."
-              aria-label="Rechercher dans la bibliothèque"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition-colors focus:border-white/30"
-            />
+      <div
+        role="tabpanel"
+        id="lib-tabpanel"
+        aria-labelledby={`lib-tab-${tab}`}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {tab === "search" && (
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
+            <UnifiedSearch />
           </div>
-          <div
-            ref={listRef}
-            onScroll={(event) =>
-              setScrollTop((event.target as HTMLDivElement).scrollTop)
-            }
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (dragIndex.current === null || filtered.length === 0) return;
-              const top = listRef.current?.getBoundingClientRect().top ?? 0;
-              const targetRow = Math.min(
-                filtered.length - 1,
-                Math.max(
-                  0,
-                  range.start +
-                    Math.floor((event.clientY - top + scrollTop) / ROW_HEIGHT)
-                )
-              );
-              const targetIndex = filtered[targetRow]?.index;
-              if (
-                typeof targetIndex === "number" &&
-                dragIndex.current !== targetIndex
-              ) {
-                reorder(dragIndex.current, targetIndex);
-              }
-              dragIndex.current = null;
-            }}
-            className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8"
-          >
+        )}
+
+        {tab === "file" && (
+          <>
+            <div className="px-3 pb-2">
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Rechercher..."
+                aria-label="Rechercher dans la bibliothèque"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition-colors focus:border-white/30"
+              />
+            </div>
             <div
-              style={{
-                paddingTop: range.start * ROW_HEIGHT,
-                paddingBottom: (filtered.length - range.end) * ROW_HEIGHT,
+              ref={listRef}
+              onScroll={(event) =>
+                setScrollTop((event.target as HTMLDivElement).scrollTop)
+              }
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragIndex.current === null || filtered.length === 0) return;
+                const top = listRef.current?.getBoundingClientRect().top ?? 0;
+                const targetRow = Math.min(
+                  filtered.length - 1,
+                  Math.max(
+                    0,
+                    range.start +
+                      Math.floor((event.clientY - top + scrollTop) / ROW_HEIGHT)
+                  )
+                );
+                const targetIndex = filtered[targetRow]?.index;
+                if (
+                  typeof targetIndex === "number" &&
+                  dragIndex.current !== targetIndex
+                ) {
+                  reorder(dragIndex.current, targetIndex);
+                }
+                dragIndex.current = null;
               }}
+              className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8"
             >
-              {visible.map(({ track, index }) => (
-                <div
-                  key={track.id}
-                  style={{ height: ROW_HEIGHT }}
-                  onDragStart={() => {
-                    dragIndex.current = index;
-                  }}
-                >
-                  <TrackRow
-                    track={track}
-                    index={index}
-                    active={index === current}
-                    playing={playing}
-                    onPlay={play}
-                    onAdd={(trackId) => setAddMenuTrackId(trackId)}
-                  />
-                </div>
-              ))}
-              {filtered.length === 0 && (
-                <p className="px-3 py-8 text-center text-xs text-white/35">
-                  Aucun résultat
-                </p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {tab === "albums" && !openAlbumData && (
-        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
-          <div className="grid grid-cols-2 gap-3 pb-4 max-[380px]:grid-cols-1">
-            {albums.map((album) => (
-              <button
-                key={`${album.artist}||${album.album}`}
-                type="button"
-                data-cursor="magnetic"
-                onClick={() => setOpenAlbum(`${album.artist}||${album.album}`)}
-                className="group text-left"
+              <div
+                style={{
+                  paddingTop: range.start * ROW_HEIGHT,
+                  paddingBottom: (filtered.length - range.end) * ROW_HEIGHT,
+                }}
               >
-                <div
-                  className="mb-2 aspect-square w-full overflow-hidden rounded-xl border border-white/10"
-                  style={
-                    album.cover
-                      ? undefined
-                      : {
-                          background:
-                            "linear-gradient(135deg, color-mix(in srgb, var(--c1) 60%, transparent), color-mix(in srgb, var(--c3) 45%, transparent))",
-                        }
-                  }
-                >
-                  {album.cover && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={album.cover} alt="" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  )}
-                </div>
-                <p className="truncate text-xs font-semibold text-white/85">
-                  {album.album}
-                </p>
-                <p className="truncate text-[10px] text-white/40">
-                  {album.artist} · {album.indices.length} titres
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === "albums" && openAlbumData && (
-        <>
-          <div className="flex items-center gap-2 px-3 pb-2">
-            <button
-              type="button"
-              onClick={() => setOpenAlbum(null)}
-              className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
-              aria-label="Retour aux albums"
-            >
-              ←
-            </button>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{openAlbumData.album}</p>
-              <p className="truncate text-[10px] text-white/40">
-                {openAlbumData.artist}
-              </p>
+                {visible.map(({ track, index }) => (
+                  <div
+                    key={track.id}
+                    style={{ height: ROW_HEIGHT }}
+                    onDragStart={() => {
+                      dragIndex.current = index;
+                    }}
+                  >
+                    <TrackRow
+                      track={track}
+                      index={index}
+                      active={index === current}
+                      playing={playing}
+                      onPlay={play}
+                      onAdd={(trackId) => setAddMenuTrackId(trackId)}
+                    />
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="px-3 py-8 text-center text-xs text-white/35">
+                    Aucun résultat
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8">
-            {openAlbumData.indices.map((index) => {
-              const track = tracks[index];
-              const active = index === current;
-              return (
+          </>
+        )}
+
+        {tab === "albums" && !openAlbumData && (
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
+            <div className="grid grid-cols-2 gap-3 pb-4 max-[380px]:grid-cols-1">
+              {albums.map((album) => (
                 <button
-                  key={track.id}
+                  key={`${album.artist}||${album.album}`}
                   type="button"
                   data-cursor="magnetic"
-                  onClick={() => play(index)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
-                    active ? "bg-white/[0.09]" : "hover:bg-white/[0.05]"
-                  }`}
+                  onClick={() => setOpenAlbum(`${album.artist}||${album.album}`)}
+                  className="group text-left"
                 >
-                  <span className="w-6 font-mono text-[10px] text-white/30">
-                    {active && playing ? (
-                      <span className="eq" aria-hidden>
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    ) : (
-                      String(index + 1).padStart(2, "0")
+                  <div
+                    className="mb-2 aspect-square w-full overflow-hidden rounded-xl border border-white/10"
+                    style={
+                      album.cover
+                        ? undefined
+                        : {
+                            background:
+                              "linear-gradient(135deg, color-mix(in srgb, var(--c1) 60%, transparent), color-mix(in srgb, var(--c3) 45%, transparent))",
+                          }
+                    }
+                  >
+                    {album.cover && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={album.cover} alt="" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     )}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-white/80">
-                    {track.title}
-                  </span>
+                  </div>
+                  <p className="truncate text-xs font-semibold text-white/85">
+                    {album.album}
+                  </p>
+                  <p className="truncate text-[10px] text-white/40">
+                    {album.artist} · {album.indices.length} titres
+                  </p>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </>
-      )}
+        )}
 
-      {tab === "playlists" && !openPlaylist && (
-        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
-          <div className="mb-3 flex gap-2">
-            <input
-              value={newPlaylistName}
-              onChange={(event) => setNewPlaylistName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && newPlaylistName.trim()) {
-                  void createPlaylist(newPlaylistName);
-                  setNewPlaylistName("");
-                }
-              }}
-              placeholder="Nouvelle playlist..."
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-white/30"
-            />
-            <button
-              type="button"
-              data-cursor="magnetic"
-              onClick={() => {
-                if (newPlaylistName.trim()) {
-                  void createPlaylist(newPlaylistName);
-                  setNewPlaylistName("");
-                }
-              }}
-              className="rounded-lg border border-white/15 px-3 text-xs text-white/70 transition-colors hover:border-white/40 hover:text-white"
-            >
-              +
-            </button>
-          </div>
-          {playlists.length === 0 && (
-            <p className="px-2 py-6 text-center text-xs text-white/35">
-              Ajoute des titres avec le bouton + de la file
-            </p>
-          )}
-          {playlists.map((playlist) => (
-            <div
-              key={playlist.id}
-              className="group mb-1 flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.05]"
-            >
+        {tab === "albums" && openAlbumData && (
+          <>
+            <div className="flex items-center gap-2 px-3 pb-2">
+              <button
+                type="button"
+                onClick={() => setOpenAlbum(null)}
+                className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
+                aria-label="Retour aux albums"
+              >
+                ←
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{openAlbumData.album}</p>
+                <p className="truncate text-[10px] text-white/40">
+                  {openAlbumData.artist}
+                </p>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8">
+              {openAlbumData.indices.map((index) => {
+                const track = tracks[index];
+                const active = index === current;
+                return (
+                  <button
+                    key={track.id}
+                    type="button"
+                    data-cursor="magnetic"
+                    onClick={() => play(index)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                      active ? "bg-white/[0.09]" : "hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <span className="w-6 font-mono text-[10px] text-white/30">
+                      {active && playing ? (
+                        <span className="eq" aria-hidden>
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      ) : (
+                        String(index + 1).padStart(2, "0")
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-white/80">
+                      {track.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {tab === "playlists" && !openPlaylist && (
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
+            <div className="mb-3 flex gap-2">
+              <input
+                value={newPlaylistName}
+                onChange={(event) => setNewPlaylistName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && newPlaylistName.trim()) {
+                    void createPlaylist(newPlaylistName);
+                    setNewPlaylistName("");
+                  }
+                }}
+                placeholder="Nouvelle playlist..."
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-white/30"
+              />
               <button
                 type="button"
                 data-cursor="magnetic"
-                onClick={() => setOpenPlaylistId(playlist.id)}
-                className="min-w-0 flex-1 text-left"
+                onClick={() => {
+                  if (newPlaylistName.trim()) {
+                    void createPlaylist(newPlaylistName);
+                    setNewPlaylistName("");
+                  }
+                }}
+                className="rounded-lg border border-white/15 px-3 text-xs text-white/70 transition-colors hover:border-white/40 hover:text-white"
               >
-                <p className="truncate text-sm text-white/85">{playlist.name}</p>
-                <p className="text-[10px] text-white/40">
-                  {playlist.trackIds.length} titres
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => void deletePlaylist(playlist.id)}
-                aria-label={`Supprimer ${playlist.name}`}
-                className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-                  <path d="m1 1 10 10M11 1 1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                +
               </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "playlists" && openPlaylist && (
-        <>
-          <div className="flex items-center gap-2 px-3 pb-2">
-            <button
-              type="button"
-              onClick={() => setOpenPlaylistId(null)}
-              className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
-              aria-label="Retour aux playlists"
-            >
-              ←
-            </button>
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold">
-              {openPlaylist.name}
-            </p>
-          </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8">
-            {playlistTracks.length === 0 && (
-              <p className="px-3 py-6 text-center text-xs text-white/35">
-                Playlist vide
+            {playlists.length === 0 && (
+              <p className="px-2 py-6 text-center text-xs text-white/35">
+                Ajoute des titres avec le bouton + de la file
               </p>
             )}
-            {playlistTracks.map((track) => {
-              const globalIndex = tracks.findIndex((t) => t.id === track.id);
-              const active = globalIndex === current;
-              return (
-                <div
-                  key={track.id}
-                  className="group flex items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.05]"
+            {playlists.map((playlist) => (
+              <div
+                key={playlist.id}
+                className="group mb-1 flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.05]"
+              >
+                <button
+                  type="button"
+                  data-cursor="magnetic"
+                  onClick={() => setOpenPlaylistId(playlist.id)}
+                  className="min-w-0 flex-1 text-left"
                 >
-                  <button
-                    type="button"
-                    onClick={() => play(globalIndex)}
-                    className="min-w-0 flex-1 text-left"
+                  <p className="truncate text-sm text-white/85">{playlist.name}</p>
+                  <p className="text-[10px] text-white/40">
+                    {playlist.trackIds.length} titres
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deletePlaylist(playlist.id)}
+                  aria-label={`Supprimer ${playlist.name}`}
+                  className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+                    <path d="m1 1 10 10M11 1 1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "playlists" && openPlaylist && (
+          <>
+            <div className="flex items-center gap-2 px-3 pb-2">
+              <button
+                type="button"
+                onClick={() => setOpenPlaylistId(null)}
+                className="grid size-8 place-items-center text-white/50 transition-colors hover:text-white"
+                aria-label="Retour aux playlists"
+              >
+                ←
+              </button>
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+                {openPlaylist.name}
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-8">
+              {playlistTracks.length === 0 && (
+                <p className="px-3 py-6 text-center text-xs text-white/35">
+                  Playlist vide
+                </p>
+              )}
+              {playlistTracks.map((track) => {
+                const globalIndex = tracks.findIndex((t) => t.id === track.id);
+                const active = globalIndex === current;
+                return (
+                  <div
+                    key={track.id}
+                    className="group flex items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.05]"
                   >
-                    <p className={`truncate text-xs ${active ? "font-semibold text-white" : "text-white/75"}`}>
+                    <button
+                      type="button"
+                      onClick={() => play(globalIndex)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className={`truncate text-xs ${active ? "font-semibold text-white" : "text-white/75"}`}>
+                        {track.title}
+                      </p>
+                      <p className="truncate text-[10px] text-white/40">
+                        {track.artist}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void removeFromPlaylist(openPlaylist.id, track.id)}
+                      aria-label="Retirer de la playlist"
+                      className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
+                        <path d="M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {tab === "stats" && (
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
+            <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
+              <p className="font-display text-3xl font-extrabold">
+                {totalHours}h
+                <span className="text-white/40"> {totalMinutes}min</span>
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
+                temps d’écoute total
+              </p>
+            </div>
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
+              top titres
+            </p>
+            {topPlayed.length === 0 && (
+              <p className="py-4 text-center text-xs text-white/35">
+                Écoute quelques morceaux d’abord
+              </p>
+            )}
+            {topPlayed.map(({ track, count }, position) => {
+              const max = topPlayed[0]?.count ?? 1;
+              return (
+                <div key={track.id} className="mb-2">
+                  <div className="mb-1 flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs text-white/75">
+                      <span className="mr-2 font-mono text-[9px] text-white/30">
+                        {String(position + 1).padStart(2, "0")}
+                      </span>
                       {track.title}
-                    </p>
-                    <p className="truncate text-[10px] text-white/40">
-                      {track.artist}
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void removeFromPlaylist(openPlaylist.id, track.id)}
-                    aria-label="Retirer de la playlist"
-                    className="grid size-7 place-items-center text-white/25 opacity-80 transition-all hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
-                      <path d="M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
+                    </span>
+                    <span className="font-mono text-[10px] text-white/40">
+                      {count}×
+                    </span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${(count / max) * 100}%`,
+                        background:
+                          "linear-gradient(90deg, var(--c1), var(--c3))",
+                      }}
+                    />
+                  </div>
                 </div>
               );
             })}
+            <button
+              type="button"
+              onClick={resetStats}
+              className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:border-white/30 hover:text-white"
+            >
+              Réinitialiser
+            </button>
           </div>
-        </>
-      )}
-
-      {tab === "stats" && (
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
-          <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-            <p className="font-display text-3xl font-extrabold">
-              {totalHours}h
-              <span className="text-white/40"> {totalMinutes}min</span>
-            </p>
-            <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/40">
-              temps d’écoute total
-            </p>
-          </div>
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/40">
-            top titres
-          </p>
-          {topPlayed.length === 0 && (
-            <p className="py-4 text-center text-xs text-white/35">
-              Écoute quelques morceaux d’abord
-            </p>
-          )}
-          {topPlayed.map(({ track, count }, position) => {
-            const max = topPlayed[0]?.count ?? 1;
-            return (
-              <div key={track.id} className="mb-2">
-                <div className="mb-1 flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 flex-1 truncate text-xs text-white/75">
-                    <span className="mr-2 font-mono text-[9px] text-white/30">
-                      {String(position + 1).padStart(2, "0")}
-                    </span>
-                    {track.title}
-                  </span>
-                  <span className="font-mono text-[10px] text-white/40">
-                    {count}×
-                  </span>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${(count / max) * 100}%`,
-                      background:
-                        "linear-gradient(90deg, var(--c1), var(--c3))",
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={resetStats}
-            className="mt-4 w-full rounded-lg border border-white/10 py-2 text-[10px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:border-white/30 hover:text-white"
-          >
-            Réinitialiser
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {addMenuTrackId !== null && (
         <div
@@ -610,6 +634,10 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
           onClick={() => setAddMenuTrackId(null)}
         >
           <div
+            ref={addMenuRef}
+            role="dialog"
+            aria-label="Ajouter à une playlist"
+            data-lenis-prevent
             className="glass-strong w-full max-h-[70vh] overflow-y-auto overscroll-contain rounded-2xl p-3"
             onClick={(event) => event.stopPropagation()}
           >

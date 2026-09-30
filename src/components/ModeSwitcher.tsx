@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { usePlayer, MODE_KEYS } from "@/store/player-store";
 import VisualTuner from "./VisualTuner";
 
@@ -84,6 +84,7 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
   const autoMode = usePlayer((s) => s.autoMode);
   const setAutoMode = usePlayer((s) => s.setAutoMode);
   const [tunerOpen, setTunerOpen] = useState(false);
+  const tunerTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className={`glass fixed bottom-[calc(11.5rem+env(safe-area-inset-bottom))] left-2 z-[45] flex items-center gap-0.5 rounded-full p-1 md:bottom-32 md:left-5 md:gap-1 transition-opacity duration-300 ${lyricsOpen ? 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto' : 'opacity-100'}`}>
@@ -93,6 +94,7 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
         onClick={() => setAutoMode(!autoMode)}
         title="Mode automatique — un visuel par morceau"
         aria-label="Mode automatique"
+        aria-pressed={autoMode}
         className={`relative grid size-8 place-items-center rounded-full text-[9px] font-extrabold tracking-wider transition-colors duration-300 md:size-9 ${
           autoMode
             ? "bg-[var(--c3)]/25 text-[var(--c3)]"
@@ -102,6 +104,7 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
         AUTO
       </button>
       <span className="mx-0.5 h-4 w-px bg-white/15" />
+      <div role="radiogroup" aria-label="Mode visuel" className="contents">
       {MODE_KEYS.map((entry) => (
         <button
           key={entry}
@@ -109,6 +112,8 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
           data-cursor="magnetic"
           onClick={() => setVisualMode(entry)}
           title={LABELS[entry]}
+          role="radio"
+          aria-checked={!autoMode && mode === entry}
           aria-label={`Mode visuel : ${LABELS[entry]}`}
           className={`relative grid size-8 place-items-center rounded-full transition-colors duration-300 md:size-9 ${
             !autoMode && mode === entry
@@ -121,12 +126,16 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
           {ICONS[entry]}
         </button>
       ))}
+      </div>
       <span className="mx-0.5 h-4 w-px bg-white/15" />
       <div className="relative">
         <button
           type="button"
           data-cursor="magnetic"
+          ref={tunerTriggerRef}
           onClick={() => setTunerOpen(!tunerOpen)}
+          aria-expanded={tunerOpen}
+          aria-controls="visual-tuner"
           title="Réglage visuel"
           aria-label="Réglage visuel"
           className={`grid size-8 place-items-center rounded-full transition-colors duration-300 md:size-9 ${
@@ -143,7 +152,12 @@ export default function ModeSwitcher({ lyricsOpen }: { lyricsOpen?: boolean }) {
             />
           </svg>
         </button>
-        {tunerOpen && <VisualTuner onClose={() => setTunerOpen(false)} />}
+        {tunerOpen && (
+          <VisualTuner
+            onClose={() => setTunerOpen(false)}
+            triggerRef={tunerTriggerRef}
+          />
+        )}
       </div>
     </div>
   );

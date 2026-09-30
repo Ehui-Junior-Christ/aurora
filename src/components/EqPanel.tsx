@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { usePlayer } from "@/store/player-store";
+import { useDismissable } from "@/hooks/useDismissable";
 
 const BANDS = [
   { key: "low", label: "Graves" },
@@ -22,7 +23,17 @@ const EQ_PRESETS: { name: string; values: { low: number; mid: number; high: numb
 
 const SLEEP_OPTIONS = [0, 15, 30, 45, 60];
 
-export default function EqPanel({ onClose }: { onClose: () => void }) {
+export default function EqPanel({
+  onClose,
+  triggerRef,
+}: {
+  onClose: () => void;
+  triggerRef?: RefObject<HTMLElement | null>;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDismissable(panelRef, onClose, {
+    ignore: triggerRef ? [triggerRef] : [],
+  });
   const eq = usePlayer((s) => s.eq);
   const setEq = usePlayer((s) => s.setEq);
   const speed = usePlayer((s) => s.speed);
@@ -56,7 +67,14 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-40 mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
+    <div
+      ref={panelRef}
+      id="eq-panel"
+      role="dialog"
+      aria-label="Égaliseur et options audio"
+      data-panel
+      data-lenis-prevent
+      className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-40 mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
           Égaliseur
@@ -90,6 +108,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-cursor="magnetic"
               onClick={() => setEq(preset.values)}
+              aria-pressed={active}
               className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider transition-colors ${
                 active
                   ? "border-[var(--c2)] bg-[var(--c2)]/10 text-[var(--c2)]"
@@ -202,6 +221,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-cursor="magnetic"
               onClick={() => pickSleep(minutes)}
+              aria-pressed={active}
               className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${
                 active
                   ? "border-[var(--c2)] text-[var(--c2)]"

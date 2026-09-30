@@ -1,8 +1,20 @@
 "use client";
 
+import { useRef, type RefObject } from "react";
 import { usePlayer } from "@/store/player-store";
+import { useDismissable } from "@/hooks/useDismissable";
 
-export default function VisualTuner({ onClose }: { onClose: () => void }) {
+export default function VisualTuner({
+  onClose,
+  triggerRef,
+}: {
+  onClose: () => void;
+  triggerRef?: RefObject<HTMLElement | null>;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDismissable(panelRef, onClose, {
+    ignore: triggerRef ? [triggerRef] : [],
+  });
   const preset = usePlayer((s) => s.visualPreset);
   const setVisualPreset = usePlayer((s) => s.setVisualPreset);
   const resetVisualPreset = usePlayer((s) => s.resetVisualPreset);
@@ -14,7 +26,13 @@ export default function VisualTuner({ onClose }: { onClose: () => void }) {
   ] as const;
 
   return (
-    <div className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
+    <div
+      ref={panelRef}
+      id="visual-tuner"
+      role="dialog"
+      aria-label="Réglage visuel"
+      data-panel
+      className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
           Réglage visuel

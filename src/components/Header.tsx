@@ -137,7 +137,8 @@ export default function Header({ immersive }: { immersive: boolean }) {
           type="button"
           data-cursor="magnetic"
           onClick={toggleBloom}
-          aria-label={bloom ? "Désactiver le bloom" : "Activer le bloom"}
+          aria-pressed={bloom}
+          aria-label="Bloom"
           title={bloom ? "Bloom : activé" : "Bloom : désactivé"}
           className={`hidden size-9 place-items-center rounded-full border border-white/12 bg-white/5 transition-colors duration-300 hover:border-white/30 sm:grid ${
             bloom ? "text-white" : "text-white/35"
@@ -263,7 +264,9 @@ export default function Header({ immersive }: { immersive: boolean }) {
             type="button"
             data-cursor="magnetic"
             onClick={() => setQueueOpen(!queueOpen)}
-            aria-label="Afficher ou masquer la file d'attente"
+            aria-label="Bibliothèque"
+            aria-expanded={queueOpen}
+            aria-controls="library-panel"
             className="grid size-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/70 transition-colors duration-300 hover:border-white/30 hover:text-white"
           >
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>

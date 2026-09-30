@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { usePlayer } from "@/store/player-store";
+import { useDismissable } from "@/hooks/useDismissable";
 
 const STEPS = [
   {
@@ -74,6 +75,15 @@ export default function Onboarding() {
   const setHelpOpen = usePlayer((s) => s.setHelpOpen);
   const openFolder = usePlayer((s) => s.openFolder);
   const [step, setStep] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDismissable(
+    dialogRef,
+    () => {
+      setHelpOpen(false);
+      setStep(0);
+    },
+    { enabled: helpOpen, outside: false }
+  );
 
   if (!helpOpen) return null;
 
@@ -86,8 +96,15 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/70 p-5 backdrop-blur-md">
-      <div className="glass-strong fade-in-up w-full max-w-md rounded-3xl p-6 text-center shadow-2xl md:p-8">
+    <div data-lenis-prevent className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/70 p-5 backdrop-blur-md">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+        aria-describedby="onboarding-text"
+        className="glass-strong fade-in-up w-full max-w-md rounded-3xl p-6 text-center shadow-2xl md:p-8"
+      >
         <div
           className="mx-auto mb-6 grid size-14 place-items-center rounded-2xl text-white"
           style={{
@@ -98,14 +115,14 @@ export default function Onboarding() {
           {current.icon}
         </div>
 
-        <h2 className="font-display text-2xl font-bold tracking-tight">
+        <h2 id="onboarding-title" className="font-display text-2xl font-bold tracking-tight">
           {current.title}
         </h2>
-        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-white/55">
+        <p id="onboarding-text" aria-live="polite" className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-white/55">
           {current.text}
         </p>
 
-        <div className="mt-7 flex justify-center gap-2">
+        <div className="mt-7 flex justify-center gap-2" aria-label={`Étape ${step + 1} sur ${STEPS.length}`} role="img">
           {STEPS.map((entry, index) => (
             <span
               key={entry.title}
