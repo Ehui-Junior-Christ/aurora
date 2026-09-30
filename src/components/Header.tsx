@@ -391,7 +391,7 @@ function HeaderMenu({
       aria-label="Options"
       data-panel
       onKeyDown={onKeyDown}
-      className="glass-strong menu-in absolute right-0 top-full mt-2 w-[min(15rem,calc(100vw-2rem))] origin-top-right rounded-(--radius-card) p-1.5 shadow-(--shadow-pop)"
+      className="glass-solid menu-in absolute right-0 top-full mt-2 w-[min(15rem,calc(100vw-2rem))] origin-top-right rounded-(--radius-card) p-1.5 shadow-(--shadow-pop)"
     >
       {summary && (
         <p className="px-3 pb-1.5 pt-2 font-mono text-micro uppercase tracking-[0.18em] text-ink-3">
