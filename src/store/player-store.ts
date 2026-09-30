@@ -12,6 +12,16 @@ import {
 } from "@/lib/fs-scanner";
 import { Capacitor } from "@capacitor/core";
 import { buildTracks, patchCachedTags } from "@/lib/library-cache";
+import {
+  applyTrackEdit,
+  getTrackEdit,
+  getTrackEdits,
+  mergeEdit,
+  saveTrackEdit,
+  type TrackEditPatch,
+} from "@/lib/track-overlay";
+import { formatLrc, lrcFileName, shiftCues } from "@/lib/lrc-sync";
+import { extractPalette } from "@/lib/palette";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
@@ -190,7 +200,7 @@ const BACKUP_PREF_KEYS = [
 
 export type { ListeningStats };
 
-export type { QueueItem, SmartPlaylist, SmartRule };
+export type { QueueItem, SmartPlaylist, SmartRule, TrackEditPatch };
 
 export interface PlayOptions {
   autoplay?: boolean;
@@ -282,6 +292,21 @@ interface PlayerState {
   playPlaylist(id: string, options?: { shuffle?: boolean }): void;
   /** Whole library in random order (PWA "shuffle" shortcut). */
   playShuffledLibrary(): void;
+  /**
+   * Overrides title/artist/album/cover of a track (stored in IndexedDB, the
+   * file is never modified). Empty strings / `cover: null` remove overrides.
+   */
+  editTrack(trackId: string, patch: TrackEditPatch): Promise<void>;
+  /** Removes every override of a track. */
+  resetTrackEdit(trackId: string): Promise<void>;
+  /** Saves user lyrics (cues or LRC text); they take precedence everywhere. */
+  setUserLyrics(trackId: string, lyrics: LyricsCue[] | string): Promise<void>;
+  clearUserLyrics(trackId: string): Promise<void>;
+  /**
+   * LRC text of the current lyrics of `trackId` (default: current track),
+   * with the lyrics offset applied. `fileName` is a suggested download name.
+   */
+  exportLrc(trackId?: string): { text: string; fileName: string } | null;
   /** Full JSON backup (playlists, favourites, stats, prefs, per-track data). */
   exportBackup(): Promise<string>;
   /**
@@ -539,6 +564,90 @@ async function resumeLastSession(): Promise<void> {
   usePlayer
     .getState()
     .play(index, { autoplay: false, startAt, countPlay: false });
+}
+
+// ---- Lyrics -------------------------------------------------------------------
+
+/**
+ * Loads lyrics for `track`: user lyrics (edited / tap-synced) → sibling .lrc
+ * file → cached remote lyrics → remote fetch.
+ */
+function loadLyrics(track: Track): void {
+  const isCurrent = () => {
+    const state = usePlayer.getState();
+    return state.tracks[state.current]?.id === track.id;
+  };
+  const applyCues = (cues: LyricsCue[]) => {
+    if (!isCurrent()) return;
+    usePlayer.setState({ lyrics: cues, lyricsAvailable: cues.length > 0 });
+  };
+  void (async () => {
+    try {
+      const user = await idbGet<LyricsCue[]>("meta", `lyricsUser:${track.id}`);
+      if (Array.isArray(user) && user.length > 0) {
+        applyCues(user);
+        return;
+      }
+      const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
+      if (lrcFile) {
+        applyCues(parseLrc(await lrcFile.text()));
+        return;
+      }
+      const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
+      if (cached && cached.length > 0) {
+        applyCues(cached);
+        return;
+      }
+      const remote = await fetchRemoteLyrics(track.artist, track.title);
+      if (remote && remote.length > 0) {
+        void idbSet("meta", `lyrics:${track.id}`, remote);
+        applyCues(remote);
+      }
+    } catch {
+      // lyrics are optional; never surface an unhandled rejection
+    }
+  })();
+}
+
+// ---- Tag overrides -----------------------------------------------------------
+
+/** Parsed (unedited) tracks, by id, for tracks that carry an override. */
+const originalTracks = new Map<string, Track>();
+
+/** Applies stored overrides to freshly scanned tracks. */
+async function applyStoredEdits(tracks: Track[]): Promise<Track[]> {
+  originalTracks.clear();
+  const edits = await getTrackEdits(tracks.map((t) => t.id));
+  if (edits.size === 0) return tracks;
+  return tracks.map((t) => {
+    const edit = edits.get(t.id);
+    if (!edit) return t;
+    originalTracks.set(t.id, t);
+    return applyTrackEdit(t, edit);
+  });
+}
+
+/** Rebuilds a track from its original in the library and the queue. */
+function replaceTrackEverywhere(id: string, build: (original: Track) => Track): void {
+  const state = usePlayer.getState();
+  const index = state.tracks.findIndex((t) => t.id === id);
+  if (index < 0) return;
+  const original = originalTracks.get(id) ?? state.tracks[index];
+  originalTracks.set(id, original);
+  const updated = build(original);
+  const tracks = [...state.tracks];
+  tracks[index] = updated;
+  const queue = state.queue.map((item) =>
+    item.track.id === id ? { ...item, track: updated } : item
+  );
+  usePlayer.setState({ tracks, queue });
+  if (index === state.current) {
+    applyPalette(updated.palette);
+    setMediaMetadata(updated);
+    if (typeof document !== "undefined") {
+      document.title = `${updated.title} · ${updated.artist} — AURORA`;
+    }
+  }
 }
 
 // ---- Library cache helpers ---------------------------------------------------
@@ -981,6 +1090,68 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (list.length === 0) return;
     const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
     get().playCollection(list, start, options);
+  },
+
+  async editTrack(trackId, patch) {
+    const current = await getTrackEdit(trackId);
+    let palette: PaletteColor[] | undefined;
+    if (patch.cover) {
+      const url = URL.createObjectURL(patch.cover);
+      try {
+        palette = await extractPalette(url);
+      } catch {
+        palette = undefined;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    const merged = mergeEdit(current, patch, palette);
+    await saveTrackEdit(trackId, merged);
+    replaceTrackEverywhere(trackId, (original) =>
+      applyTrackEdit(original, merged ?? undefined)
+    );
+  },
+
+  async resetTrackEdit(trackId) {
+    await saveTrackEdit(trackId, null);
+    replaceTrackEverywhere(trackId, (original) => original);
+  },
+
+  async setUserLyrics(trackId, lyrics) {
+    const cues = typeof lyrics === "string" ? parseLrc(lyrics) : lyrics;
+    const clean = cues
+      .filter((c) => Number.isFinite(c.time) && typeof c.text === "string")
+      .sort((a, b) => a.time - b.time);
+    await idbSet("meta", `lyricsUser:${trackId}`, clean);
+    if (get().tracks[get().current]?.id === trackId) {
+      set({ lyrics: clean, lyricsAvailable: clean.length > 0 });
+    }
+  },
+
+  async clearUserLyrics(trackId) {
+    await idbDelete("meta", `lyricsUser:${trackId}`);
+    const track = get().tracks[get().current];
+    if (track?.id === trackId) {
+      set({ lyrics: [], lyricsAvailable: false });
+      loadLyrics(track);
+    }
+  },
+
+  exportLrc(trackId) {
+    const state = get();
+    const track = trackId
+      ? state.tracks.find((t) => t.id === trackId)
+      : state.tracks[state.current];
+    if (!track || track.id !== state.tracks[state.current]?.id) return null;
+    if (state.lyrics.length === 0) return null;
+    const duration = engine.duration;
+    const text = formatLrc(shiftCues(state.lyrics, state.lyricsOffset), {
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      lengthSec: Number.isFinite(duration) ? duration : undefined,
+    });
+    return { text, fileName: lrcFileName(track.artist, track.title) };
   },
 
   async exportBackup() {
@@ -1492,7 +1663,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         if (relPath) track.relPath = relPath;
         if (!byId.has(track.id)) byId.set(track.id, track);
       }
-      const tracks = [...byId.values()].sort(
+      const tracks = (await applyStoredEdits([...byId.values()])).sort(
         (a, b) =>
           a.artist.localeCompare(b.artist) ||
           a.album.localeCompare(b.album) ||
@@ -1607,34 +1778,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     else silence = null;
 
     set({ lyrics: [], lyricsAvailable: false });
-    const applyCues = (cues: LyricsCue[]) => {
-      if (!isCurrent()) return;
-      set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
-    };
-    const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
-    if (lrcFile) {
-      void lrcFile
-        .text()
-        .then((text) => applyCues(parseLrc(text)))
-        .catch(() => applyCues([]));
-    } else {
-      void (async () => {
-        try {
-          const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
-          if (cached && cached.length > 0) {
-            applyCues(cached);
-            return;
-          }
-          const remote = await fetchRemoteLyrics(track.artist, track.title);
-          if (remote && remote.length > 0) {
-            void idbSet("meta", `lyrics:${track.id}`, remote);
-            applyCues(remote);
-          }
-        } catch {
-          // lyrics are optional; never surface an unhandled rejection
-        }
-      })();
-    }
+    loadLyrics(track);
 
     void idbGet<number>("meta", `lyricsOffset:${track.id}`)
       .then((offset) => {
