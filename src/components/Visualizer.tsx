@@ -13,6 +13,7 @@ import Liquid from "./scenes/Liquid";
 import Prism from "./scenes/Prism";
 import Spectrum from "./scenes/Spectrum";
 import Vinyl from "./scenes/Vinyl";
+import Warp from "./scenes/Warp";
 import Galaxy from "./scenes/Galaxy";
 import Metaballs from "./scenes/Metaballs";
 import Nebula from "./scenes/Nebula";
@@ -72,6 +73,7 @@ function SceneContent() {
       {mode === "liquid" && <Liquid />}
       {mode === "spectrum" && <Spectrum />}
       {mode === "vinyl" && <Vinyl />}
+      {mode === "warp" && <Warp />}
       {bloom && !qualityLow && (
         <EffectComposer multisampling={0}>
           <Bloom
