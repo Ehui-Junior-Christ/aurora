@@ -1,28 +1,28 @@
 "use client";
 
-import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { usePlayer } from "@/store/player-store";
-
-const LADDER = [2, 1.5, 1.25, 1];
+import { AdaptiveQuality, initialQualityStep } from "@/lib/adaptive-quality";
 
 export default function PerfGuard() {
-  const acc = useRef({ t: 0, frames: 0, step: 0, cooldown: 0 });
+  const guard = useRef<AdaptiveQuality | null>(null);
+  const setDpr = useThree((state) => state.setDpr);
+
+  useEffect(() => {
+    const aq = new AdaptiveQuality({ initialStep: initialQualityStep() });
+    guard.current = aq;
+    const start = aq.current();
+    setDpr(Math.min(start.dpr, window.devicePixelRatio || 1));
+    if (start.qualityLow) usePlayer.getState().setQualityLow(true);
+  }, [setDpr]);
 
   useFrame((state, delta) => {
-    const a = acc.current;
-    a.t += delta;
-    a.frames += 1;
-    if (a.t < 2) return;
-    const fps = a.frames / a.t;
-    a.t = 0;
-    a.frames = 0;
-    a.cooldown -= 2;
-    if (fps < 45 && a.step < LADDER.length - 1 && a.cooldown <= 0) {
-      a.step += 1;
-      a.cooldown = 8;
-      state.setDpr(LADDER[a.step]);
-      if (a.step >= 2) usePlayer.getState().setQualityLow(true);
+    const decision = guard.current?.sample(delta);
+    if (!decision) return;
+    state.setDpr(Math.min(decision.dpr, window.devicePixelRatio || 1));
+    if (usePlayer.getState().qualityLow !== decision.qualityLow) {
+      usePlayer.getState().setQualityLow(decision.qualityLow);
     }
   });
 
