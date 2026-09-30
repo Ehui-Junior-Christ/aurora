@@ -9,6 +9,7 @@ import Particles from "./Particles";
 import Rig from "./Rig";
 import Backdrop from "./scenes/Backdrop";
 import Borealis from "./scenes/Borealis";
+import Constellation from "./scenes/Constellation";
 import Liquid from "./scenes/Liquid";
 import Mosaic from "./scenes/Mosaic";
 import Prism from "./scenes/Prism";
@@ -79,6 +80,12 @@ function SceneContent() {
         <>
           <Rig />
           <Mosaic />
+        </>
+      )}
+      {mode === "constellation" && (
+        <>
+          <Rig />
+          <Constellation />
         </>
       )}
       {bloom && !qualityLow && (
