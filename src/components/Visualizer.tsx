@@ -10,6 +10,7 @@ import Rig from "./Rig";
 import Backdrop from "./scenes/Backdrop";
 import Borealis from "./scenes/Borealis";
 import Liquid from "./scenes/Liquid";
+import Mosaic from "./scenes/Mosaic";
 import Prism from "./scenes/Prism";
 import Spectrum from "./scenes/Spectrum";
 import Vinyl from "./scenes/Vinyl";
@@ -74,6 +75,12 @@ function SceneContent() {
       {mode === "spectrum" && <Spectrum />}
       {mode === "vinyl" && <Vinyl />}
       {mode === "warp" && <Warp />}
+      {mode === "mosaic" && (
+        <>
+          <Rig />
+          <Mosaic />
+        </>
+      )}
       {bloom && !qualityLow && (
         <EffectComposer multisampling={0}>
           <Bloom
