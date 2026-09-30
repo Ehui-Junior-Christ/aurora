@@ -13,7 +13,15 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function Timeline() {
+export default function Timeline({
+  variant = "full",
+  guards = true,
+}: {
+  /** "hairline": 2px read-only progress on the mobile dock edge. */
+  variant?: "full" | "hairline";
+  /** Run A-B loop / skip-silence logic. Exactly one mounted instance should. */
+  guards?: boolean;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -29,6 +37,7 @@ export default function Timeline() {
   });
   const silenceRef = useRef<number | null>(null);
 
+  const hairline = variant === "hairline";
   const track = usePlayer((s) => s.tracks[s.current]);
   const trackId = track?.id ?? null;
 
@@ -84,6 +93,7 @@ export default function Timeline() {
   }, [trackId]);
 
   useEffect(() => {
+    if (!guards) return;
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
@@ -112,7 +122,7 @@ export default function Timeline() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [guards]);
 
   useEffect(() => {
     let raf = 0;
@@ -123,7 +133,9 @@ export default function Timeline() {
       const loopAB = loopRef.current;
       if (!draggingRef.current) {
         const pct = duration > 0 ? currentTime / duration : 0;
-        if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
+        if (hairline) {
+          if (fillRef.current) fillRef.current.style.transform = `scaleX(${pct})`;
+        } else if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
         if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
         if (curRef.current)
           curRef.current.textContent = formatTime(currentTime);
@@ -131,6 +143,10 @@ export default function Timeline() {
           "aria-valuenow",
           String(Math.round(pct * 100))
         );
+      }
+      if (!guards) {
+        raf = requestAnimationFrame(loop);
+        return;
       }
       if (
         loopAB.a !== null &&
@@ -157,7 +173,7 @@ export default function Timeline() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [guards, hairline]);
 
   const applyPct = (clientX: number) => {
     const wrap = wrapRef.current;
@@ -171,6 +187,25 @@ export default function Timeline() {
       usePlayer.getState().seek(pct * duration);
     }
   };
+
+  if (hairline) {
+    return (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-white/10"
+      >
+        <div
+          ref={fillRef}
+          className="h-full origin-left"
+          style={{
+            transform: "scaleX(0)",
+            background: "linear-gradient(90deg, var(--c1), var(--c2), var(--c3))",
+            boxShadow: "0 0 8px color-mix(in srgb, var(--c2) 60%, transparent)",
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.timeline} data-cursor="stretch">

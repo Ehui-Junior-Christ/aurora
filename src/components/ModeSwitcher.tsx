@@ -323,6 +323,13 @@ function MobileModePill({ hidden }: { hidden: boolean }) {
     if (hidden) setOpen(false);
   }, [hidden]);
 
+  // The "En lecture" sheet can ask for the mode picker.
+  useEffect(() => {
+    const onOpenModes = () => setOpen(true);
+    window.addEventListener("aurora:open-modes", onOpenModes);
+    return () => window.removeEventListener("aurora:open-modes", onOpenModes);
+  }, []);
+
   // Bring the active mode into view when the sheet opens.
   useEffect(() => {
     if (!open) return;
