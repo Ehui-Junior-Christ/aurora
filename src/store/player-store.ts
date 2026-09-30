@@ -31,6 +31,14 @@ import {
 } from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 import {
+  fromStoredQueue,
+  makeQueueItem,
+  moveItem,
+  shuffled,
+  toStoredQueue,
+  type QueueItem,
+} from "@/lib/queue";
+import {
   emptyStats,
   migrateStats,
   recordListen,
@@ -93,7 +101,12 @@ function nativeToTracks(
 }
 let pendingHandles: FsNode[] = [];
 let lyricsFiles = new Map<string, File>();
-const playHistory: number[] = [];
+/** Recently played track ids (for prev() in shuffle / queue playback). */
+const playHistory: string[] = [];
+/** Upcoming library ids in shuffle mode (each track once per cycle). */
+let shuffleBag: string[] = [];
+/** True when the current track was taken from the queue. */
+let currentFromQueue = false;
 let lastActionTime = 0; // Pour l'anti-spam (idempotence)
 
 export type RepeatMode = "off" | "all" | "one";
@@ -133,6 +146,8 @@ export interface Playlist {
 }
 
 export type { ListeningStats };
+
+export type { QueueItem };
 
 export interface PlayOptions {
   autoplay?: boolean;
@@ -206,6 +221,23 @@ interface PlayerState {
   showHome: boolean;
   history: Track[];
   savedOnlineTracks: Track[];
+  /** Upcoming tracks, consulted by next() before the library order. */
+  queue: QueueItem[];
+  /** Insert at the head of the queue (plays right after the current one). */
+  playNext(track: Track | Track[]): void;
+  /** Append to the end of the queue. */
+  addToQueue(track: Track | Track[]): void;
+  removeFromQueue(qid: string): void;
+  /** Reorders the queue only (the library order is never touched). */
+  reorderQueue(from: number, to: number): void;
+  clearQueue(): void;
+  /** Plays queue item `qid` now, dropping the items before it. */
+  playFromQueue(qid: string): void;
+  /**
+   * Plays `list[start]` and replaces the queue with the rest of the list
+   * (playlist / smart playlist / album playback). `shuffle` shuffles the rest.
+   */
+  playCollection(list: Track[], start?: number, options?: { shuffle?: boolean }): void;
   addToHistory(track: Track): void;
   saveOnlineTrack(track: Track): void;
   removeOnlineTrack(trackId: string): void;
@@ -408,10 +440,16 @@ function installResumeListeners(): void {
  * tracks are looked up in history/favourites (metadata only, never audio).
  */
 async function resumeLastSession(): Promise<void> {
-  const [lastId, position] = await Promise.all([
+  const [lastId, position, storedQueue] = await Promise.all([
     idbGet<string>("prefs", "lastTrackId"),
     idbGet<SavedPosition>("prefs", "lastPosition"),
+    idbGet<unknown>("prefs", "queue"),
   ]);
+  if (usePlayer.getState().queue.length === 0 && storedQueue) {
+    usePlayer.setState({
+      queue: fromStoredQueue(storedQueue, usePlayer.getState().tracks),
+    });
+  }
   if (!lastId) return;
   const state = usePlayer.getState();
   if (state.current >= 0) return; // the user already picked something
@@ -431,6 +469,76 @@ async function resumeLastSession(): Promise<void> {
   usePlayer
     .getState()
     .play(index, { autoplay: false, startAt, countPlay: false });
+}
+
+// ---- Queue ------------------------------------------------------------------
+
+function setQueue(queue: QueueItem[]): void {
+  usePlayer.setState({ queue });
+  savePref("queue", toStoredQueue(queue));
+}
+
+/**
+ * Index of `track` in the library, inserting it after the current track when
+ * absent (online / removed tracks), as playOnlineResult always did.
+ */
+function ensureTrackIndex(track: Track): number {
+  const { tracks, current } = usePlayer.getState();
+  const existing = tracks.findIndex((t) => t.id === track.id);
+  if (existing >= 0) return existing;
+  const insertAt = current >= 0 ? current + 1 : tracks.length;
+  const next = [...tracks];
+  next.splice(insertAt, 0, track);
+  usePlayer.setState({ tracks: next });
+  return insertAt;
+}
+
+function playTrackObject(track: Track, fromQueue: boolean): void {
+  const index = ensureTrackIndex(track);
+  usePlayer.getState().play(index);
+  currentFromQueue = fromQueue;
+}
+
+type NextPlan =
+  | { kind: "queue"; item: QueueItem }
+  | { kind: "library"; index: number; fromBag: boolean }
+  | { kind: "stop" };
+
+/**
+ * Decides what next() would play, without side effects (the shuffle bag is
+ * only refilled), so gapless preloading and next() always agree.
+ */
+function planNext(auto: boolean): NextPlan {
+  const { queue, tracks, current, shuffle, repeat } = usePlayer.getState();
+  if (queue.length > 0) return { kind: "queue", item: queue[0] };
+  if (tracks.length === 0) return { kind: "stop" };
+  const currentId = tracks[current]?.id;
+  if (shuffle && tracks.length > 1) {
+    const ids = new Set(tracks.map((t) => t.id));
+    shuffleBag = shuffleBag.filter((id) => ids.has(id) && id !== currentId);
+    if (shuffleBag.length === 0) {
+      shuffleBag = shuffled(
+        tracks.map((t) => t.id).filter((id) => id !== currentId)
+      );
+    }
+    const index = tracks.findIndex((t) => t.id === shuffleBag[0]);
+    if (index >= 0) return { kind: "library", index, fromBag: true };
+  }
+  if (auto && repeat === "off" && current >= tracks.length - 1) {
+    return { kind: "stop" };
+  }
+  return { kind: "library", index: (current + 1) % tracks.length, fromBag: false };
+}
+
+function commitNext(plan: NextPlan): void {
+  if (plan.kind === "queue") {
+    setQueue(usePlayer.getState().queue.slice(1));
+    playTrackObject(plan.item.track, true);
+  } else if (plan.kind === "library") {
+    if (plan.fromBag) shuffleBag.shift();
+    usePlayer.getState().play(plan.index);
+    currentFromQueue = false;
+  }
 }
 
 // ---- Listening time accounting --------------------------------------------
@@ -693,6 +801,47 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   showHome: false,
   history: [],
   savedOnlineTracks: [],
+  queue: [],
+
+  playNext(input) {
+    const items = (Array.isArray(input) ? input : [input]).map(makeQueueItem);
+    if (items.length === 0) return;
+    setQueue([...items, ...get().queue]);
+  },
+
+  addToQueue(input) {
+    const items = (Array.isArray(input) ? input : [input]).map(makeQueueItem);
+    if (items.length === 0) return;
+    setQueue([...get().queue, ...items]);
+  },
+
+  removeFromQueue(qid) {
+    setQueue(get().queue.filter((item) => item.qid !== qid));
+  },
+
+  reorderQueue(from, to) {
+    setQueue(moveItem(get().queue, from, to));
+  },
+
+  clearQueue() {
+    setQueue([]);
+  },
+
+  playFromQueue(qid) {
+    const queue = get().queue;
+    const at = queue.findIndex((item) => item.qid === qid);
+    if (at < 0) return;
+    setQueue(queue.slice(at + 1));
+    playTrackObject(queue[at].track, true);
+  },
+
+  playCollection(list, start = 0, options = {}) {
+    const first = list[start];
+    if (!first) return;
+    const rest = [...list.slice(start + 1), ...list.slice(0, start)];
+    setQueue((options.shuffle ? shuffled(rest) : rest).map(makeQueueItem));
+    playTrackObject(first, false);
+  },
 
   addToHistory(track) {
     if (!track.isOnline) return;
@@ -1057,8 +1206,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (typeof document !== "undefined") {
       document.title = `${track.title} · ${track.artist} — AURORA`;
     }
-    playHistory.push(index);
-    if (playHistory.length > 60) playHistory.shift();
+    if (playHistory[playHistory.length - 1] !== track.id) {
+      playHistory.push(track.id);
+      if (playHistory.length > 60) playHistory.shift();
+    }
+    currentFromQueue = false;
     savePref("lastTrackId", track.id);
     set({
       current: index,
@@ -1170,8 +1322,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       lastActionTime = now;
     }
 
-    const { current, tracks, shuffle, repeat } = get();
-    if (tracks.length === 0) return;
+    const { tracks, repeat, queue } = get();
+    if (tracks.length === 0 && queue.length === 0) return;
     if (auto && get().sleepMode === "track") {
       sleepStop();
       if (!engine.ytActive) engine.seek(0);
@@ -1182,22 +1334,15 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       void engine.play();
       return;
     }
-    if (auto && repeat === "off" && !shuffle && current >= tracks.length - 1) {
+    const plan = planNext(auto);
+    if (plan.kind === "stop") {
       engine.pause();
       // seekTo() on an ENDED YouTube player restarts playback.
       if (!engine.ytActive) engine.seek(0);
       set({ playing: false });
       return;
     }
-    let index: number;
-    if (shuffle && tracks.length > 1) {
-      do {
-        index = Math.floor(Math.random() * tracks.length);
-      } while (index === current);
-    } else {
-      index = (current + 1) % tracks.length;
-    }
-    get().play(index);
+    commitNext(plan);
   },
 
   prev() {
@@ -1211,15 +1356,19 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       engine.seek(0);
       return;
     }
-    if (shuffle && playHistory.length > 1) {
+    // Shuffle / queue playback: walk back through what was actually heard.
+    if ((shuffle || currentFromQueue) && playHistory.length > 1) {
       playHistory.pop();
-      const target = playHistory[playHistory.length - 1];
-      if (tracks[target]) {
+      const targetId = playHistory.pop();
+      const target = tracks.findIndex((t) => t.id === targetId);
+      if (target >= 0) {
         get().play(target);
+        currentFromQueue = false;
         return;
       }
     }
     get().play((current - 1 + tracks.length) % tracks.length);
+    currentFromQueue = false;
   },
 
   seek(time) {
