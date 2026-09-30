@@ -29,3 +29,6 @@ google-services.json
 output/
 test-results/
 playwright-report/
+
+# InfinityFree upload folder
+dist-infinityfree/

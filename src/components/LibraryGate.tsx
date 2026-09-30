@@ -240,8 +240,7 @@ export default function LibraryGate() {
               </p>
               <div className="flex flex-col md:flex-row flex-wrap justify-center gap-4 w-full md:w-auto">
                 <a
-                  href="/download/aurora-mobile.apk"
-                  download="aurora-mobile.apk"
+                  href="https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/aurora-mobile.apk"
                   className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -250,8 +249,7 @@ export default function LibraryGate() {
                   Mobile (.apk)
                 </a>
                 <a
-                  href="/download/AURORA.exe"
-                  download="AURORA.exe"
+                  href="https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/AURORA.exe"
                   className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
