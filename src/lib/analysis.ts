@@ -9,9 +9,12 @@ export interface TrackAnalysis {
   end?: number;
   /** Decoded duration in seconds. */
   duration?: number;
+  /** Aurora Mix analysis (v3+): tempo map, phrases, key, energy… */
+  mix?: MixAnalysis;
 }
 
-const ANALYSIS_VERSION = 2;
+/** 3 adds the Aurora Mix analysis (computed in a worker, same decode). */
+const ANALYSIS_VERSION = 3;
 /** ~-48 dBFS: below this a 20 ms window is considered silent. */
 const SILENCE_THRESHOLD = 0.004;
 const SILENCE_WINDOW_S = 0.02;
@@ -20,8 +23,16 @@ const PEAK_BINS = 400;
 const TARGET_RMS = 0.16;
 
 import { idbGet, idbSet } from "./db";
+import { analyzeMixAsync } from "./mix/client";
+import type { MixAnalysis } from "./mix/types";
 
 const inflight = new Map<string, Promise<TrackAnalysis | null>>();
+
+/** Cached analysis without computing it (null when absent / outdated). */
+export async function peekAnalysis(id: string): Promise<TrackAnalysis | null> {
+  const cached = await idbGet<TrackAnalysis>("meta", `analysis:${id}`);
+  return cached && (cached.v ?? 1) >= ANALYSIS_VERSION ? cached : null;
+}
 
 export function getCachedAnalysis(
   id: string,
@@ -104,6 +115,17 @@ export async function analyzeTrack(file: File): Promise<TrackAnalysis> {
     channels.push(audio.getChannelData(c));
   }
   const { start, end } = detectSilenceBounds(channels, audio.sampleRate);
+  // Mono mix-down for the DJ analysis (transferred to the worker).
+  const mono = new Float32Array(audio.length);
+  for (const ch of channels) {
+    for (let i = 0; i < mono.length; i++) mono[i] += ch[i] / channels.length;
+  }
+  let mix: MixAnalysis | undefined;
+  try {
+    mix = (await analyzeMixAsync(mono, audio.sampleRate, { start, end })) ?? undefined;
+  } catch {
+    mix = undefined;
+  }
   return {
     peaks,
     rms,
@@ -111,6 +133,7 @@ export async function analyzeTrack(file: File): Promise<TrackAnalysis> {
     start,
     end,
     duration: audio.duration,
+    ...(mix ? { mix } : {}),
   };
 }
 

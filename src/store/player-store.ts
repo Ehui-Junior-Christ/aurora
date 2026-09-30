@@ -24,6 +24,22 @@ import { formatLrc, lrcFileName, shiftCues } from "@/lib/lrc-sync";
 import { extractPalette } from "@/lib/palette";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
+import {
+  attachDirector,
+  directorOwnsEnd,
+  directorTick,
+  harmonicPick,
+  resetDirector,
+  trackMixInfo,
+} from "@/lib/mix/director";
+import {
+  DEFAULT_MIX_SETTINGS,
+  type MixSettings,
+  type MixTransitionInfo,
+  type TrackMixInfo,
+} from "@/lib/mix/types";
+export { getBeatClock, getMixProgress, type BeatClock } from "@/lib/mix/clock";
+export type { MixSettings, MixTransitionInfo, TrackMixInfo };
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
 import { fetchRemoteLyrics } from "@/lib/lyrics-fetcher";
 import {
@@ -196,6 +212,7 @@ const BACKUP_PREF_KEYS = [
   "speed",
   "skipSilence",
   "normalize",
+  "mix",
 ] as const;
 
 export type { ListeningStats };
@@ -258,6 +275,16 @@ interface PlayerState {
   speed: number;
   skipSilence: boolean;
   normalize: boolean;
+  /** Aurora Mix settings (DJ transitions). */
+  mix: MixSettings;
+  /**
+   * Running Aurora Mix transition (null when none), refreshed ~10x/s:
+   * style, progress 0..1, incoming title... For per-frame visuals use
+   * getMixProgress() / getBeatClock(trackId) (exported above).
+   */
+  mixTransition: MixTransitionInfo | null;
+  /** BPM + Camelot key of the current local track, once analysed. */
+  trackMix: TrackMixInfo | null;
   sleepAt: number | null;
   sleepMode: SleepMode;
   ambient: boolean;
@@ -385,6 +412,7 @@ interface PlayerState {
   setSpeed(value: number): void;
   setSkipSilence(value: boolean): void;
   setNormalize(value: boolean): void;
+  setMix(patch: Partial<MixSettings>): void;
   /** Stop after `minutes` (any custom value); 0 or less cancels. */
   setSleep(minutes: number): void;
   /** Stop when the current track ends (with a fade over its last 30 s). */
@@ -393,6 +421,20 @@ interface PlayerState {
   setAmbient(value: boolean): void;
   setVisualPreset(preset: VisualPreset): void;
   resetVisualPreset(): void;
+}
+
+function sanitizeMix(input: Partial<MixSettings>): MixSettings {
+  const d = DEFAULT_MIX_SETTINGS;
+  const lengths: MixSettings["length"][] = ["auto", "short", "long"];
+  const styles: MixSettings["style"][] = ["auto", "blend", "filter", "echo", "fade", "cut"];
+  return {
+    enabled: typeof input.enabled === "boolean" ? input.enabled : d.enabled,
+    length: lengths.find((l) => l === input.length) ?? d.length,
+    tempoSync: typeof input.tempoSync === "boolean" ? input.tempoSync : d.tempoSync,
+    harmonic: typeof input.harmonic === "boolean" ? input.harmonic : d.harmonic,
+    order: typeof input.order === "boolean" ? input.order : d.order,
+    style: styles.find((st) => st === input.style) ?? d.style,
+  };
 }
 
 function savePref(key: string, value: unknown): void {
@@ -728,6 +770,23 @@ function planNext(auto: boolean): NextPlan {
         tracks.map((t) => t.id).filter((id) => id !== currentId)
       );
     }
+    const { mix } = usePlayer.getState();
+    const playingNow = tracks[current];
+    if (playingNow && mix.enabled && mix.order) {
+      // "Mix harmonique": bring the best key/BPM/energy match among the next
+      // candidates to the front (library order untouched, queue first).
+      const byId = new Map(tracks.map((t) => [t.id, t]));
+      const head = shuffleBag
+        .slice(0, 16)
+        .map((id) => byId.get(id))
+        .filter((t): t is Track => !!t);
+      const pick = harmonicPick(playingNow, head);
+      const at = pick ? shuffleBag.indexOf(pick) : -1;
+      if (pick && at > 0) {
+        shuffleBag.splice(at, 1);
+        shuffleBag.unshift(pick);
+      }
+    }
     const index = tracks.findIndex((t) => t.id === shuffleBag[0]);
     if (index >= 0) return { kind: "library", index, fromBag: true };
   }
@@ -883,6 +942,8 @@ function playbackTick(): void {
     engine.seek(a);
   }
   if (!state.playing || state.current < 0) return;
+  const mixOn = state.mix.enabled;
+  if (mixOn) directorTick();
   if (engine.ytActive) return; // crossfade / silence: local tracks only
   const track = state.tracks[state.current];
   if (!track) return;
@@ -899,8 +960,10 @@ function playbackTick(): void {
   }
 
   const end = effectiveEnd(track.id, dur);
+  // Aurora Mix owns the end of the track (plain crossfade / gapless off).
+  if (mixOn && directorOwnsEnd()) return;
   if (state.crossfade <= 0 && end - time < GAPLESS_PRELOAD_S) preloadUpcoming();
-  if (state.crossfade > 0) {
+  if (state.crossfade > 0 && !mixOn) {
     if (track.id === lastCrossfadeId) return;
     if (end > state.crossfade + 2 && end - time <= state.crossfade) {
       lastCrossfadeId = track.id;
@@ -914,6 +977,55 @@ function playbackTick(): void {
   }
 }
 
+/** Track resolved by planNext(true) (what Aurora Mix will mix into). */
+function upcomingTrack(): Track | undefined {
+  const plan = planNext(true);
+  if (plan.kind === "queue") return plan.item.track;
+  if (plan.kind === "library") return usePlayer.getState().tracks[plan.index];
+  return undefined;
+}
+
+function attachMixDirector(): void {
+  attachDirector({
+    settings: () => usePlayer.getState().mix,
+    current: () => {
+      const s = usePlayer.getState();
+      return s.tracks[s.current];
+    },
+    upcoming: upcomingTrack,
+    playing: () => usePlayer.getState().playing,
+    blocked: () => {
+      const s = usePlayer.getState();
+      return (
+        s.repeat === "one" ||
+        s.sleepMode === "track" ||
+        (s.abLoop.a !== null && s.abLoop.b !== null)
+      );
+    },
+    normalizeLevel: (track, analysis) => {
+      if (!usePlayer.getState().normalize) return undefined;
+      const rg = replayGainMultiplier(track.replayGain);
+      if (rg !== undefined) return rg;
+      return analysis ? normalizationGain(analysis.rms, true) : 1;
+    },
+    onTransition: (info) => {
+      if (info === null && usePlayer.getState().mixTransition === null) return;
+      usePlayer.setState({ mixTransition: info });
+    },
+    commit: (id) => {
+      const plan = planNext(true);
+      const track =
+        plan.kind === "queue"
+          ? plan.item.track
+          : plan.kind === "library"
+            ? usePlayer.getState().tracks[plan.index]
+            : undefined;
+      if (track?.id === id) commitNext(plan);
+      else engine.abortMix();
+    },
+  });
+}
+
 /** Engine event listeners + the 100 ms playback ticker (installed once). */
 function wireEngine(): void {
   const set = usePlayer.setState;
@@ -921,6 +1033,7 @@ function wireEngine(): void {
   if (wired || typeof window === "undefined") return;
   wired = true;
   installResumeListeners();
+  attachMixDirector();
   {
     for (const el of engine.getElements()) {
       el.addEventListener("play", (event) => {
@@ -1019,6 +1132,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   speed: 1,
   skipSilence: false,
   normalize: false,
+  mix: DEFAULT_MIX_SETTINGS,
+  mixTransition: null,
+  trackMix: null,
   sleepAt: null,
   sleepMode: "off",
   ambient: false,
@@ -1240,6 +1356,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       if (typeof p.speed === "number" && p.speed >= 0.5 && p.speed <= 1.5) s.setSpeed(p.speed);
       if (typeof p.skipSilence === "boolean") s.setSkipSilence(p.skipSilence);
       if (typeof p.normalize === "boolean") s.setNormalize(p.normalize);
+      if (p.mix && typeof p.mix === "object") s.setMix(p.mix as Partial<MixSettings>);
     }
 
     const metaEntries = await restoreTrackMeta(data.trackMeta, mapId);
@@ -1461,6 +1578,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         idbGet<string>("prefs", "youtubeApiKey"),
       ]);
     const storedSmart = await idbGet<unknown>("prefs", "smartPlaylists");
+    const storedMix = await idbGet<Partial<MixSettings>>("prefs", "mix");
 
     const prefs: Partial<PlayerState> = {};
     prefs.smartPlaylists = sanitizeSmartPlaylists(storedSmart);
@@ -1497,6 +1615,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     if (typeof skipSilence === "boolean") prefs.skipSilence = skipSilence;
     if (typeof normalize === "boolean") prefs.normalize = normalize;
+    if (storedMix && typeof storedMix === "object") prefs.mix = sanitizeMix(storedMix);
     if (stats && typeof stats === "object") {
       // v1 {plays, seconds} → v2 (dated history, artists, hours): lossless.
       prefs.stats = migrateStats(stats);
@@ -1701,8 +1820,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     flushListening(true);
 
+    // Aurora Mix already carries this track (transition in progress).
+    const mixed = autoplay && !loadOptions.startAt && engine.adoptMix(track.id);
+    if (!mixed) resetDirector();
     const gapless =
-      autoplay && crossfade === 0 && !loadOptions.startAt && engine.startPreloaded(track.id);
+      mixed ||
+      (autoplay && crossfade === 0 && !loadOptions.startAt && engine.startPreloaded(track.id));
     if (gapless) {
       // Already loaded in the second slot and started: nothing to load.
     } else if (track.file) {
@@ -1752,8 +1875,15 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     else set({ playing: false });
     lastSavedPosition = { id: track.id, t: loadOptions.startAt };
 
+    set({ trackMix: null });
+    if (track.file && !track.isOnline) {
+      void trackMixInfo(track).then((info) => {
+        if (info && get().tracks[get().current]?.id === track.id) set({ trackMix: info });
+      });
+    }
+
     if (track.file && track.bpm === undefined) {
-      void detectBpm(track.file).then((bpm) => {
+      void detectBpm(track.id, track.file).then((bpm) => {
         const state = get();
         const idx = state.tracks.findIndex((t) => t.id === track.id);
         if (idx >= 0) {
@@ -2126,6 +2256,15 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         }
       });
     }
+  },
+
+  setMix(patch) {
+    const mix = sanitizeMix({ ...get().mix, ...patch });
+    const wasOn = get().mix.enabled;
+    set({ mix });
+    savePref("mix", mix);
+    resetDirector();
+    if (wasOn && !mix.enabled) engine.abortMix();
   },
 
   setSleep(minutes) {
