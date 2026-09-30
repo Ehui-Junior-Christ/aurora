@@ -88,7 +88,7 @@ function TrackAnnouncer() {
   const artist = usePlayer((s) => s.tracks[s.current]?.artist ?? "");
   return (
     <div aria-live="polite" aria-atomic="true" className="sr-only">
-      {title ? `Lecture : ${title}${artist ? `, ${artist}` : ""}` : ""}
+      {title ? `Lecture : ${title}${artist ? `, ${artist}` : ""}` : null}
     </div>
   );
 }
