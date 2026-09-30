@@ -29,8 +29,6 @@ export default function LyricsPanel() {
     activeRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeIndex]);
 
-  const queueOpen = usePlayer((s) => s.queueOpen);
-
   if (!available || lyrics.length === 0) return null;
 
   return (

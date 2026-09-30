@@ -336,7 +336,7 @@ a {
 }
 
 /* Popover entrance (menus, palettes). */
-.menu-in {
+@utility menu-in {
   animation: menu-in var(--dur-3) var(--ease-out-expo) both;
 }
 
@@ -361,4 +361,59 @@ a {
 
 .btn-icon:active:not(:disabled) {
   transform: scale(0.94);
+}
+
+/* Loading placeholders. */
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.05) 30%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 70%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Bottom sheets and fullscreen palettes on small screens. */
+@utility sheet-in {
+  animation: sheet-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility backdrop-in {
+  animation: backdrop-in var(--dur-3) ease-out both;
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Text fields already show a border change; keep their ring subtle. */
+input[type="search"]:focus-visible,
+input[type="text"]:focus-visible,
+input:not([type]):focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--c2) 55%, transparent);
+  outline-offset: 0;
 }

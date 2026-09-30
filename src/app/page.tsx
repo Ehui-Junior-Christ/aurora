@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
 import { engine } from "@/lib/audio-engine";
 import { idbGet, idbSet } from "@/lib/db";
@@ -11,8 +11,7 @@ import LibraryGate from "@/components/LibraryGate";
 import TrackTitle from "@/components/TrackTitle";
 import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
-import UnifiedSearch from "@/components/UnifiedSearch";
-import FloatingSearch from "@/components/FloatingSearch";
+import SearchPalette from "@/components/SearchPalette";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
@@ -91,11 +90,12 @@ export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
   const showHome = usePlayer((s) => s.showHome);
   const setVisualMode = usePlayer((s) => s.setVisualMode);
-  const lyricsAvailable = usePlayer((s) => s.lyricsAvailable);
   const currentTrackId = usePlayer((s) => s.tracks[s.current]?.id ?? null);
   const [immersive, setImmersive] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const playerView = hasTracks && !showHome;
 
   const queueOpen = usePlayer((s) => s.queueOpen);
 
@@ -176,10 +176,29 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!playerView) return;
+    const onKey = (event: KeyboardEvent) => {
+      const isK = (event.key === "k" || event.key === "K") && (event.ctrlKey || event.metaKey);
+      const target = event.target as HTMLElement | null;
+      const typing =
+        !!target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          target.isContentEditable);
+      if (isK || (event.key === "/" && !typing)) {
+        event.preventDefault();
+        setSearchOpen((open) => (isK ? !open : true));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playerView]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
         return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const numericMode = Number(event.key);
       if (numericMode >= 1 && numericMode <= MODE_KEYS.length) {
         setVisualMode(MODE_KEYS[numericMode - 1]);
@@ -275,7 +294,10 @@ export default function Home() {
       <Visualizer />
 
       <div className="relative flex min-h-dvh flex-col">
-        <Header immersive={immersive} />
+        <Header
+          immersive={immersive}
+          onOpenSearch={playerView ? () => setSearchOpen(true) : undefined}
+        />
         {hasTracks && !showHome ? (
           <>
             <main
@@ -298,15 +320,6 @@ export default function Home() {
               lyricsOpen={lyricsOpen}
               onToggleLyrics={toggleLyrics}
             />
-            <div
-              className={`fixed left-4 top-20 z-20 hidden transition-all duration-500 lg:block ${
-                immersive
-                  ? "pointer-events-none -translate-y-4 opacity-0"
-                  : "opacity-100"
-              }`}
-            >
-              <FloatingSearch />
-            </div>
             <TrackList immersive={immersive} />
             <ModeSwitcher lyricsOpen={lyricsOpen} />
             {lyricsOpen && <LyricsPanel />}
@@ -330,6 +343,9 @@ export default function Home() {
         </div>
       )}
 
+      {searchOpen && playerView && (
+        <SearchPalette onClose={() => setSearchOpen(false)} />
+      )}
       <TrackAnnouncer />
       <Onboarding />
       <UpdateToast />

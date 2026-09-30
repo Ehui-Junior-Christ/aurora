@@ -3,10 +3,9 @@
 import { useMemo, useRef, useState } from "react";
 import { usePlayer, type Playlist } from "@/store/player-store";
 import { useDismissable } from "@/hooks/useDismissable";
-import UnifiedSearch from "@/components/UnifiedSearch";
 import type { Track } from "@/lib/types";
 
-type Tab = "search" | "file" | "albums" | "playlists" | "stats";
+type Tab = "file" | "albums" | "playlists" | "stats";
 
 const ROW_HEIGHT = 52;
 const OVERSCAN = 8;
@@ -204,7 +203,6 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
   const totalMinutes = Math.floor((stats.seconds % 3600) / 60);
   const visible = filtered.slice(range.start, range.end);
   const tabs: { id: Tab; label: string }[] = [
-    { id: "search", label: "Recherche" },
     { id: "file", label: "File" },
     { id: "albums", label: "Albums" },
     { id: "playlists", label: "Playlists" },
@@ -274,11 +272,6 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
         aria-labelledby={`lib-tab-${tab}`}
         className="flex min-h-0 flex-1 flex-col"
       >
-        {tab === "search" && (
-          <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8">
-            <UnifiedSearch />
-          </div>
-        )}
 
         {tab === "file" && (
           <>
