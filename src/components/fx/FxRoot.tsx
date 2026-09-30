@@ -1,6 +1,7 @@
 "use client";
 
 import { useBeatPulse } from "@/hooks/useBeatPulse";
+import { useGlassSpotlight } from "@/hooks/useGlassSpotlight";
 import { useQualityAttribute } from "@/hooks/useQualityAttribute";
 import { useTextScramble } from "@/hooks/useTextScramble";
 
@@ -13,5 +14,6 @@ export default function FxRoot() {
   useQualityAttribute();
   useBeatPulse();
   useTextScramble();
+  useGlassSpotlight();
   return null;
 }

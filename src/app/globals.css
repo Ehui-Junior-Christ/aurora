@@ -21,6 +21,13 @@
   initial-value: #ff4ecd;
 }
 
+/* Glass spotlight intensity (hooks/useGlassSpotlight), eased on enter/leave. */
+@property --spot-o {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
 @theme inline {
   --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-space), ui-sans-serif, system-ui, sans-serif;
@@ -686,4 +693,35 @@ input:not([type]):focus-visible {
   .marquee[data-overflow] .marquee-track {
     animation: none;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Glass spotlight: light that follows the pointer on glass surfaces  */
+/* ------------------------------------------------------------------ */
+
+.glass,
+.glass-strong,
+.glass-solid {
+  background-image: radial-gradient(
+    380px circle at var(--spot-x, 50%) var(--spot-y, -400px),
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--c2) 35%, white) calc(var(--spot-o) * 7%),
+      transparent
+    ),
+    transparent 70%
+  );
+}
+
+/* Layered so component transition utilities (panels) keep priority. */
+@layer components {
+  .glass,
+  .glass-strong,
+  .glass-solid {
+    transition: --spot-o 0.45s ease;
+  }
+}
+
+:root[data-quality="low"] :is(.glass, .glass-strong, .glass-solid) {
+  background-image: none;
 }

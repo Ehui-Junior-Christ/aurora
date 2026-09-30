@@ -86,7 +86,7 @@ export default function AlbumsTab({ onMore }: { onMore: (track: Track) => void }
             <button
               key={album.key}
               type="button"
-              data-cursor="magnetic"
+              data-cursor="play"
               onClick={() => setOpenKey(album.key)}
               style={{ animationDelay: i < 10 ? `${i * 40}ms` : undefined }}
               className={`group rounded-(--radius-card) p-1 text-left ${i < 10 ? "stagger-in" : ""}`}

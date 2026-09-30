@@ -173,7 +173,7 @@ export function TrackRow({ track, label, active, playing, onPlay, onMore, traili
     >
       <button
         type="button"
-        data-cursor="magnetic"
+        data-cursor="play"
         onClick={onPlay}
         aria-current={active ? "true" : undefined}
         className="flex h-full min-w-0 flex-1 items-center gap-3 text-left"
