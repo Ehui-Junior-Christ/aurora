@@ -86,6 +86,8 @@ class AudioEngine {
   private desiredEq = { low: 0, mid: 0, high: 0 };
   private desiredRate = 1;
   private freqData = new Uint8Array(1024);
+  /** Id of the track preloaded in the inactive slot (gapless playback). */
+  private preloadedId: string | null = null;
 
   // YouTube IFrame Player
   private ytPlayer: YTPlayer | null = null;
@@ -361,6 +363,67 @@ class AudioEngine {
     );
   }
 
+  /**
+   * Gapless: loads the next local track into the inactive slot so it can
+   * start instantly when the current one ends. Never used for YouTube.
+   */
+  preload(id: string, source: File | AudioSource): void {
+    if (this.ytActive || this.preloadedId === id) return;
+    this.clearPreload();
+    const slot = this.slot(this.otherKey());
+    const url = source instanceof File ? URL.createObjectURL(source) : source.url;
+    if (url.startsWith("yt:")) return;
+    slot.el.pause();
+    slot.url = url;
+    slot.revokeUrl = source instanceof File ? true : (source.revokeUrl ?? false);
+    slot.el.crossOrigin = source instanceof File ? "" : (source.crossOrigin ?? "");
+    slot.el.preload = "auto";
+    slot.el.src = url;
+    slot.el.playbackRate = this.desiredRate;
+    if (slot.gain && this.context) {
+      slot.gain.gain.cancelScheduledValues(this.context.currentTime);
+      slot.gain.gain.value = 1;
+    }
+    this.preloadedId = id;
+  }
+
+  hasPreloaded(id: string): boolean {
+    return this.preloadedId === id && !this.ytActive;
+  }
+
+  /** Drops the preloaded track (plan changed). */
+  clearPreload(): void {
+    if (!this.preloadedId) return;
+    this.preloadedId = null;
+    const slot = this.slot(this.otherKey());
+    slot.el.pause();
+    if (slot.url && slot.revokeUrl) URL.revokeObjectURL(slot.url);
+    slot.url = null;
+    slot.revokeUrl = false;
+    slot.el.removeAttribute("src");
+    slot.el.load();
+  }
+
+  /**
+   * Swaps to the preloaded slot and starts it immediately. Returns false when
+   * `id` is not the preloaded track (caller then loads normally).
+   */
+  startPreloaded(id: string): boolean {
+    if (!this.hasPreloaded(id)) return false;
+    this.preloadedId = null;
+    const previous = this.slot(this.activeKey);
+    this.activeKey = this.otherKey();
+    const next = this.slot(this.activeKey);
+    previous.el.pause();
+    if (previous.url && previous.revokeUrl) URL.revokeObjectURL(previous.url);
+    previous.url = null;
+    previous.revokeUrl = false;
+    if (next.el.currentTime > 0) next.el.currentTime = 0;
+    next.el.playbackRate = this.desiredRate;
+    void this.play();
+    return true;
+  }
+
   loadSource(
     source: AudioSource,
     crossfadeMs = 0,
@@ -368,6 +431,7 @@ class AudioEngine {
   ): void {
     const autoplay = options.autoplay ?? true;
     const startAt = Math.max(0, options.startAt ?? 0);
+    this.clearPreload();
     if (source.url.startsWith("yt:")) {
       // Strip every legacy prefix (`yt:yt:<id>` was stored by older builds).
       const videoId = source.url.replace(/^(?:yt:|online_)+/, "");

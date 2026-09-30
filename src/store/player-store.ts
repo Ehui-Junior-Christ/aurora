@@ -719,6 +719,31 @@ function sleepTick(): boolean {
   return false;
 }
 
+const GAPLESS_PRELOAD_S = 12;
+let lastPreloadCheck = 0;
+
+/** Preloads what next(true) will play, when it is a local track. */
+function preloadUpcoming(): void {
+  const now = Date.now();
+  if (now - lastPreloadCheck < 1000) return;
+  lastPreloadCheck = now;
+  const state = usePlayer.getState();
+  if (state.repeat === "one" || state.sleepMode === "track") return;
+  const plan = planNext(true);
+  const track =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? state.tracks[plan.index]
+        : undefined;
+  if (!track || track.isOnline || track.id === state.tracks[state.current]?.id) return;
+  if (engine.hasPreloaded(track.id)) return;
+  if (track.file) engine.preload(track.id, track.file);
+  else if (track.streamUrl && !track.streamUrl.startsWith("yt:")) {
+    engine.preload(track.id, { url: track.streamUrl });
+  }
+}
+
 function playbackTick(): void {
   const get = usePlayer.getState;
   if (sleepTick()) return;
@@ -749,6 +774,7 @@ function playbackTick(): void {
   }
 
   const end = effectiveEnd(track.id, dur);
+  if (state.crossfade <= 0 && end - time < GAPLESS_PRELOAD_S) preloadUpcoming();
   if (state.crossfade > 0) {
     if (track.id === lastCrossfadeId) return;
     if (end > state.crossfade + 2 && end - time <= state.crossfade) {
@@ -1478,7 +1504,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     flushListening(true);
 
-    if (track.file) {
+    const gapless =
+      autoplay && crossfade === 0 && !loadOptions.startAt && engine.startPreloaded(track.id);
+    if (gapless) {
+      // Already loaded in the second slot and started: nothing to load.
+    } else if (track.file) {
       engine.load(track.file, crossfade * 1000, loadOptions);
     } else if (track.streamUrl) {
       // Online (`yt:<id>`) or native Android (Capacitor file URL) tracks.
