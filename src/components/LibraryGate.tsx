@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { usePlayer } from "@/store/player-store";
 import UnifiedSearch from "@/components/UnifiedSearch";
 import { idbGet } from "@/lib/db";
 import type { FsNode } from "@/lib/fs-scanner";
 import { introDelay } from "@/components/fx/Intro";
+import { prefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const FORMATS = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"];
 
@@ -33,20 +34,69 @@ export default function LibraryGate() {
     );
   }, [setSupported]);
 
+  // Scroll-driven entrance: each [data-gate] block rises in when it enters
+  // the viewport (the first batch waits for the intro to lift).
   useEffect(() => {
-    if (scanning) return;
-    const ctx = gsap.context(() => {
-      gsap.from("[data-gate]", {
-        y: 44,
-        opacity: 0,
-        stagger: 0.09,
-        duration: 0.95,
-        delay: introDelay(),
-        ease: "power3.out",
-      });
-    });
-    return () => ctx.revert();
-  }, [scanning]);
+    if (scanning || prefersReducedMotion()) return;
+    const items = gsap.utils.toArray<HTMLElement>("[data-gate]");
+    if (items.length === 0) return;
+    gsap.set(items, { y: 44, opacity: 0 });
+    let delay = introDelay();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entering = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => entry.target as HTMLElement);
+        if (entering.length === 0) return;
+        entering.forEach((el) => observer.unobserve(el));
+        gsap.to(entering, {
+          y: 0,
+          opacity: 1,
+          stagger: 0.09,
+          duration: 0.95,
+          ease: "power3.out",
+          delay,
+          clearProps: "transform,opacity",
+        });
+        delay = 0;
+      },
+      { rootMargin: "0px 0px -6% 0px" }
+    );
+    items.forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      gsap.killTweensOf(items);
+      gsap.set(items, { clearProps: "transform,opacity" });
+    };
+  }, [scanning, needsPermission]);
+
+  // Hero parallax: the headline drifts slower than the page and dims a
+  // little as it leaves. Reads the untransformed wrapper, writes the inner.
+  const heroRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const outer = heroRef.current;
+    const inner = outer?.firstElementChild as HTMLElement | null;
+    if (!outer || !inner || scanning || prefersReducedMotion()) return;
+    const start = outer.getBoundingClientRect().top + window.scrollY;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const scrolled = Math.max(0, start - outer.getBoundingClientRect().top);
+      const progress = Math.min(1, scrolled / window.innerHeight);
+      inner.style.transform = `translate3d(0, ${(scrolled * 0.22).toFixed(1)}px, 0)`;
+      inner.style.opacity = String(1 - progress * 0.6);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      inner.style.transform = "";
+      inner.style.opacity = "";
+    };
+  }, [scanning, needsPermission]);
 
   if (scanning) {
     const pct =
@@ -123,15 +173,19 @@ export default function LibraryGate() {
             >
               aurora // lecteur génératif hybride
             </p>
+            <div ref={heroRef} className="w-full">
+            <div>
             <h1
               data-gate
-              className="font-display max-w-5xl text-[clamp(1.5rem,6.6vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight [text-wrap:balance]"
+              className="mx-auto font-display max-w-5xl text-[clamp(1.5rem,6.6vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight [text-wrap:balance]"
               lang="fr"
             >
               Chaque piste
               <br />
               <span className="text-gradient">respire différemment.</span>
             </h1>
+            </div>
+            </div>
             <p
               data-gate
               className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-ink-2"
