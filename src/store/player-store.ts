@@ -31,6 +31,13 @@ import {
 } from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 import {
+  BUILTIN_SMART_PLAYLISTS,
+  resolveSmartPlaylist,
+  sanitizeSmartPlaylists,
+  type SmartPlaylist,
+  type SmartRule,
+} from "@/lib/smart-playlists";
+import {
   fromStoredQueue,
   makeQueueItem,
   moveItem,
@@ -147,7 +154,7 @@ export interface Playlist {
 
 export type { ListeningStats };
 
-export type { QueueItem };
+export type { QueueItem, SmartPlaylist, SmartRule };
 
 export interface PlayOptions {
   autoplay?: boolean;
@@ -223,6 +230,22 @@ interface PlayerState {
   savedOnlineTracks: Track[];
   /** Upcoming tracks, consulted by next() before the library order. */
   queue: QueueItem[];
+  /** User-defined smart playlists (built-ins: BUILTIN_SMART_PLAYLISTS). */
+  smartPlaylists: SmartPlaylist[];
+  createSmartPlaylist(
+    name: string,
+    rules: SmartRule[],
+    options?: { match?: "all" | "any"; limit?: number }
+  ): SmartPlaylist | null;
+  updateSmartPlaylist(id: string, patch: Partial<Omit<SmartPlaylist, "id" | "builtin">>): void;
+  deleteSmartPlaylist(id: string): void;
+  /** Resolves a smart playlist (built-in or user) against the live library. */
+  resolveSmart(id: string): Track[];
+  playSmartPlaylist(id: string, options?: { shuffle?: boolean }): void;
+  /** Plays a regular playlist through the queue. */
+  playPlaylist(id: string, options?: { shuffle?: boolean }): void;
+  /** Whole library in random order (PWA "shuffle" shortcut). */
+  playShuffledLibrary(): void;
   /** Insert at the head of the queue (plays right after the current one). */
   playNext(track: Track | Track[]): void;
   /** Append to the end of the queue. */
@@ -802,6 +825,76 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   history: [],
   savedOnlineTracks: [],
   queue: [],
+  smartPlaylists: [],
+
+  createSmartPlaylist(name, rules, options = {}) {
+    const trimmed = name.trim();
+    if (!trimmed || rules.length === 0) return null;
+    const playlist: SmartPlaylist = {
+      id: `smart:${Date.now().toString(36)}`,
+      name: trimmed,
+      rules,
+      ...(options.match ? { match: options.match } : {}),
+      ...(options.limit ? { limit: options.limit } : {}),
+    };
+    const smartPlaylists = [...get().smartPlaylists, playlist];
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+    return playlist;
+  },
+
+  updateSmartPlaylist(id, patch) {
+    const smartPlaylists = get().smartPlaylists.map((p) =>
+      p.id === id ? { ...p, ...patch, id, builtin: false } : p
+    );
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+  },
+
+  deleteSmartPlaylist(id) {
+    const smartPlaylists = get().smartPlaylists.filter((p) => p.id !== id);
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+  },
+
+  resolveSmart(id) {
+    const { smartPlaylists, tracks, stats } = get();
+    const playlist =
+      smartPlaylists.find((p) => p.id === id) ??
+      BUILTIN_SMART_PLAYLISTS.find((p) => p.id === id);
+    return playlist ? resolveSmartPlaylist(playlist, tracks, { stats }) : [];
+  },
+
+  playSmartPlaylist(id, options = {}) {
+    const list = get().resolveSmart(id);
+    if (list.length === 0) return;
+    const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
+    get().playCollection(list, start, options);
+  },
+
+  playPlaylist(id, options = {}) {
+    const { playlists, tracks, savedOnlineTracks, history } = get();
+    const playlist = playlists.find((p) => p.id === id);
+    if (!playlist) return;
+    const byId = new Map<string, Track>();
+    for (const t of [...history, ...savedOnlineTracks, ...tracks]) byId.set(t.id, t);
+    const list = playlist.trackIds
+      .map((trackId) => byId.get(trackId))
+      .filter((t): t is Track => !!t);
+    if (list.length === 0) return;
+    const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
+    get().playCollection(list, start, options);
+  },
+
+  playShuffledLibrary() {
+    const { tracks } = get();
+    if (tracks.length === 0) return;
+    // Shuffle mode + bag rather than a 5000-item queue.
+    set({ shuffle: true });
+    savePref("shuffle", true);
+    shuffleBag = [];
+    get().play(Math.floor(Math.random() * tracks.length));
+  },
 
   playNext(input) {
     const items = (Array.isArray(input) ? input : [input]).map(makeQueueItem);
@@ -966,8 +1059,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         idbGet<Track[]>("prefs", "history"),
         idbGet<string>("prefs", "youtubeApiKey"),
       ]);
+    const storedSmart = await idbGet<unknown>("prefs", "smartPlaylists");
 
     const prefs: Partial<PlayerState> = {};
+    prefs.smartPlaylists = sanitizeSmartPlaylists(storedSmart);
     if (typeof storedYoutubeApiKey === "string" && storedYoutubeApiKey.trim()) {
       prefs.youtubeApiKey = storedYoutubeApiKey;
     }
