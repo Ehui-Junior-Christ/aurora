@@ -21,6 +21,7 @@ import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
 import UpdateToast from "@/components/UpdateToast";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
+import FxRoot from "@/components/fx/FxRoot";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,
@@ -334,6 +335,7 @@ export default function Home() {
       <Onboarding />
       <UpdateToast />
       <CustomCursor />
+      <FxRoot />
     </div>
   );
 }
