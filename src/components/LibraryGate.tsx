@@ -107,6 +107,7 @@ export default function LibraryGate() {
               data-gate
               data-cursor="magnetic"
               data-magnetic
+              data-ripple
               type="button"
               onClick={() => void reconnect()}
               className="mt-10 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.07] px-9 py-4 font-display text-sm font-bold uppercase tracking-[0.22em] backdrop-blur-xl transition-all duration-300 hover:border-white/40 hover:bg-white/[0.12]"

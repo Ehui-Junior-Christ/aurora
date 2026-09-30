@@ -207,6 +207,7 @@ function PlayPauseButton({
       }}
       aria-label={playing ? "Pause" : "Lecture"}
       data-beat
+      data-ripple
       className={`btn-icon relative grid shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-md hover:bg-white/15 ${className}`}
       style={{ boxShadow: "0 0 24px color-mix(in srgb, var(--c2) 35%, transparent)" }}
     >
@@ -531,7 +532,8 @@ function MobileDock({ sheetOpen, onOpen }: { sheetOpen: boolean; onOpen: () => v
             next();
           }}
           aria-label="Piste suivante"
-          className="btn-icon grid size-11 shrink-0 place-items-center rounded-full text-white/75 hover:text-white"
+          data-ripple
+            className="btn-icon grid size-11 shrink-0 place-items-center rounded-full text-white/75 hover:text-white"
         >
           <NextIcon size={17} />
         </button>
@@ -703,6 +705,7 @@ function NowPlayingSheetBody({
             type="button"
             onClick={() => prev()}
             aria-label="Piste précédente"
+            data-ripple
             className="btn-icon grid size-14 place-items-center rounded-full text-white/80 hover:text-white"
           >
             <PrevIcon size={22} />
@@ -712,6 +715,7 @@ function NowPlayingSheetBody({
             type="button"
             onClick={() => next()}
             aria-label="Piste suivante"
+            data-ripple
             className="btn-icon grid size-14 place-items-center rounded-full text-white/80 hover:text-white"
           >
             <NextIcon size={22} />

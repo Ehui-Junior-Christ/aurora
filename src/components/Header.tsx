@@ -176,6 +176,7 @@ export default function Header({
             aria-label="Rechercher"
             aria-keyshortcuts="/ Control+K Meta+K"
             title="Rechercher ( / )"
+            data-ripple
             className={`${PILL} md:px-3.5`}
           >
             <SearchIcon />
@@ -197,6 +198,7 @@ export default function Header({
             aria-label={`Bibliothèque, ${count} titres`}
             aria-expanded={queueOpen}
             aria-controls="library-panel"
+            data-ripple
             className={`${PILL} md:px-3.5 ${
               queueOpen ? "border-white/35 bg-white/12 text-white" : ""
             }`}
@@ -224,6 +226,7 @@ export default function Header({
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls="header-menu"
+            data-ripple
             className={`${PILL} ${menuOpen ? "border-white/35 bg-white/12 text-white" : ""}`}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>

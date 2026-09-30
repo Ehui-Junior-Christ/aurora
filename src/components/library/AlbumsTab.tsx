@@ -87,12 +87,13 @@ export default function AlbumsTab({ onMore }: { onMore: (track: Track) => void }
               key={album.key}
               type="button"
               data-cursor="play"
+              data-tilt
               onClick={() => setOpenKey(album.key)}
               style={{ animationDelay: i < 10 ? `${i * 40}ms` : undefined }}
               className={`group rounded-(--radius-card) p-1 text-left ${i < 10 ? "stagger-in" : ""}`}
             >
               <div
-                className="mb-2 aspect-square w-full overflow-hidden rounded-(--radius-card) border border-white/10"
+                className="tilt-target relative mb-2 aspect-square w-full overflow-hidden rounded-(--radius-card) border border-white/10"
                 style={
                   album.cover
                     ? undefined

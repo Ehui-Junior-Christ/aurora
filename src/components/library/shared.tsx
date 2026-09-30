@@ -142,7 +142,8 @@ export function PillButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`btn-icon inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-micro font-bold uppercase tracking-[0.16em] ${
+      data-ripple
+      className={`btn-icon relative inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-micro font-bold uppercase tracking-[0.16em] ${
         primary
           ? "bg-white text-black hover:bg-white/90"
           : "border border-white/15 bg-white/[0.06] text-white hover:border-white/35"
