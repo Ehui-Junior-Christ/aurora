@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import gsap from "gsap";
 import { usePlayer } from "@/store/player-store";
 import UnifiedSearch from "@/components/UnifiedSearch";
+import { idbGet } from "@/lib/db";
+import type { FsNode } from "@/lib/fs-scanner";
 
 const FORMATS = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"];
 
@@ -16,6 +18,13 @@ export default function LibraryGate() {
   const pendingDirName = usePlayer((s) => s.pendingDirName);
   const reconnect = usePlayer((s) => s.reconnect);
   const setSupported = usePlayer((s) => s.setSupported);
+
+  const retryScan = async () => {
+    const dirs = await idbGet<FsNode[]>("handles", "musicDirs");
+    const state = usePlayer.getState();
+    if (dirs && dirs.length > 0) await state.loadAllSources(dirs);
+    else await state.openFolder();
+  };
 
   useEffect(() => {
     setSupported(
@@ -48,7 +57,7 @@ export default function LibraryGate() {
           <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2">
             Analyse de la bibliothèque
           </p>
-          <div className="font-display text-7xl font-extrabold tabular-nums md:text-8xl">
+          <div className="font-display text-[clamp(3rem,15vw,6rem)] font-extrabold leading-none tabular-nums">
             <span className="text-gradient">{progress.done}</span>
             <span className="text-white/25"> / {progress.total}</span>
           </div>
@@ -84,7 +93,7 @@ export default function LibraryGate() {
             </p>
             <h1
               data-gate
-              className="font-display text-[clamp(2rem,6vw,4.5rem)] font-extrabold uppercase leading-[0.95] tracking-tight"
+              className="font-display text-[clamp(2rem,7vw,4.5rem)] font-extrabold uppercase leading-[0.95] tracking-tight"
             >
               Bon retour.
             </h1>
@@ -95,6 +104,7 @@ export default function LibraryGate() {
             <button
               data-gate
               data-cursor="magnetic"
+              data-magnetic
               type="button"
               onClick={() => void reconnect()}
               className="mt-10 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.07] px-9 py-4 font-display text-sm font-bold uppercase tracking-[0.22em] backdrop-blur-xl transition-all duration-300 hover:border-white/40 hover:bg-white/[0.12]"
@@ -112,7 +122,7 @@ export default function LibraryGate() {
             </p>
             <h1
               data-gate
-              className="font-display max-w-5xl text-4xl md:text-6xl lg:text-[7.5rem] font-extrabold uppercase leading-[0.92] tracking-tight break-words hyphens-auto"
+              className="font-display max-w-5xl text-[clamp(1.6rem,8vw,7.5rem)] font-extrabold uppercase leading-[0.92] tracking-tight [text-wrap:balance]"
               lang="fr"
             >
               Chaque piste
@@ -131,9 +141,22 @@ export default function LibraryGate() {
             </div>
 
             {error && (
-              <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-red-400/90">
-                erreur · {error}
-              </p>
+              <div
+                role="alert"
+                className="mt-6 flex w-full max-w-md items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4 text-left"
+              >
+                <span aria-hidden className="mt-1.5 block size-2 shrink-0 rounded-full bg-red-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-red-100/90">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => void retryScan()}
+                    className="btn-icon mt-3 inline-flex min-h-9 items-center rounded-full border border-white/20 px-4 text-micro font-bold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              </div>
             )}
             {!supported && (
               <p className="mt-5 max-w-sm text-xs leading-relaxed text-amber-200/80">

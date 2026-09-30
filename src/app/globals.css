@@ -332,8 +332,13 @@ a {
   font-size: var(--text-hero);
 }
 
+.hero-title-long {
+  font-size: var(--text-display);
+}
+
 @media (max-height: 560px) {
-  .hero-title {
+  .hero-title,
+  .hero-title-long {
     font-size: clamp(1.6rem, 9vh, 4rem);
   }
 }

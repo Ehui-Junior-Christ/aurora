@@ -34,7 +34,7 @@ function MetaLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`meta-${current}`}
-      className={`fade-in-up mb-5 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2 transition-opacity duration-700 ${
+      className={`fade-in-up mb-5 font-mono text-micro uppercase tracking-[0.3em] text-ink-3 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -48,14 +48,14 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`artist-${track?.id ?? "none"}`}
-      className={`fade-in-up mt-7 flex flex-wrap items-baseline gap-x-5 gap-y-2 transition-opacity duration-700 ${
+      className={`fade-in-up mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-2 md:mt-7 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
-      <span className="font-display text-xl font-semibold tracking-wide md:text-2xl">
+      <span className="font-display text-title font-semibold tracking-wide">
         {track?.artist ?? "—"}
       </span>
-      <span className="text-sm text-ink-2">{track?.album ?? ""}</span>
+      {track?.album ? <span className="text-body text-ink-2">{track.album}</span> : null}
       {track?.bpm ? (
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-micro tracking-[0.2em] text-ink-2">
           {track.bpm} BPM
@@ -65,12 +65,13 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
   );
 }
 
-function SeedTag({ immersive }: { immersive: boolean }) {
+function SeedTag({ immersive, hidden }: { immersive: boolean; hidden: boolean }) {
   const seed = usePlayer((s) => s.tracks[s.current]?.seed ?? 0);
   return (
     <div
-      className={`absolute bottom-64 right-10 hidden text-micro uppercase tracking-[0.5em] text-ink-3 transition-opacity duration-700 xl:block ${
-        immersive ? "opacity-0" : "opacity-100"
+      aria-hidden
+      className={`fixed bottom-[calc(var(--dock-h)+var(--space-8)+var(--safe-b))] right-(--gutter) hidden text-micro uppercase tracking-[0.5em] text-ink-3 transition-opacity duration-700 xl:block ${
+        immersive || hidden ? "opacity-0" : "opacity-100"
       }`}
       style={{ writingMode: "vertical-rl" }}
     >
@@ -293,7 +294,7 @@ export default function Home() {
               <h2 className="sr-only">Lecture en cours</h2>
               <TrackTitle />
               <ArtistLine immersive={immersive} />
-              <SeedTag immersive={immersive} />
+              <SeedTag immersive={immersive} hidden={queueOpen || lyricsOpen} />
             </main>
             <PlayerBar
               immersive={immersive}

@@ -242,7 +242,6 @@ export default function UnifiedSearch({
   const history = usePlayer((s) => s.history);
   const savedOnlineTracks = usePlayer((s) => s.savedOnlineTracks);
   const sources = usePlayer((s) => s.sources);
-  const error = usePlayer((s) => s.error);
   const [query, setQuery] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -292,7 +291,6 @@ export default function UnifiedSearch({
     onlineSearching ||
     !!onlineError ||
     onlineResults.length > 0 ||
-    !!error ||
     (showEmptyState && (history.length > 0 || savedOnlineTracks.length > 0 || recent.length > 0));
 
   return (
@@ -302,7 +300,7 @@ export default function UnifiedSearch({
       className={
         palette
           ? "flex h-full min-h-0 w-full flex-col"
-          : "glass-strong w-full max-w-3xl overflow-hidden rounded-2xl"
+          : "glass-strong w-full max-w-3xl overflow-hidden rounded-(--radius-panel)"
       }
     >
       <div className={palette ? "p-3 md:p-4" : "p-3 md:p-4"}>
@@ -460,15 +458,15 @@ export default function UnifiedSearch({
           )}
           {onlineSearching && <SkeletonRows />}
 
-          {(onlineError || error) && !onlineSearching && (
+          {onlineError && !onlineSearching && (
             <div
               role="alert"
               className="mx-2 my-3 flex items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4"
             >
               <span aria-hidden className="mt-1 block size-2 shrink-0 rounded-full bg-red-400" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-red-100/90">{onlineError ?? error}</p>
-                {onlineError && trimmed.length >= 2 && (
+                <p className="text-sm text-red-100/90">{onlineError}</p>
+                {trimmed.length >= 2 && (
                   <button
                     type="button"
                     onClick={() => submit()}
