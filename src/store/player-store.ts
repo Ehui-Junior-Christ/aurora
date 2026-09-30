@@ -126,6 +126,11 @@ export interface ListeningStats {
   seconds: number;
 }
 
+export interface AbLoop {
+  a: number | null;
+  b: number | null;
+}
+
 export interface VisualPreset {
   freq: number;
   speed: number;
@@ -145,6 +150,10 @@ interface PlayerState {
   playing: boolean;
   duration: number;
   volume: number;
+  /** Mute keeps `volume` intact so unmuting restores it. */
+  muted: boolean;
+  /** A-B repeat points in seconds (both set = active loop). */
+  abLoop: AbLoop;
   queueOpen: boolean;
   supported: boolean;
   scanning: boolean;
@@ -203,6 +212,10 @@ interface PlayerState {
   /** Relative seek in seconds (clamped to the track bounds). */
   seekBy(delta: number): void;
   setVolume(value: number): void;
+  toggleMute(): void;
+  /** Cycles A-B repeat: set A → set B → clear. */
+  cycleAbLoop(): void;
+  clearAbLoop(): void;
   setQueueOpen(value: boolean): void;
   toggleShuffle(): void;
   cycleRepeat(): void;
@@ -285,6 +298,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   playing: false,
   duration: 0,
   volume: 0.85,
+  muted: false,
+  abLoop: { a: null, b: null },
   queueOpen: true,
   supported: false,
   scanning: false,
@@ -704,6 +719,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       setInterval(() => {
         const state = get();
         if (state.playing) pushMediaPosition();
+        const { a, b } = state.abLoop;
+        if (a !== null && b !== null && engine.currentTime >= b) {
+          engine.seek(a);
+        }
         if (state.crossfade <= 0 || !state.playing || state.current < 0) return;
         if (engine.ytActive) return; // Crossfade doesn't work well with YouTube iframe yet
         
@@ -717,7 +736,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           lastCrossfadeId = track.id;
           get().next(true);
         }
-      }, 250);
+      }, 100);
 
       engine.onYtStateChange = (state) => {
         // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
@@ -768,7 +787,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       // Online (`yt:<id>`) or native Android (Capacitor file URL) tracks.
       engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
     }
-    engine.volume = get().volume;
+    engine.volume = get().muted ? 0 : get().volume;
     applyPalette(track.palette);
     syncMediaSession(track);
     if (typeof document !== "undefined") {
@@ -777,7 +796,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     playHistory.push(index);
     if (playHistory.length > 60) playHistory.shift();
     savePref("lastTrackId", track.id);
-    set({ current: index, duration: 0, lyricsOffset: 0 });
+    set({
+      current: index,
+      duration: 0,
+      lyricsOffset: 0,
+      abLoop: { a: null, b: null },
+    });
 
     if (get().autoMode) {
       set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
@@ -943,9 +967,30 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   setVolume(value) {
-    engine.volume = value;
-    set({ volume: value });
-    savePref("volume", value);
+    const volume = Math.max(0, Math.min(1, value));
+    engine.volume = volume;
+    set({ volume, muted: false });
+    savePref("volume", volume);
+  },
+
+  toggleMute() {
+    const muted = !get().muted;
+    engine.volume = muted ? 0 : get().volume;
+    set({ muted });
+  },
+
+  cycleAbLoop() {
+    if (get().current < 0) return;
+    const { a, b } = get().abLoop;
+    const now = engine.currentTime;
+    if (a === null) set({ abLoop: { a: now, b: null } });
+    else if (b === null) {
+      set({ abLoop: now > a + 0.2 ? { a, b: now } : { a: now, b: null } });
+    } else set({ abLoop: { a: null, b: null } });
+  },
+
+  clearAbLoop() {
+    set({ abLoop: { a: null, b: null } });
   },
 
   setQueueOpen(queueOpen) {
