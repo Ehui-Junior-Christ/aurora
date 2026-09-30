@@ -305,8 +305,8 @@ export default function Home() {
                 immersive ? "translate-y-6" : ""
               } ${
                 lyricsOpen 
-                  ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-52 md:pr-[420px]" 
-                  : "opacity-100 pb-44 md:pb-52"
+                  ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-[calc(var(--dock-h)+5.5rem)] md:pr-[420px]" 
+                  : "opacity-100 pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)]"
               }`}
             >
               <MetaLine immersive={immersive} />
@@ -321,7 +321,7 @@ export default function Home() {
               onToggleLyrics={toggleLyrics}
             />
             <TrackList immersive={immersive} />
-            <ModeSwitcher lyricsOpen={lyricsOpen} />
+            <ModeSwitcher lyricsOpen={lyricsOpen} immersive={immersive} />
             {lyricsOpen && <LyricsPanel />}
             <GlobalProgressBar immersive={immersive} />
           </>

@@ -7,13 +7,17 @@ import { useDismissable } from "@/hooks/useDismissable";
 export default function VisualTuner({
   onClose,
   triggerRef,
+  inline = false,
 }: {
-  onClose: () => void;
+  onClose?: () => void;
   triggerRef?: RefObject<HTMLElement | null>;
+  /** Render as a plain block inside another popover (mobile mode sheet). */
+  inline?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  useDismissable(panelRef, onClose, {
+  useDismissable(panelRef, () => onClose?.(), {
     ignore: triggerRef ? [triggerRef] : [],
+    enabled: !inline,
   });
   const preset = usePlayer((s) => s.visualPreset);
   const setVisualPreset = usePlayer((s) => s.setVisualPreset);
@@ -28,20 +32,26 @@ export default function VisualTuner({
   return (
     <div
       ref={panelRef}
-      id="visual-tuner"
-      role="dialog"
+      id={inline ? undefined : "visual-tuner"}
+      role={inline ? "group" : "dialog"}
       aria-label="Réglage visuel"
       data-panel
-      className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-(--z-popover) mb-3 w-64 rounded-2xl p-4 shadow-2xl">
+      className={
+        inline
+          ? "pt-1"
+          : "glass-strong menu-in absolute bottom-full left-0 z-(--z-popover) mb-3 w-64 origin-bottom-left rounded-(--radius-card) p-4 shadow-(--shadow-pop)"
+      }
+    >
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Réglage visuel
         </span>
+        {!inline && (
         <button
           type="button"
           onClick={onClose}
           aria-label="Fermer le réglage visuel"
-          className="text-white/40 transition-colors hover:text-white"
+          className="btn-icon -m-2 grid size-9 place-items-center rounded-full text-white/50 hover:text-white"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
             <path
@@ -52,6 +62,7 @@ export default function VisualTuner({
             />
           </svg>
         </button>
+        )}
       </div>
       <p className="mb-3 text-micro leading-relaxed text-ink-2">
         Multiplicateurs appliqués à l’organisme de cette piste.
