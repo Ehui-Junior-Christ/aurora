@@ -205,9 +205,11 @@ function PlayPauseButton({
         toggle();
       }}
       aria-label={playing ? "Pause" : "Lecture"}
+      data-beat
       className={`btn-icon relative grid shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 backdrop-blur-md hover:bg-white/15 ${className}`}
       style={{ boxShadow: "0 0 24px color-mix(in srgb, var(--c2) 35%, transparent)" }}
     >
+      <span aria-hidden className="beat-halo" />
       <span className={`ml-0.5 transition-opacity duration-200 ${playing ? "opacity-0" : "opacity-100"}`}>
         <PlayIcon size={Math.round(17 * iconScale)} />
       </span>
@@ -502,6 +504,7 @@ function MobileDock({ sheetOpen, onOpen }: { sheetOpen: boolean; onOpen: () => v
       }}
     >
       <Timeline variant="hairline" />
+      <span aria-hidden data-beat className="beat-line" />
       <div className="flex h-16 items-center gap-1 pl-2 pr-1.5">
         <button
           type="button"

@@ -134,7 +134,8 @@ export default function Header({
       <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden
-          className="block size-3 shrink-0 rounded-full"
+          data-beat
+          className="beat-dot block size-3 shrink-0 rounded-full"
           style={{
             background:
               "conic-gradient(from 140deg, var(--c1), var(--c2), var(--c3), var(--c1))",

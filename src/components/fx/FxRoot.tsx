@@ -1,5 +1,6 @@
 "use client";
 
+import { useBeatPulse } from "@/hooks/useBeatPulse";
 import { useQualityAttribute } from "@/hooks/useQualityAttribute";
 
 /**
@@ -9,5 +10,6 @@ import { useQualityAttribute } from "@/hooks/useQualityAttribute";
  */
 export default function FxRoot() {
   useQualityAttribute();
+  useBeatPulse();
   return null;
 }

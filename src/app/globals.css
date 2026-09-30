@@ -609,3 +609,39 @@ input:not([type]):focus-visible {
     filter: blur(4px);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Beat accents: --beat (0..1) is written by hooks/useBeatPulse       */
+/* ------------------------------------------------------------------ */
+
+.beat-halo {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 22px 2px color-mix(in srgb, var(--c2) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--c2) 45%, transparent);
+  opacity: calc(var(--beat, 0) * 0.85);
+  transform: scale(calc(1 + var(--beat, 0) * 0.08));
+}
+
+.beat-line {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--c2) 30%, var(--c3) 70%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c2) 70%, transparent);
+  opacity: calc(var(--beat, 0) * 0.7);
+}
+
+.beat-dot {
+  transform: scale(calc(1 + var(--beat, 0) * 0.3));
+}
+
+:root[data-quality="low"] .beat-halo,
+:root[data-quality="low"] .beat-line {
+  display: none;
+}
