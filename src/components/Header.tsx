@@ -23,9 +23,11 @@ function safeName(value: string): string {
 export default function Header({
   immersive,
   onOpenSearch,
+  onOpenShortcuts,
 }: {
   immersive: boolean;
   onOpenSearch?: () => void;
+  onOpenShortcuts?: () => void;
 }) {
   const sources = usePlayer((s) => s.sources);
   const count = usePlayer((s) => s.tracks.length);
@@ -282,6 +284,16 @@ export default function Header({
                   disabled: !pipAvailable,
                   onSelect: () => void openPipPlayer(),
                 },
+                ...(onOpenShortcuts
+                  ? [
+                      {
+                        id: "keys",
+                        label: "Raccourcis clavier",
+                        icon: <KeyboardIcon />,
+                        onSelect: onOpenShortcuts,
+                      },
+                    ]
+                  : []),
                 {
                   id: "help",
                   label: "Aide",
@@ -494,6 +506,15 @@ function PipIcon() {
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
       <rect x="8" y="8" width="5.5" height="4" rx="0.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+function KeyboardIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1.5" y="4" width="13" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M4 7h.01M6.5 7h.01M9 7h.01M11.5 7h.01M5 10h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

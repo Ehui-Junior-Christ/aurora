@@ -256,9 +256,6 @@ export default function PlayerBar({
   lyricsOpen: boolean;
   onToggleLyrics: () => void;
 }) {
-  const toggle = usePlayer((s) => s.toggle);
-  const next = usePlayer((s) => s.next);
-  const prev = usePlayer((s) => s.prev);
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const dockRef = useRef<HTMLDivElement>(null);
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
@@ -268,23 +265,6 @@ export default function PlayerBar({
     if (isDesktop) setNowPlayingOpen(false);
   }, [isDesktop]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-        return;
-      if (event.code === "Space") {
-        event.preventDefault();
-        toggle();
-      } else if (event.code === "ArrowRight" && event.shiftKey) {
-        next();
-      } else if (event.code === "ArrowLeft" && event.shiftKey) {
-        prev();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggle, next, prev]);
 
   return (
     <>
@@ -331,6 +311,8 @@ function DesktopDock({
 }) {
   const track = usePlayer((s) => s.tracks[s.current]);
   const volume = usePlayer((s) => s.volume);
+  const muted = usePlayer((s) => s.muted);
+  const toggleMute = usePlayer((s) => s.toggleMute);
   const shuffle = usePlayer((s) => s.shuffle);
   const repeat = usePlayer((s) => s.repeat);
   const lyricsAvailable = usePlayer((s) => s.lyricsAvailable);
@@ -415,16 +397,35 @@ function DesktopDock({
             >
               <EqIcon />
             </ToggleButton>
-            <div className={`${styles.volume} flex items-center gap-2`}>
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-                <path d="M8 2.2 4.8 5H2v6h2.8L8 13.8V2.2Zm2.5 2.05a.6.6 0 0 1 .85 0 5.3 5.3 0 0 1 0 7.5.6.6 0 1 1-.85-.85 4.1 4.1 0 0 0 0-5.8.6.6 0 0 1 0-.85Zm1.9-1.9a.6.6 0 0 1 .85 0 8 8 0 0 1 0 11.3.6.6 0 1 1-.85-.85 6.8 6.8 0 0 0 0-9.6.6.6 0 0 1 0-.85Z" />
-              </svg>
+            <div className={`${styles.volume} flex items-center gap-1`}>
+              <button
+                type="button"
+                data-cursor="magnetic"
+                onClick={toggleMute}
+                aria-pressed={muted}
+                aria-label={muted ? "Rétablir le son" : "Couper le son"}
+                title={muted ? "Rétablir le son (M)" : "Couper le son (M)"}
+                className={`btn-icon grid size-8 place-items-center rounded-full ${
+                  muted ? "text-[var(--c3)]" : "hover:text-white"
+                }`}
+              >
+                {muted ? (
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <path d="M8 2.2 4.8 5H2v6h2.8L8 13.8V2.2Z" fill="currentColor" />
+                    <path d="m10.5 6 4 4m0-4-4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                    <path d="M8 2.2 4.8 5H2v6h2.8L8 13.8V2.2Zm2.5 2.05a.6.6 0 0 1 .85 0 5.3 5.3 0 0 1 0 7.5.6.6 0 1 1-.85-.85 4.1 4.1 0 0 0 0-5.8.6.6 0 0 1 0-.85Zm1.9-1.9a.6.6 0 0 1 .85 0 8 8 0 0 1 0 11.3.6.6 0 1 1-.85-.85 6.8 6.8 0 0 0 0-9.6.6.6 0 0 1 0-.85Z" />
+                  </svg>
+                )}
+              </button>
               <input
                 type="range"
                 min={0}
                 max={1}
                 step={0.01}
-                value={volume}
+                value={muted ? 0 : volume}
                 onChange={(event) => setVolume(Number(event.target.value))}
                 aria-label="Volume"
                 className={styles.slider}
@@ -653,7 +654,7 @@ function NowPlayingSheetBody({
         </div>
 
         <div className="relative mt-5">
-          <Timeline guards={false} />
+          <Timeline />
         </div>
 
         <div className="relative mt-4 flex items-center justify-center gap-6">

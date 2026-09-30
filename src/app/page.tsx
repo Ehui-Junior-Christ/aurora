@@ -2,8 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
-import { engine } from "@/lib/audio-engine";
+import { usePlayer } from "@/store/player-store";
 import { idbGet, idbSet } from "@/lib/db";
 import { mergeDirectoryHandle, type FsNode } from "@/lib/fs-scanner";
 import Header from "@/components/Header";
@@ -12,6 +11,9 @@ import TrackTitle from "@/components/TrackTitle";
 import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
 import SearchPalette from "@/components/SearchPalette";
+import ShortcutsHelp from "@/components/ShortcutsHelp";
+import { useHotkeys } from "@/hooks/useHotkeys";
+import { useLaunchAction } from "@/hooks/useLaunchAction";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
@@ -89,12 +91,12 @@ function TrackAnnouncer() {
 export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
   const showHome = usePlayer((s) => s.showHome);
-  const setVisualMode = usePlayer((s) => s.setVisualMode);
   const currentTrackId = usePlayer((s) => s.tracks[s.current]?.id ?? null);
   const [immersive, setImmersive] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const playerView = hasTracks && !showHome;
 
   const queueOpen = usePlayer((s) => s.queueOpen);
@@ -164,54 +166,24 @@ export default function Home() {
     };
   }, [hasTracks]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
+  const helpOpen = usePlayer((s) => s.helpOpen);
+  useHotkeys({
+    onToggleLyrics: () => {
+      if (usePlayer.getState().lyricsAvailable) toggleLyrics();
+    },
+    onSearch: () => setSearchOpen((open) => !open),
+    onHelp: () => setShortcutsOpen(true),
+    enabled: !helpOpen && !shortcutsOpen,
+  });
+
+  useLaunchAction({
+    resume: () => {
       const state = usePlayer.getState();
-      if (state.sleepAt !== null && Date.now() >= state.sleepAt) {
-        state.setSleep(0);
-        engine.pause();
-      }
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!playerView) return;
-    const onKey = (event: KeyboardEvent) => {
-      const isK = (event.key === "k" || event.key === "K") && (event.ctrlKey || event.metaKey);
-      const target = event.target as HTMLElement | null;
-      const typing =
-        !!target &&
-        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
-          target.isContentEditable);
-      if (isK || (event.key === "/" && !typing)) {
-        event.preventDefault();
-        setSearchOpen((open) => (isK ? !open : true));
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [playerView]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-        return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const numericMode = Number(event.key);
-      if (numericMode >= 1 && numericMode <= MODE_KEYS.length) {
-        setVisualMode(MODE_KEYS[numericMode - 1]);
-      } else if (MODE_KEYS.includes(event.key as VisualMode)) {
-        setVisualMode(event.key as VisualMode);
-      } else if (event.key === "f" || event.key === "F") {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setVisualMode]);
+      if (state.current >= 0 && state.tracks.length > 0 && !state.playing) state.toggle();
+    },
+    search: () => setSearchOpen(true),
+    shuffle: () => usePlayer.getState().playShuffledLibrary(),
+  });
 
   useEffect(() => {
     let startX = 0;
@@ -297,6 +269,7 @@ export default function Home() {
         <Header
           immersive={immersive}
           onOpenSearch={playerView ? () => setSearchOpen(true) : undefined}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
         {hasTracks && !showHome ? (
           <>
@@ -343,9 +316,8 @@ export default function Home() {
         </div>
       )}
 
-      {searchOpen && playerView && (
-        <SearchPalette onClose={() => setSearchOpen(false)} />
-      )}
+      {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}
+      {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} />}
       <TrackAnnouncer />
       <Onboarding />
       <UpdateToast />
