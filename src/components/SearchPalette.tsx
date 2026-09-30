@@ -29,7 +29,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-label="Rechercher"
-        className="glass-solid sheet-in relative flex h-dvh w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-(--safe-b) md:menu-in md:h-auto md:max-h-[72vh] md:w-[640px] md:rounded-(--radius-panel) md:pb-0 md:pt-0 md:shadow-(--shadow-pop)"
+        className="glass-solid sheet-in relative flex h-dvh w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-(--safe-b) md:palette-in md:h-auto md:max-h-[72vh] md:w-[640px] md:rounded-(--radius-panel) md:pb-0 md:pt-0 md:shadow-(--shadow-pop)"
       >
         <div className="flex items-center justify-between px-4 pt-3 md:hidden">
           <span className="font-mono text-micro uppercase tracking-[0.3em] text-ink-2">

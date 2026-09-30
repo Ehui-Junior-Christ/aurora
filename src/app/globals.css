@@ -388,10 +388,12 @@ a {
 
 /* Loading placeholders. */
 .skeleton {
+  /* Shimmer tinted by the current cover palette. */
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0.05) 30%,
-    rgba(255, 255, 255, 0.12) 50%,
+    color-mix(in srgb, var(--c2) 16%, rgba(255, 255, 255, 0.1)) 45%,
+    color-mix(in srgb, var(--c3) 14%, rgba(255, 255, 255, 0.1)) 55%,
     rgba(255, 255, 255, 0.05) 70%
   );
   background-size: 300% 100%;
@@ -781,5 +783,39 @@ input:not([type]):focus-visible {
     mix-blend-mode: soft-light;
     opacity: var(--tilt-o, 0);
     transition: opacity 0.4s ease;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Panel transitions                                                  */
+/* ------------------------------------------------------------------ */
+
+/* Command palette (desktop): clip-path unveil from the top + settle. */
+@utility palette-in {
+  animation: palette-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.975);
+    clip-path: inset(0 0 92% 0 round var(--radius-panel));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0 round var(--radius-panel));
+  }
+}
+
+/* Library tab switch. */
+.tab-in {
+  animation: tab-in var(--dur-3) var(--ease-out-expo) both;
+}
+
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }

@@ -125,8 +125,10 @@ function Panel({
     ? `glass-solid fixed inset-x-2 top-[12dvh] bottom-[calc(var(--dock-h)+var(--space-2)+var(--safe-b))] z-(--z-panel) flex flex-col overflow-hidden rounded-(--radius-panel) shadow-(--shadow-pop) ${
         drag > 0 ? "" : "transition-[transform,opacity] duration-(--dur-4) ease-out-expo"
       }`
-    : `glass fixed right-(--gutter) top-24 bottom-[calc(var(--dock-h)+var(--space-4)+var(--safe-b))] z-(--z-panel) flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-(--radius-card) transition-[transform,opacity] duration-(--dur-4) ease-out-expo ${
-        shown ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-10 opacity-0"
+    : `glass fixed right-(--gutter) top-24 bottom-[calc(var(--dock-h)+var(--space-4)+var(--safe-b))] z-(--z-panel) flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-(--radius-card) transition-[transform,opacity,clip-path] duration-(--dur-4) ease-out-expo ${
+        shown
+          ? "translate-x-0 opacity-100 [clip-path:inset(0_round_var(--radius-card))]"
+          : "pointer-events-none translate-x-10 opacity-0 [clip-path:inset(0_0_0_100%_round_var(--radius-card))]"
       }`;
 
   return (
@@ -234,7 +236,8 @@ function Panel({
           role="tabpanel"
           id="lib-tabpanel"
           aria-labelledby={`lib-tab-${tab}`}
-          className="flex min-h-0 flex-1 flex-col"
+          key={tab}
+          className="tab-in flex min-h-0 flex-1 flex-col"
         >
           {tab === "library" && <LibraryTab onMore={onMore} />}
           {tab === "queue" && <QueueTab onMore={onMore} onBrowse={() => onTab("library")} />}
