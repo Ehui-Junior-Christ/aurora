@@ -30,6 +30,35 @@ Vous pouvez essayer l'application directement depuis votre navigateur ou téléc
 - 📝 **Paroles Synchronisées (LRC)** : Affichage automatique des paroles, avec possibilité de décaler la synchronisation pour les musiques vidéo (YouTube).
 - 🎛️ **Égaliseur (EQ)** : Contrôlez les Basses, Médiums et Aigus.
 - 🗂️ **Playlists & Favoris** : Organisez vos musiques comme bon vous semble, le tout sauvegardé dans votre navigateur/téléphone (IndexedDB).
+- 🎧 **Aurora Mix** : transitions DJ automatiques (panneau audio → « Aurora Mix ») — voir ci-dessous.
+
+## 🎧 Aurora Mix
+
+Chaque piste locale est analysée une seule fois (worker, cache IndexedDB) :
+carte de tempo et grille de temps, premier temps fort, phrases de 8 mesures,
+enveloppe d'énergie, intro / outro, tonalité (Krumhansl-Schmuckler → Camelot)
+et loudness. Les transitions démarrent sur une frontière de phrase de la piste
+sortante, l'entrante est calée sur un temps fort, son tempo est aligné
+(`playbackRate`, hauteur préservée, ±6 % ou demi/double tempo) puis verrouillé
+en phase, et revient doucement à son tempo natif après le mix. Styles choisis
+automatiquement (ou forcés) : **Blend** avec échange des basses sur le temps
+fort, **Filtre** (passe-haut / passe-bas), **Écho** (sortie en delay), **Cut**
+(bascule sur le drop) et **Fondu** à puissance constante pour les morceaux
+incompatibles. Un limiteur protège le master. « Mix harmonique » réordonne la
+lecture aléatoire (tonalité, BPM, énergie) sans toucher la bibliothèque ni la
+file d'attente. Pistes YouTube : fondus de volume entre deux lecteurs IFrame
+officiels (aucune capture audio).
+
+API pour les visuels (lecture par frame, sans re-render) :
+
+```ts
+import { getBeatClock, getMixProgress, usePlayer } from "@/store/player-store";
+const clock = getBeatClock(trackId); // { bpm, beat, phase, bar, barPhase, phrasePhase, confidence } | null
+const progress = getMixProgress();   // 0..1 pendant une transition, sinon null
+const mix = usePlayer((s) => s.mixTransition); // { style, progress, toTitle, sync, bars, harmonic } | null (~10 Hz)
+```
+
+Tests DSP sur signaux synthétiques : `node --import ./tests/mix/register.mjs tests/mix/<tempo|key|structure|planner|sync|short>.test.ts`.
 
 ## 🛠️ Technologies
 Aurora est construit avec des technologies modernes et performantes :
