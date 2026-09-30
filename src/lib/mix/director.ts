@@ -124,7 +124,8 @@ let pickCache: { curId: string; chosen: string; analysed: number } | null = null
  */
 export function harmonicPick(current: Track, candidates: Track[]): string | null {
   if (!host?.settings().order) return null;
-  const locals = candidates.filter((t) => !t.isOnline && t.file);
+  // At most 10 candidates: bounded background analysis per track.
+  const locals = candidates.filter((t) => !t.isOnline && t.file).slice(0, 10);
   if (pickCache && pickCache.curId === current.id && planKey?.startsWith(`${current.id}>`)) {
     if (candidates.some((t) => t.id === pickCache!.chosen)) return pickCache.chosen;
   }
