@@ -16,15 +16,68 @@ import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
 import { fetchRemoteLyrics } from "@/lib/lyrics-fetcher";
 import {
-  getAudioStreamUrl,
   onlineResultToTrack,
   searchOnlineMusic,
+  toVideoId,
   type OnlineMusicResult,
 } from "@/lib/invidious";
+import { fnv1a } from "@/lib/hash";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 
 let wired = false;
+let searchSeq = 0; // ignores out-of-order online search responses
+let ytErrorStreak = 0; // consecutive YouTube failures (avoid infinite skip loops)
+let playbackErrorTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ytErrorMessage(code: number): string {
+  switch (code) {
+    case -1:
+      return "Lecteur YouTube injoignable (connexion ou bloqueur de contenu).";
+    case 2:
+      return "Identifiant de vidéo invalide.";
+    case 5:
+      return "Cette vidéo ne peut pas être lue dans le navigateur.";
+    case 100:
+      return "Vidéo introuvable ou supprimée.";
+    case 101:
+    case 150:
+      return "L'auteur interdit la lecture de cette vidéo hors de YouTube.";
+    case 153:
+      return "Lecture YouTube refusée (en-tête Referer manquant).";
+    default:
+      return `Lecture en ligne impossible (code ${code}).`;
+  }
+}
+
+const NATIVE_PALETTE: PaletteColor[] = [
+  { hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)" },
+  { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)" },
+  { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)" },
+];
+
+function nativeToTracks(
+  list: Array<{ id: string; title: string; artist: string; album: string; duration: number; path: string }>
+): Track[] {
+  return list.map((t) => ({
+    id: t.id,
+    title: t.title,
+    artist: t.artist,
+    album: t.album,
+    // play() reads `streamUrl`; the previous `url` field was never used, so
+    // native Android tracks could not be played at all.
+    streamUrl: Capacitor.convertFileSrc(t.path),
+    isOnline: false,
+    durationText:
+      t.duration > 0
+        ? `${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration % 60)).padStart(2, "0")}`
+        : undefined,
+    palette: NATIVE_PALETTE,
+    // Must be an integer: it indexes MODE_KEYS / palettes (Math.random()
+    // produced an `undefined` visual mode).
+    seed: fnv1a(`${t.id}|${t.path}`),
+  }));
+}
 let pendingHandles: FsNode[] = [];
 let lyricsFiles = new Map<string, File>();
 const playHistory: number[] = [];
@@ -75,6 +128,10 @@ export interface VisualPreset {
 
 const DEFAULT_PRESET: VisualPreset = { freq: 1, speed: 1, amp: 1 };
 
+// SECURITY: never hardcode the key; it comes from the build env only
+// (NEXT_PUBLIC_YOUTUBE_API_KEY) or from a key the user enters in settings.
+const DEFAULT_YOUTUBE_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY ?? "";
+
 interface PlayerState {
   tracks: Track[];
   sources: string[];
@@ -114,6 +171,7 @@ interface PlayerState {
   onlineResults: OnlineMusicResult[];
   onlineSearching: boolean;
   onlineError: string | null;
+  playbackError: string | null;
   youtubeApiKey: string;
   showHome: boolean;
   history: Track[];
@@ -122,6 +180,7 @@ interface PlayerState {
   saveOnlineTrack(track: Track): void;
   removeOnlineTrack(trackId: string): void;
   setYoutubeApiKey(key: string): void;
+  setPlaybackError(message: string | null): void;
   searchOnline(query: string): Promise<void>;
   playOnlineResult(result: OnlineMusicResult): Promise<void>;
   removeSource(source: string): void;
@@ -238,7 +297,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   onlineResults: [],
   onlineSearching: false,
   onlineError: null,
-  youtubeApiKey: process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "AIzaSyBHRkh_QT4tjk_TRZq8U7TBPLkBLHIcobo",
+  playbackError: null,
+  youtubeApiKey: DEFAULT_YOUTUBE_API_KEY,
   showHome: false,
   history: [],
   savedOnlineTracks: [],
@@ -272,8 +332,28 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   setYoutubeApiKey(key) {
-    set({ youtubeApiKey: key });
-    savePref("youtubeApiKey", key);
+    const trimmed = key.trim();
+    if (trimmed) {
+      set({ youtubeApiKey: trimmed });
+      savePref("youtubeApiKey", trimmed);
+    } else {
+      // Clearing the custom key falls back to the build-time key instead of
+      // persisting an empty string that would break every search.
+      set({ youtubeApiKey: DEFAULT_YOUTUBE_API_KEY });
+      void idbDelete("prefs", "youtubeApiKey");
+    }
+  },
+
+  setPlaybackError(message) {
+    if (playbackErrorTimer) clearTimeout(playbackErrorTimer);
+    playbackErrorTimer = null;
+    set({ playbackError: message });
+    if (message) {
+      playbackErrorTimer = setTimeout(() => {
+        playbackErrorTimer = null;
+        set({ playbackError: null });
+      }, 6000);
+    }
   },
 
   async searchOnline(query) {
@@ -281,16 +361,24 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ onlineQuery: "", onlineResults: [], onlineError: null });
       return;
     }
+    const seq = ++searchSeq;
     set({ onlineSearching: true, onlineQuery: query, onlineError: null });
     try {
       const results = await searchOnlineMusic(query, get().youtubeApiKey);
+      if (seq !== searchSeq) return; // a newer search superseded this one
       set({ onlineResults: results, onlineSearching: false });
     } catch (e) {
-      set({ onlineError: "Erreur lors de la recherche en ligne", onlineSearching: false });
+      if (seq !== searchSeq) return;
+      const detail = e instanceof Error && e.message ? ` : ${e.message}` : "";
+      set({
+        onlineError: `Erreur lors de la recherche en ligne${detail}`,
+        onlineSearching: false,
+      });
     }
   },
 
   async playOnlineResult(result) {
+    ytErrorStreak = 0; // explicit user choice: give the skip budget back
     const track = onlineResultToTrack(result);
     get().addToHistory(track);
     const { tracks, current } = get();
@@ -340,7 +428,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       ]);
 
     const prefs: Partial<PlayerState> = {};
-    if (typeof storedYoutubeApiKey === "string") {
+    if (typeof storedYoutubeApiKey === "string" && storedYoutubeApiKey.trim()) {
       prefs.youtubeApiKey = storedYoutubeApiKey;
     }
     if (typeof volume === "number") {
@@ -385,7 +473,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const cleanTracks = (tracks: Track[]) => {
       const seen = new Set<string>();
       return tracks
-        .map(t => ({ ...t, id: t.id.replace(/^(yt:|online_)+/, "yt:") }))
+        .filter((t) => t && typeof t.id === "string")
+        .map((t) => {
+          // Older builds stored `yt:yt:<id>` in both id and streamUrl, which
+          // the IFrame player cannot load. Normalise both.
+          const videoId = toVideoId(t.id);
+          return { ...t, id: `yt:${videoId}`, streamUrl: `yt:${videoId}`, isOnline: true };
+        })
         .filter(t => {
           if (seen.has(t.id)) return false;
           seen.add(t.id);
@@ -414,15 +508,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ scanning: true, error: null });
       try {
         const result = await AudioScanner.scanAudio();
-        const nativeTracks: Track[] = result.tracks.map((t) => ({
-          ...t,
-          url: Capacitor.convertFileSrc(t.path),
-          isOnline: false,
-          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
-          seed: Math.random(),
-        }));
-        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
-      } catch (e) {
+        const nativeTracks = nativeToTracks(result.tracks);
+        // `sources` is rendered as text: an object here crashed React.
+        set({ tracks: nativeTracks, sources: ["Appareil"], scanning: false });
+      } catch {
         set({ error: "Erreur lors du scan automatique", scanning: false });
       }
       return;
@@ -470,15 +559,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ scanning: true });
       try {
         const result = await AudioScanner.scanAudio();
-        const nativeTracks: Track[] = result.tracks.map((t) => ({
-          ...t,
-          url: Capacitor.convertFileSrc(t.path),
-          isOnline: false,
-          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
-          seed: Math.random(),
-        }));
-        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
-      } catch (e) {
+        const nativeTracks = nativeToTracks(result.tracks);
+        // `sources` is rendered as text: an object here crashed React.
+        set({ tracks: nativeTracks, sources: ["Appareil"], scanning: false });
+      } catch {
         set({ error: "Erreur lors du scan", scanning: false });
       }
       return;
@@ -608,22 +692,31 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       engine.onYtStateChange = (state) => {
         // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
         if (state === 1) {
+          ytErrorStreak = 0;
           set({ playing: true, duration: engine.duration });
         } else if (state === 2) {
           set({ playing: false });
         } else if (state === 0) {
+          set({ playing: false });
           get().next(true);
         }
       };
       engine.onYtError = (error) => {
         console.warn("YouTube Error:", error);
-        get().next(true); // Passer au suivant si erreur (vidéo supprimée/bloquée)
+        ytErrorStreak++;
+        set({ playing: false });
+        get().setPlaybackError(ytErrorMessage(error));
+        // Skip to the next track (deleted/blocked video) but stop after a few
+        // consecutive failures instead of looping forever over the queue.
+        if (error !== -1 && ytErrorStreak < 3 && get().tracks.length > 1) {
+          get().next(true);
+        }
       };
     }
 
     const previous = current >= 0 ? tracks[current] : null;
     if (previous && previous.id !== track.id) {
-      const elapsed = engine.el.currentTime;
+      const elapsed = engine.currentTime;
       if (elapsed > 0) {
         const nextStats: ListeningStats = {
           plays: { ...stats.plays },
@@ -634,10 +727,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       }
     }
 
-    if (track.isOnline && track.streamUrl) {
-      engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
-    } else if (track.file) {
+    if (track.file) {
       engine.load(track.file, crossfade * 1000);
+    } else if (track.streamUrl) {
+      // Online (`yt:<id>`) or native Android (Capacitor file URL) tracks.
+      engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
     }
     engine.volume = get().volume;
     applyPalette(track.palette);
@@ -677,9 +771,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       });
     }
 
+    // Async results (analysis, lyrics, presets) must only apply if the user
+    // has not switched tracks in the meantime.
+    const isCurrent = () => get().tracks[get().current]?.id === track.id;
+
     if (normalize && track.file) {
       void getCachedAnalysis(track.id, track.file).then((analysis) => {
-        if (analysis) {
+        if (analysis && isCurrent()) {
           engine.setTrackGain(normalizationGain(analysis.rms, true));
         }
       });
@@ -689,6 +787,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     set({ lyrics: [], lyricsAvailable: false });
     const applyCues = (cues: LyricsCue[]) => {
+      if (!isCurrent()) return;
       set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
     };
     const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
@@ -696,25 +795,31 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       void lrcFile
         .text()
         .then((text) => applyCues(parseLrc(text)))
-        .catch(() => set({ lyrics: [], lyricsAvailable: false }));
+        .catch(() => applyCues([]));
     } else {
       void (async () => {
-        const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
-        if (cached && cached.length > 0) {
-          applyCues(cached);
-          return;
-        }
-        const remote = await fetchRemoteLyrics(track.artist, track.title);
-        if (remote && remote.length > 0) {
-          void idbSet("meta", `lyrics:${track.id}`, remote);
-          applyCues(remote);
+        try {
+          const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
+          if (cached && cached.length > 0) {
+            applyCues(cached);
+            return;
+          }
+          const remote = await fetchRemoteLyrics(track.artist, track.title);
+          if (remote && remote.length > 0) {
+            void idbSet("meta", `lyrics:${track.id}`, remote);
+            applyCues(remote);
+          }
+        } catch {
+          // lyrics are optional; never surface an unhandled rejection
         }
       })();
     }
 
-    void idbGet<VisualPreset>("meta", `visual:${track.id}`).then((preset) => {
-      set({ visualPreset: preset ?? DEFAULT_PRESET });
-    });
+    void idbGet<VisualPreset>("meta", `visual:${track.id}`)
+      .then((preset) => {
+        if (isCurrent()) set({ visualPreset: preset ?? DEFAULT_PRESET });
+      })
+      .catch(() => void 0);
   },
 
   toggle() {
@@ -727,7 +832,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       get().play(0);
       return;
     }
-    if (engine.el.paused) void engine.play();
+    // engine.paused also covers the YouTube player (the <audio> element is
+    // always paused while an online track plays, so pause never worked).
+    if (engine.paused) void engine.play();
     else engine.pause();
   },
 
@@ -747,7 +854,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     if (auto && repeat === "off" && !shuffle && current >= tracks.length - 1) {
       engine.pause();
-      engine.seek(0);
+      // seekTo() on an ENDED YouTube player restarts playback.
+      if (!engine.ytActive) engine.seek(0);
+      set({ playing: false });
       return;
     }
     let index: number;
@@ -876,12 +985,23 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   refreshApp() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
       return;
-    navigator.serviceWorker.controller?.postMessage("SKIP_WAITING");
     navigator.serviceWorker.addEventListener(
       "controllerchange",
       () => window.location.reload(),
       { once: true }
     );
+    // SKIP_WAITING must go to the *waiting* worker: the active controller is
+    // the old one, so posting to it never activated the update.
+    void navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => {
+        if (registration?.waiting) {
+          registration.waiting.postMessage("SKIP_WAITING");
+        } else {
+          window.location.reload();
+        }
+      })
+      .catch(() => window.location.reload());
   },
 
   async createPlaylist(name) {

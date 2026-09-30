@@ -41,7 +41,7 @@ export default function GlobalProgressBar() {
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
     const duration = engine.duration;
-    if (Number.isFinite(duration)) {
+    if (Number.isFinite(duration) && duration > 0) {
       usePlayer.getState().seek(pct * duration);
     }
   };

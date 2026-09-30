@@ -41,8 +41,6 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",
-    "youtube-ext": "^1.1.25",
-    "yt-search": "^2.13.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -61,7 +59,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.24",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
+    "typescript": "5.8.2",
     "wait-on": "^9.1.0"
   }
 }

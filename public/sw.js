@@ -1,4 +1,16 @@
-const VERSION = "aurora-v2";
+const VERSION = "aurora-v3";
+
+// Only cache complete, same-origin, successful responses (never opaque,
+// redirected, partial or error responses) to avoid cache poisoning.
+function isCacheable(response) {
+  return (
+    response &&
+    response.ok &&
+    response.status === 200 &&
+    response.type === "basic" &&
+    !response.redirected
+  );
+}
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
@@ -36,13 +48,17 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (request.headers.has("range")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put("/", copy));
+          // Only the app shell ("/") is stored, and only from a clean response.
+          if (url.pathname === "/" && isCacheable(response)) {
+            const copy = response.clone();
+            caches.open(VERSION).then((cache) => cache.put("/", copy));
+          }
           return response;
         })
         .catch(() => caches.match("/"))
@@ -61,8 +77,10 @@ self.addEventListener("fetch", (event) => {
         (hit) =>
           hit ||
           fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(VERSION).then((cache) => cache.put(request, copy));
+            if (isCacheable(response)) {
+              const copy = response.clone();
+              caches.open(VERSION).then((cache) => cache.put(request, copy));
+            }
             return response;
           })
       )

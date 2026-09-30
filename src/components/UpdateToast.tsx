@@ -2,14 +2,42 @@
 
 import { usePlayer } from "@/store/player-store";
 
+const TOAST_CLASS =
+  "glass-strong fade-in-up fixed inset-x-4 top-24 z-[70] flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl md:inset-x-auto md:bottom-6 md:left-6 md:top-auto";
+
 export default function UpdateToast() {
   const updateReady = usePlayer((s) => s.updateReady);
   const refreshApp = usePlayer((s) => s.refreshApp);
+  const playbackError = usePlayer((s) => s.playbackError);
+  const setPlaybackError = usePlayer((s) => s.setPlaybackError);
+
+  if (!updateReady && playbackError) {
+    return (
+      <div role="alert" className={TOAST_CLASS}>
+        <span
+          className="size-2 rounded-full"
+          style={{
+            background: "var(--c2)",
+            boxShadow: "0 0 12px var(--c2)",
+          }}
+        />
+        <p className="text-sm text-white/80">{playbackError}</p>
+        <button
+          type="button"
+          data-cursor="magnetic"
+          onClick={() => setPlaybackError(null)}
+          className="rounded-full border border-white/20 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/10"
+        >
+          OK
+        </button>
+      </div>
+    );
+  }
 
   if (!updateReady) return null;
 
   return (
-    <div className="glass-strong fade-in-up fixed inset-x-4 top-24 z-[70] flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl md:inset-x-auto md:bottom-6 md:left-6 md:top-auto">
+    <div className={TOAST_CLASS}>
       <span
         className="size-2 rounded-full"
         style={{

@@ -78,7 +78,12 @@ export async function openPipPlayer(): Promise<void> {
     const state = usePlayer.getState();
     const track = state.tracks[state.current];
     if (track) {
-      if (track.coverUrl && cover.src !== track.coverUrl) cover.src = track.coverUrl;
+      if (
+        track.coverUrl &&
+        /^(blob:|https:|data:image\/)/i.test(track.coverUrl) &&
+        cover.src !== track.coverUrl
+      )
+        cover.src = track.coverUrl;
       titleEl.textContent = track.title;
       artistEl.textContent = `${track.artist} · ${track.album}`;
     } else {

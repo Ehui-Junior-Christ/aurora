@@ -10,6 +10,11 @@ export default function ServiceWorkerRegister() {
     const register = async () => {
       try {
         const registration = await navigator.serviceWorker.register("/sw.js");
+        // An update installed during a previous visit is already waiting:
+        // `updatefound` will not fire again for it.
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          usePlayer.getState().setUpdateReady(true);
+        }
         registration.addEventListener("updatefound", () => {
           const worker = registration.installing;
           worker?.addEventListener("statechange", () => {

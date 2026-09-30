@@ -117,7 +117,6 @@ export default function Timeline() {
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const el = engine.el;
       const duration = Number.isFinite(engine.duration) ? engine.duration : 0;
       const currentTime = engine.currentTime;
       const state = usePlayer.getState();
@@ -167,8 +166,8 @@ export default function Timeline() {
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
     if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
-    const duration = engine.el.duration;
-    if (Number.isFinite(duration)) {
+    const duration = engine.duration;
+    if (Number.isFinite(duration) && duration > 0) {
       usePlayer.getState().seek(pct * duration);
     }
   };
@@ -203,9 +202,9 @@ export default function Timeline() {
             Math.max(0, (event.clientX - rect.left) / rect.width)
           );
           hover.style.left = `${pct * 100}%`;
-          const duration = engine.el.duration;
+          const duration = engine.duration;
           hover.textContent =
-            Number.isFinite(duration) ? formatTime(pct * duration) : "";
+            Number.isFinite(duration) && duration > 0 ? formatTime(pct * duration) : "";
           hover.style.opacity = "1";
         }}
         onPointerLeave={() => {

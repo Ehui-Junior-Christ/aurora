@@ -17,3 +17,15 @@ android/app/build/
 android/.gradle/
 android/local.properties
 gh-release.txt
+
+# secrets (keep only the template)
+!.env.example
+*.keystore
+*.jks
+google-services.json
+
+# logs / local artefacts
+*.log
+output/
+test-results/
+playwright-report/
