@@ -85,19 +85,28 @@ export async function mergeDirectoryHandle(
   return merged;
 }
 
+const relativePaths = new WeakMap<File, string>();
+
+/** "<root>/<sub>/<file>" for files found by scanMusicFolder (M3U export). */
+export function relativePathOf(file: File): string | undefined {
+  return relativePaths.get(file);
+}
+
 export async function scanMusicFolder(
   dir: FsNode,
   maxDepth = 8
 ): Promise<{ audio: File[]; lyrics: Map<string, File> }> {
   const audio: File[] = [];
   const lyrics = new Map<string, File>();
-  async function walk(node: FsNode, depth: number): Promise<void> {
+  async function walk(node: FsNode, depth: number, prefix: string): Promise<void> {
     if (depth > maxDepth) return;
     for await (const entry of node.values()) {
       if (entry.kind === "file" && entry.getFile) {
         if (AUDIO_RE.test(entry.name)) {
           try {
-            audio.push(await entry.getFile());
+            const file = await entry.getFile();
+            relativePaths.set(file, `${prefix}/${entry.name}`);
+            audio.push(file);
           } catch {
             void 0;
           }
@@ -110,11 +119,11 @@ export async function scanMusicFolder(
           }
         }
       } else if (entry.kind === "directory" && !entry.name.startsWith(".")) {
-        await walk(entry, depth + 1);
+        await walk(entry, depth + 1, `${prefix}/${entry.name}`);
       }
     }
   }
-  await walk(dir, 0);
+  await walk(dir, 0, dir.name);
   return { audio, lyrics };
 }
 

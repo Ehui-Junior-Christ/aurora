@@ -7,6 +7,7 @@ import {
   baseName,
   isNativeAndroid,
   AudioScanner,
+  relativePathOf,
   type FsNode,
 } from "@/lib/fs-scanner";
 import { Capacitor } from "@capacitor/core";
@@ -31,6 +32,14 @@ import {
 } from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 import {
+  createBackup,
+  matchTrackIds,
+  parseBackup,
+  restoreTrackMeta,
+  serializableTrack,
+} from "@/lib/backup";
+import { exportM3u, matchM3u, parseM3u } from "@/lib/m3u";
+import {
   BUILTIN_SMART_PLAYLISTS,
   resolveSmartPlaylist,
   sanitizeSmartPlaylists,
@@ -47,7 +56,9 @@ import {
 } from "@/lib/queue";
 import {
   emptyStats,
+  mergeStats,
   migrateStats,
+  remapStatsIds,
   recordListen,
   recordPlay,
   type ListeningStats,
@@ -150,7 +161,31 @@ export interface Playlist {
   id: string;
   name: string;
   trackIds: string[];
+  /** Metadata snapshots of online entries (resolvable without the library). */
+  online?: Track[];
 }
+
+export interface BackupImportReport {
+  playlists: number;
+  tracksMatched: number;
+  tracksTotal: number;
+  metaEntries: number;
+}
+
+/** Preferences included in backups (the YouTube API key never is). */
+const BACKUP_PREF_KEYS = [
+  "volume",
+  "repeat",
+  "shuffle",
+  "autoMode",
+  "eq",
+  "visualMode",
+  "bloom",
+  "crossfade",
+  "speed",
+  "skipSilence",
+  "normalize",
+] as const;
 
 export type { ListeningStats };
 
@@ -246,6 +281,17 @@ interface PlayerState {
   playPlaylist(id: string, options?: { shuffle?: boolean }): void;
   /** Whole library in random order (PWA "shuffle" shortcut). */
   playShuffledLibrary(): void;
+  /** Full JSON backup (playlists, favourites, stats, prefs, per-track data). */
+  exportBackup(): Promise<string>;
+  /**
+   * Restores a backup. "merge" (default) unions playlists/favourites and adds
+   * stats; "replace" overwrites stats and preferences.
+   */
+  importBackup(text: string, mode?: "merge" | "replace"): Promise<BackupImportReport>;
+  /** Extended M3U8 text of a playlist (null if unknown). */
+  exportPlaylistM3u(playlistId: string): string | null;
+  /** Creates a playlist from M3U/M3U8 text; returns match counts. */
+  importM3u(text: string, name?: string): Promise<{ playlistId: string; matched: number; total: number }>;
   /** Insert at the head of the queue (plays right after the current one). */
   playNext(track: Track | Track[]): void;
   /** Append to the end of the queue. */
@@ -495,6 +541,18 @@ async function resumeLastSession(): Promise<void> {
 }
 
 // ---- Queue ------------------------------------------------------------------
+
+/** Playlist entries as Track objects (library first, then online snapshots). */
+export function resolvePlaylistTracks(playlist: Playlist): Track[] {
+  const { tracks, savedOnlineTracks, history } = usePlayer.getState();
+  const byId = new Map<string, Track>();
+  for (const t of [...(playlist.online ?? []), ...history, ...savedOnlineTracks, ...tracks]) {
+    byId.set(t.id, t);
+  }
+  return playlist.trackIds
+    .map((trackId) => byId.get(trackId))
+    .filter((t): t is Track => !!t);
+}
 
 function setQueue(queue: QueueItem[]): void {
   usePlayer.setState({ queue });
@@ -873,17 +931,145 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   playPlaylist(id, options = {}) {
-    const { playlists, tracks, savedOnlineTracks, history } = get();
-    const playlist = playlists.find((p) => p.id === id);
+    const playlist = get().playlists.find((p) => p.id === id);
     if (!playlist) return;
-    const byId = new Map<string, Track>();
-    for (const t of [...history, ...savedOnlineTracks, ...tracks]) byId.set(t.id, t);
-    const list = playlist.trackIds
-      .map((trackId) => byId.get(trackId))
-      .filter((t): t is Track => !!t);
+    const list = resolvePlaylistTracks(playlist);
     if (list.length === 0) return;
     const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
     get().playCollection(list, start, options);
+  },
+
+  async exportBackup() {
+    const state = get();
+    const prefs: Record<string, unknown> = {};
+    for (const key of BACKUP_PREF_KEYS) prefs[key] = state[key];
+    const data = await createBackup({
+      library: state.tracks,
+      playlists: state.playlists,
+      smartPlaylists: state.smartPlaylists,
+      favorites: state.savedOnlineTracks,
+      history: state.history,
+      stats: state.stats,
+      prefs,
+    });
+    return JSON.stringify(data);
+  },
+
+  async importBackup(text, mode = "merge") {
+    const data = parseBackup(text);
+    const idMap = matchTrackIds(data.tracks, get().tracks);
+    const mapId = (id: string) => idMap.get(id) ?? id;
+
+    // Playlists: union by id, remapped track ids.
+    const playlists = [...get().playlists];
+    for (const imported of data.playlists) {
+      if (!imported || typeof imported.id !== "string") continue;
+      const trackIds = (imported.trackIds ?? []).map(mapId);
+      const at = playlists.findIndex((p) => p.id === imported.id);
+      const merged: Playlist =
+        at >= 0
+          ? {
+              ...playlists[at],
+              trackIds: [...new Set([...playlists[at].trackIds, ...trackIds])],
+              online: [...(playlists[at].online ?? []), ...(imported.online ?? [])],
+            }
+          : { id: imported.id, name: imported.name, trackIds, online: imported.online };
+      if (at >= 0) playlists[at] = merged;
+      else playlists.push(merged);
+      await idbSet("playlists", merged.id, merged);
+    }
+
+    const unionById = (a: Track[], b: Track[]) => {
+      const seen = new Set(a.map((t) => t.id));
+      return [...a, ...b.filter((t) => t && typeof t.id === "string" && !seen.has(t.id))];
+    };
+    const savedOnlineTracks = unionById(get().savedOnlineTracks, data.favorites);
+    const history = unionById(get().history, data.history).slice(0, 50);
+    const smartPlaylists = [
+      ...get().smartPlaylists,
+      ...sanitizeSmartPlaylists(data.smartPlaylists).filter(
+        (p) => !get().smartPlaylists.some((q) => q.id === p.id)
+      ),
+    ];
+    const importedStats = remapStatsIds(migrateStats(data.stats), (id) => idMap.get(id) ?? null);
+    const stats = mode === "replace" ? importedStats : mergeStats(get().stats, importedStats);
+    flushListening(true);
+    set({ playlists, savedOnlineTracks, history, smartPlaylists, stats });
+    savePref("savedOnlineTracks", savedOnlineTracks);
+    savePref("history", history);
+    savePref("smartPlaylists", smartPlaylists);
+    savePref("stats", stats);
+
+    if (mode === "replace") {
+      const p = data.prefs as Partial<Record<(typeof BACKUP_PREF_KEYS)[number], unknown>>;
+      const s = get();
+      if (typeof p.volume === "number") s.setVolume(p.volume);
+      if (p.repeat === "off" || p.repeat === "all" || p.repeat === "one") {
+        set({ repeat: p.repeat });
+        savePref("repeat", p.repeat);
+      }
+      if (typeof p.shuffle === "boolean") {
+        set({ shuffle: p.shuffle });
+        savePref("shuffle", p.shuffle);
+      }
+      if (typeof p.autoMode === "boolean") s.setAutoMode(p.autoMode);
+      const eq = p.eq as EqSettings | undefined;
+      if (eq && typeof eq.low === "number" && typeof eq.mid === "number" && typeof eq.high === "number") {
+        s.setEq(eq);
+      }
+      if (typeof p.visualMode === "string" && MODE_KEYS.includes(p.visualMode as VisualMode)) {
+        s.setVisualMode(p.visualMode as VisualMode);
+      }
+      if (typeof p.bloom === "boolean" && p.bloom !== get().bloom) s.toggleBloom();
+      if (typeof p.crossfade === "number") s.setCrossfade(Math.max(0, Math.min(12, p.crossfade)));
+      if (typeof p.speed === "number" && p.speed >= 0.5 && p.speed <= 1.5) s.setSpeed(p.speed);
+      if (typeof p.skipSilence === "boolean") s.setSkipSilence(p.skipSilence);
+      if (typeof p.normalize === "boolean") s.setNormalize(p.normalize);
+    }
+
+    const metaEntries = await restoreTrackMeta(data.trackMeta, mapId);
+    const localTotal = data.tracks.filter((t) => !t.online && !t.id.startsWith("yt:")).length;
+    const localMatched = data.tracks.filter(
+      (t) => !t.online && !t.id.startsWith("yt:") && idMap.has(t.id)
+    ).length;
+    return {
+      playlists: data.playlists.length,
+      tracksMatched: localMatched,
+      tracksTotal: localTotal,
+      metaEntries,
+    };
+  },
+
+  exportPlaylistM3u(playlistId) {
+    const { playlists } = get();
+    const playlist = playlists.find((p) => p.id === playlistId);
+    if (!playlist) return null;
+    return exportM3u(resolvePlaylistTracks(playlist), playlist.name);
+  },
+
+  async importM3u(text, name) {
+    const parsed = parseM3u(text);
+    const { tracks } = matchM3u(parsed.entries, get().tracks, (videoId, entry) =>
+      onlineResultToTrack({
+        id: videoId,
+        title: entry.title ?? videoId,
+        artist: entry.artist ?? "YouTube",
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        durationText: entry.duration
+          ? `${Math.floor(entry.duration / 60)}:${String(Math.floor(entry.duration % 60)).padStart(2, "0")}`
+          : undefined,
+        isOnline: true,
+      })
+    );
+    const playlist: Playlist = {
+      id: String(Date.now()),
+      name: (name ?? parsed.name ?? "Playlist importée").trim() || "Playlist importée",
+      trackIds: [...new Set(tracks.map((t) => t.id))],
+      online: tracks.filter((t) => t.isOnline).map(serializableTrack),
+    };
+    set({ playlists: [...get().playlists, playlist] });
+    await idbSet("playlists", playlist.id, playlist);
+    return { playlistId: playlist.id, matched: tracks.length, total: parsed.entries.length };
   },
 
   playShuffledLibrary() {
@@ -1243,6 +1429,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         );
         for (const file of files) {
           const track = await parseTrack(file);
+          const relPath = relativePathOf(file);
+          if (relPath) track.relPath = relPath;
           if (!byId.has(track.id)) byId.set(track.id, track);
           done++;
           set({ progress: { done, total } });
@@ -1386,6 +1574,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         }
       })();
     }
+
+    void idbGet<number>("meta", `lyricsOffset:${track.id}`)
+      .then((offset) => {
+        if (isCurrent() && typeof offset === "number") set({ lyricsOffset: offset });
+      })
+      .catch(() => void 0);
 
     void idbGet<VisualPreset>("meta", `visual:${track.id}`)
       .then((preset) => {
@@ -1573,6 +1767,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   setLyricsOffset(offset) {
     set({ lyricsOffset: offset });
+    const track = get().tracks[get().current];
+    if (!track) return;
+    // Persisted per track (and included in backups).
+    if (offset === 0) void idbDelete("meta", `lyricsOffset:${track.id}`);
+    else void idbSet("meta", `lyricsOffset:${track.id}`, offset);
   },
 
   reorder(from, to) {
@@ -1630,9 +1829,25 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   async addToPlaylist(playlistId, trackId) {
+    const online = trackId.startsWith("yt:")
+      ? [...get().tracks, ...get().savedOnlineTracks, ...get().history].find(
+          (t) => t.id === trackId
+        )
+      : undefined;
     const playlists = get().playlists.map((p) =>
       p.id === playlistId && !p.trackIds.includes(trackId)
-        ? { ...p, trackIds: [...p.trackIds, trackId] }
+        ? {
+            ...p,
+            trackIds: [...p.trackIds, trackId],
+            ...(online
+              ? {
+                  online: [
+                    ...(p.online ?? []).filter((t) => t.id !== trackId),
+                    serializableTrack(online),
+                  ],
+                }
+              : {}),
+          }
         : p
     );
     set({ playlists });
