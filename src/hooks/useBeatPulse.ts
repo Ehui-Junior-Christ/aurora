@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { engine } from "@/lib/audio-engine";
 import { BeatDetector } from "@/lib/beat";
-import { usePlayer } from "@/store/player-store";
+import { getBeatClock, usePlayer } from "@/store/player-store";
 import { prefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 /**
@@ -13,7 +13,9 @@ import { prefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
  * elements (so only they restyle), and only when it moved noticeably.
  *
  * Sources, in order:
- *  - local files: bass-band onset detection on the analyser (lib/beat.ts);
+ *  - local files with an Aurora Mix beat grid: the analysed beat clock
+ *    (phase-exact, accented downbeats);
+ *  - other local files: bass-band onset detection on the analyser (lib/beat.ts);
  *  - streamed tracks with a known BPM: a tempo clock on the playback time;
  *  - streamed tracks without BPM (no analyser access): a slow breath, so the
  *    accents never fake a rhythm they cannot hear.
@@ -44,6 +46,12 @@ export function useBeatPulse(): void {
       const state = usePlayer.getState();
       if (!state.playing || prefersReducedMotion()) return Math.max(0, value - dt * 3);
       if (!engine.ytActive) {
+        const clock = getBeatClock(state.tracks[state.current]?.id);
+        if (clock && clock.confidence > 0.3) {
+          // Beat grid: exact phase, downbeats slightly stronger.
+          const accent = clock.barPhase < 0.25 ? 1 : 0.8;
+          return accent * Math.exp(-clock.phase * 6);
+        }
         const bands = engine.bands();
         detector.update(bands.bass, now / 1000, dt);
         return detector.value;

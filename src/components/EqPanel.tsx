@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { usePlayer, sleepRemainingSeconds } from "@/store/player-store";
 import { useDismissable } from "@/hooks/useDismissable";
 
@@ -23,6 +23,50 @@ const EQ_PRESETS: { name: string; values: { low: number; mid: number; high: numb
 
 const SLEEP_OPTIONS = [0, 15, 30, 45, 60];
 
+const MIX_LENGTHS = [
+  { value: "auto", label: "Auto" },
+  { value: "short", label: "Courte" },
+  { value: "long", label: "Longue" },
+] as const;
+
+const MIX_STYLES = [
+  { value: "auto", label: "Auto", hint: "Choisi à chaque transition" },
+  { value: "blend", label: "Blend", hint: "Fondu calé sur le tempo, échange des basses" },
+  { value: "filter", label: "Filtre", hint: "Passe-haut sur la sortante, passe-bas qui s'ouvre" },
+  { value: "echo", label: "Écho", hint: "La sortante part en écho, l'entrante tombe sur le temps" },
+  { value: "cut", label: "Cut", hint: "Bascule nette sur le drop" },
+  { value: "fade", label: "Fondu", hint: "Fondu à puissance constante" },
+] as const;
+
+function Pill({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-cursor="magnetic"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={`rounded-full border px-2.5 py-1 text-micro uppercase tracking-wider transition-colors ${
+        active
+          ? "border-[var(--c2)] bg-[var(--c2)]/10 text-[var(--c2)]"
+          : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function EqPanel({
   onClose,
   triggerRef,
@@ -44,6 +88,11 @@ export default function EqPanel({
   const setSkipSilence = usePlayer((s) => s.setSkipSilence);
   const normalize = usePlayer((s) => s.normalize);
   const setNormalize = usePlayer((s) => s.setNormalize);
+  const mix = usePlayer((s) => s.mix);
+  const setMix = usePlayer((s) => s.setMix);
+  const trackMix = usePlayer((s) =>
+    s.trackMix && s.trackMix.id === s.tracks[s.current]?.id ? s.trackMix : null
+  );
   const setSleep = usePlayer((s) => s.setSleep);
   const sleepMode = usePlayer((s) => s.sleepMode);
   const setSleepEndOfTrack = usePlayer((s) => s.setSleepEndOfTrack);
@@ -168,9 +217,9 @@ export default function EqPanel({
         />
       </div>
 
-      <div className="mb-3">
+      <div className={`mb-3 ${mix.enabled ? "opacity-40" : ""}`}>
         <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
-          <span>Crossfade</span>
+          <span>{mix.enabled ? "Crossfade (remplacé par Aurora Mix)" : "Crossfade"}</span>
           <span className="tabular-nums text-white/70">{crossfade} s</span>
         </div>
         <input
@@ -180,6 +229,7 @@ export default function EqPanel({
           step={1}
           value={crossfade}
           onChange={(event) => setCrossfade(Number(event.target.value))}
+          disabled={mix.enabled}
           aria-label="Durée du crossfade en secondes"
           className="w-full"
           style={{ accentColor: "var(--c2)" }}
@@ -207,6 +257,94 @@ export default function EqPanel({
           style={{ accentColor: "var(--c2)" }}
         />
       </label>
+
+      <div className="my-4 h-px bg-white/10" />
+
+      <section aria-label="Aurora Mix" className="mb-4">
+        <label className="mb-2 flex cursor-pointer items-center justify-between">
+          <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
+            Aurora Mix
+          </span>
+          <span className="flex items-center gap-2">
+            {trackMix && (
+              <span
+                className="font-mono text-micro tabular-nums text-white/50"
+                title={`${trackMix.bpm.toFixed(1)} BPM · ${trackMix.keyName}`}
+              >
+                {Math.round(trackMix.bpm)} BPM{trackMix.camelot ? ` · ${trackMix.camelot}` : ""}
+              </span>
+            )}
+            <input
+              type="checkbox"
+              role="switch"
+              checked={mix.enabled}
+              onChange={(event) => setMix({ enabled: event.target.checked })}
+              aria-label="Activer Aurora Mix (transitions DJ automatiques)"
+              className="size-3.5"
+              style={{ accentColor: "var(--c2)" }}
+            />
+          </span>
+        </label>
+        <p className="mb-3 text-[11px] leading-snug text-white/45">
+          Transitions calées sur le tempo et les phrases, basses échangées sur le
+          temps fort, tonalités compatibles.
+        </p>
+        {mix.enabled && (
+          <>
+            <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">Durée</div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {MIX_LENGTHS.map((l) => (
+                <Pill key={l.value} active={mix.length === l.value} onClick={() => setMix({ length: l.value })}>
+                  {l.label}
+                </Pill>
+              ))}
+            </div>
+            <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">Style</div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {MIX_STYLES.map((st) => (
+                <Pill
+                  key={st.value}
+                  active={mix.style === st.value}
+                  onClick={() => setMix({ style: st.value })}
+                  title={st.hint}
+                >
+                  {st.label}
+                </Pill>
+              ))}
+            </div>
+            <label className="mb-2 flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Synchro du tempo</span>
+              <input
+                type="checkbox"
+                checked={mix.tempoSync}
+                onChange={(event) => setMix({ tempoSync: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+            <label className="mb-2 flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Priorité harmonique</span>
+              <input
+                type="checkbox"
+                checked={mix.harmonic}
+                onChange={(event) => setMix({ harmonic: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Mix harmonique (en lecture aléatoire)</span>
+              <input
+                type="checkbox"
+                checked={mix.order}
+                onChange={(event) => setMix({ order: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+          </>
+        )}
+      </section>
 
       <div className="mb-1.5 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
         <span>Minuterie sommeil</span>

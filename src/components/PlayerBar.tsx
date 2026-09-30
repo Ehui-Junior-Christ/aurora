@@ -343,6 +343,44 @@ export default function PlayerBar({
 /*  Desktop dock (unchanged layout)                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Artist line, Aurora Mix aware: "MIX → next title" (with a hairline
+ * progress) during a transition, BPM · Camelot key chip otherwise.
+ */
+function MixMeta({ artist }: { artist?: string }) {
+  const transition = usePlayer((s) => s.mixTransition);
+  const info = usePlayer((s) =>
+    s.mix.enabled && s.trackMix && s.trackMix.id === s.tracks[s.current]?.id ? s.trackMix : null
+  );
+  if (transition) {
+    return (
+      <span aria-live="polite" title={`Aurora Mix — ${transition.toTitle}`}>
+        <span className="font-mono text-micro uppercase tracking-[0.2em] text-[var(--c2)]">Mix →</span>{" "}
+        <span className="text-white/80">{transition.toTitle}</span>
+        <span aria-hidden className="ml-2 inline-block h-px w-8 align-middle bg-white/15">
+          <span
+            className="block h-px bg-[var(--c2)]"
+            style={{ width: `${Math.round(transition.progress * 100)}%` }}
+          />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <>
+      {artist}
+      {info && (
+        <span
+          className="ml-2 font-mono text-micro tabular-nums tracking-wider text-white/45"
+          title={`${info.bpm.toFixed(1)} BPM · ${info.keyName}`}
+        >
+          {Math.round(info.bpm)} BPM{info.camelot ? ` · ${info.camelot}` : ""}
+        </span>
+      )}
+    </>
+  );
+}
+
 function DesktopDock({
   lyricsOpen,
   onToggleLyrics,
@@ -374,7 +412,9 @@ function DesktopDock({
             <Cover className="size-14 rounded-xl" />
             <div key={track?.id ?? "none"} className="meta-swap min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{track?.title ?? "—"}</p>
-              <p className="truncate text-xs text-ink-2">{track?.artist}</p>
+              <p className="truncate text-xs text-ink-2">
+                <MixMeta artist={track?.artist} />
+              </p>
             </div>
           </div>
 
@@ -525,7 +565,9 @@ function MobileDock({ sheetOpen, onOpen }: { sheetOpen: boolean; onOpen: () => v
             <span className="block truncate text-[13px] font-semibold leading-tight">
               {track?.title ?? "—"}
             </span>
-            <span className="mt-0.5 block truncate text-xs text-ink-2">{track?.artist}</span>
+            <span className="mt-0.5 block truncate text-xs text-ink-2">
+              <MixMeta artist={track?.artist} />
+            </span>
           </span>
         </button>
         <PlayPauseButton className="size-12" />
