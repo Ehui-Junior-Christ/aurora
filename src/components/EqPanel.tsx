@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { usePlayer } from "@/store/player-store";
+import { usePlayer, sleepRemainingSeconds } from "@/store/player-store";
 import { useDismissable } from "@/hooks/useDismissable";
 
 const BANDS = [
@@ -44,22 +44,24 @@ export default function EqPanel({
   const setSkipSilence = usePlayer((s) => s.setSkipSilence);
   const normalize = usePlayer((s) => s.normalize);
   const setNormalize = usePlayer((s) => s.setNormalize);
-  const sleepAt = usePlayer((s) => s.sleepAt);
   const setSleep = usePlayer((s) => s.setSleep);
-  const [now, setNow] = useState(Date.now());
+  const sleepMode = usePlayer((s) => s.sleepMode);
+  const setSleepEndOfTrack = usePlayer((s) => s.setSleepEndOfTrack);
+  const cancelSleep = usePlayer((s) => s.cancelSleep);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [custom, setCustom] = useState("");
   const [selectedSleep, setSelectedSleep] = useState<number | null>(null);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const tick = () => setRemaining(sleepRemainingSeconds(usePlayer.getState()));
+    tick();
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (sleepAt === null) setSelectedSleep(null);
-  }, [sleepAt]);
-
-  const sleepRemainingMin =
-    sleepAt !== null ? Math.max(0, Math.ceil((sleepAt - now) / 60000)) : 0;
+    if (sleepMode === "off") setSelectedSleep(null);
+  }, [sleepMode]);
 
   const pickSleep = (minutes: number) => {
     setSelectedSleep(minutes > 0 ? minutes : null);
@@ -206,15 +208,21 @@ export default function EqPanel({
         />
       </label>
 
-      <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">
-        Minuterie sommeil
+      <div className="mb-1.5 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
+        <span>Minuterie sommeil</span>
+        {sleepMode !== "off" && (
+          <span className="tabular-nums normal-case tracking-normal text-[var(--c2)]" aria-live="polite">
+            {sleepMode === "track"
+              ? "fin de la piste"
+              : remaining !== null
+                ? `${Math.floor(remaining / 60)}:${String(Math.floor(remaining % 60)).padStart(2, "0")}`
+                : ""}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {SLEEP_OPTIONS.map((minutes) => {
-          const active =
-            minutes === 0
-              ? sleepAt === null
-              : selectedSleep === minutes && sleepAt !== null;
+        {SLEEP_OPTIONS.filter((m) => m > 0).map((minutes) => {
+          const active = sleepMode === "time" && selectedSleep === minutes;
           return (
             <button
               key={minutes}
@@ -222,22 +230,70 @@ export default function EqPanel({
               data-cursor="magnetic"
               onClick={() => pickSleep(minutes)}
               aria-pressed={active}
-              className={`rounded-full border px-2.5 py-1 text-micro transition-colors ${
+              className={`min-h-8 rounded-full border px-2.5 text-micro transition-colors ${
                 active
                   ? "border-[var(--c2)] text-[var(--c2)]"
                   : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
               }`}
             >
-              {minutes === 0 ? "Off" : `${minutes} min`}
+              {minutes} min
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedSleep(null);
+            setSleepEndOfTrack();
+          }}
+          aria-pressed={sleepMode === "track"}
+          className={`min-h-8 rounded-full border px-2.5 text-micro transition-colors ${
+            sleepMode === "track"
+              ? "border-[var(--c2)] text-[var(--c2)]"
+              : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
+          }`}
+        >
+          Fin de la piste
+        </button>
       </div>
-      {sleepAt !== null && sleepRemainingMin > 0 && (
-        <p className="mt-2 text-micro text-ink-2">
-          Pause dans {sleepRemainingMin} min
-        </p>
-      )}
+      <div className="mt-2 flex items-center gap-2">
+        <label className="flex items-center gap-1.5 text-micro text-ink-2">
+          <input
+            type="number"
+            min={1}
+            max={600}
+            value={custom}
+            onChange={(event) => setCustom(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && Number(custom) > 0) pickSleep(Number(custom));
+            }}
+            aria-label="Durée personnalisée en minutes"
+            placeholder="90"
+            className="h-8 w-16 rounded-lg border border-white/10 bg-white/5 px-2 text-base tabular-nums text-white outline-none focus:border-white/30 md:text-xs"
+          />
+          min
+        </label>
+        <button
+          type="button"
+          disabled={!(Number(custom) > 0)}
+          onClick={() => pickSleep(Number(custom))}
+          className="min-h-8 rounded-full border border-white/10 px-2.5 text-micro text-ink-2 transition-colors hover:border-white/30 hover:text-white disabled:opacity-35"
+        >
+          Régler
+        </button>
+        {sleepMode !== "off" && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSleep(null);
+              cancelSleep();
+            }}
+            className="ml-auto min-h-8 rounded-full px-2.5 text-micro uppercase tracking-[0.14em] text-ink-2 transition-colors hover:text-red-300"
+          >
+            Annuler
+          </button>
+        )}
+      </div>
     </div>
   );
 }

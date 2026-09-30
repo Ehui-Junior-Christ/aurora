@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlayer } from "@/store/player-store";
+import { createPortal } from "react-dom";
 import { onlineResultToTrack, type OnlineMusicResult } from "@/lib/invidious";
+import TrackActions from "@/components/library/TrackActions";
 import type { Track } from "@/lib/types";
 
 const RECENT_KEY = "aurora-recent-searches";
@@ -99,6 +101,7 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
 }
 
 function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClose?: () => void }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   const playOnlineResult = usePlayer((s) => s.playOnlineResult);
   const saveOnlineTrack = usePlayer((s) => s.saveOnlineTrack);
   const removeOnlineTrack = usePlayer((s) => s.removeOnlineTrack);
@@ -152,6 +155,24 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
       >
         <HeartIcon filled={isSaved} />
       </button>
+      <button
+        type="button"
+        onClick={() => setActionsOpen(true)}
+        aria-label={`Actions pour ${result.title}`}
+        aria-haspopup="dialog"
+        className="btn-icon grid size-10 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/5 hover:text-white"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+          <circle cx="3" cy="8" r="1.3" />
+          <circle cx="8" cy="8" r="1.3" />
+          <circle cx="13" cy="8" r="1.3" />
+        </svg>
+      </button>
+      {actionsOpen &&
+        createPortal(
+          <TrackActions track={onlineResultToTrack(result)} onClose={() => setActionsOpen(false)} />,
+          document.body
+        )}
       <button
         type="button"
         data-cursor="magnetic"

@@ -11,6 +11,7 @@ import {
 import { usePlayer } from "@/store/player-store";
 import { openPipPlayer, supportsPip } from "@/components/PipPlayer";
 import { useDismissable } from "@/hooks/useDismissable";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 function captureCanvas(): HTMLCanvasElement | null {
   return document.querySelector<HTMLCanvasElement>("#aurora-canvas canvas");
@@ -24,11 +25,14 @@ export default function Header({
   immersive,
   onOpenSearch,
   onOpenShortcuts,
+  onOpenSettings,
 }: {
   immersive: boolean;
   onOpenSearch?: () => void;
   onOpenShortcuts?: () => void;
+  onOpenSettings?: () => void;
 }) {
+  const { canInstall, promptInstall } = useInstallPrompt();
   const sources = usePlayer((s) => s.sources);
   const count = usePlayer((s) => s.tracks.length);
   const queueOpen = usePlayer((s) => s.queueOpen);
@@ -284,6 +288,26 @@ export default function Header({
                   disabled: !pipAvailable,
                   onSelect: () => void openPipPlayer(),
                 },
+                ...(onOpenSettings
+                  ? [
+                      {
+                        id: "settings",
+                        label: "Réglages",
+                        icon: <SettingsIcon />,
+                        onSelect: onOpenSettings,
+                      },
+                    ]
+                  : []),
+                ...(canInstall
+                  ? [
+                      {
+                        id: "install",
+                        label: "Installer l'application",
+                        icon: <InstallIcon />,
+                        onSelect: () => void promptInstall(),
+                      },
+                    ]
+                  : []),
                 ...(onOpenShortcuts
                   ? [
                       {
@@ -506,6 +530,24 @@ function PipIcon() {
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
       <rect x="8" y="8" width="5.5" height="4" rx="0.8" fill="currentColor" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="10.5" cy="4.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="5.5" cy="11.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function InstallIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2v8m0 0L5 7m3 3 3-3M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

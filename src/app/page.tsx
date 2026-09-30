@@ -12,6 +12,7 @@ import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
 import SearchPalette from "@/components/SearchPalette";
 import ShortcutsHelp from "@/components/ShortcutsHelp";
+import SettingsDialog from "@/components/SettingsDialog";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useLaunchAction } from "@/hooks/useLaunchAction";
 import { setupMotion } from "@/lib/motion";
@@ -99,6 +100,7 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const playerView = hasTracks && !showHome;
 
   const queueOpen = usePlayer((s) => s.queueOpen);
@@ -177,7 +179,7 @@ export default function Home() {
     },
     onSearch: () => setSearchOpen((open) => !open),
     onHelp: () => setShortcutsOpen(true),
-    enabled: !helpOpen && !shortcutsOpen,
+    enabled: !helpOpen && !shortcutsOpen && !settingsOpen,
   });
 
   useLaunchAction({
@@ -274,6 +276,7 @@ export default function Home() {
           immersive={immersive}
           onOpenSearch={playerView ? () => setSearchOpen(true) : undefined}
           onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
         {hasTracks && !showHome ? (
           <>
@@ -326,6 +329,7 @@ export default function Home() {
 
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}
       {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       <TrackAnnouncer />
       <Onboarding />
       <UpdateToast />
