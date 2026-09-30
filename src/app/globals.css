@@ -334,3 +334,31 @@ a {
     font-size: clamp(1.6rem, 9vh, 4rem);
   }
 }
+
+/* Popover entrance (menus, palettes). */
+.menu-in {
+  animation: menu-in var(--dur-3) var(--ease-out-expo) both;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tactile press feedback for icon buttons. */
+.btn-icon {
+  transition-property: color, background-color, border-color, box-shadow,
+    opacity, transform;
+  transition-duration: var(--dur-2);
+  transition-timing-function: var(--ease-out-expo);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.94);
+}
