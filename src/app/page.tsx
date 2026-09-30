@@ -274,12 +274,12 @@ export default function Home() {
     <div suppressHydrationWarning className="relative min-h-dvh">
       <Visualizer />
 
-      <div className="relative z-10 flex min-h-dvh flex-col">
+      <div className="relative flex min-h-dvh flex-col">
         <Header immersive={immersive} />
         {hasTracks && !showHome ? (
           <>
             <main
-              className={`pointer-events-none relative flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
+              className={`pointer-events-none relative z-(--z-content) flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
                 immersive ? "translate-y-6" : ""
               } ${
                 lyricsOpen 
@@ -318,7 +318,7 @@ export default function Home() {
       </div>
 
       {dragOver && (
-        <div className="pointer-events-none fixed inset-0 z-[75] grid place-items-center bg-black/60 backdrop-blur-sm">
+        <div className="pointer-events-none fixed inset-0 z-(--z-overlay) grid place-items-center bg-black/60 backdrop-blur-sm">
           <div className="rounded-3xl border-2 border-dashed border-white/30 px-12 py-10 text-center">
             <p className="font-display text-2xl font-bold">
               Dépose ton dossier musique

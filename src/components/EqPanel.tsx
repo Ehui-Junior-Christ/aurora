@@ -74,7 +74,7 @@ export default function EqPanel({
       aria-label="Égaliseur et options audio"
       data-panel
       data-lenis-prevent
-      className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-40 mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
+      className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-(--z-popover) mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Égaliseur

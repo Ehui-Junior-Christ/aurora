@@ -39,7 +39,7 @@ export default function LyricsPanel() {
       aria-label="Paroles synchronisées"
       data-panel
       data-lenis-prevent
-      className="glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-40 overflow-y-auto rounded-2xl px-6 py-6 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 opacity-100 translate-x-0"
+      className="glass fixed inset-x-3 top-20 bottom-[calc(var(--dock-h)+var(--space-4)+var(--safe-b))] z-(--z-panel) overflow-y-auto rounded-2xl px-6 py-6 transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 opacity-100 translate-x-0"
     >
       <div className="mb-4 flex items-center justify-between">
         <p className="font-mono text-micro uppercase tracking-[0.4em] text-ink-2">

@@ -43,7 +43,7 @@ export default function LibraryGate() {
         ? Math.round((progress.done / progress.total) * 100)
         : 0;
     return (
-      <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-6 py-16">
+      <main className="relative z-(--z-content) flex flex-1 flex-col overflow-y-auto px-6 py-16">
         <div className="m-auto flex w-full max-w-md flex-col items-center gap-8 text-center">
           <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2">
             Analyse de la bibliothèque
@@ -72,7 +72,7 @@ export default function LibraryGate() {
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-6 md:py-20">
+    <main className="relative z-(--z-content) flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-6 md:py-20">
       <div className="m-auto flex w-full max-w-3xl flex-col items-center text-center">
         {needsPermission ? (
           <>

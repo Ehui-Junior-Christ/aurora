@@ -80,7 +80,7 @@ export default function Visualizer() {
   }, [mode]);
 
   return (
-    <div id="aurora-canvas" className="fixed inset-0 z-[1]" aria-hidden="true">
+    <div id="aurora-canvas" className="fixed inset-0 z-(--z-canvas)" aria-hidden="true">
       <Canvas
         dpr={[1, 2]}
         camera={{ fov: 42, position: [0, 0, 4.4] }}

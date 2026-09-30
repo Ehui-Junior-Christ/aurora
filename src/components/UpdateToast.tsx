@@ -3,7 +3,7 @@
 import { usePlayer } from "@/store/player-store";
 
 const TOAST_CLASS =
-  "glass-strong fade-in-up fixed inset-x-4 top-24 z-[70] flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl md:inset-x-auto md:bottom-6 md:left-6 md:top-auto";
+  "glass-strong fade-in-up fixed inset-x-4 bottom-[calc(var(--dock-h)+var(--space-4)+var(--safe-b))] z-(--z-toast) flex items-center gap-4 rounded-2xl px-5 py-4 shadow-2xl md:inset-x-auto md:left-6 md:max-w-sm";
 
 export default function UpdateToast() {
   const updateReady = usePlayer((s) => s.updateReady);

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/store/player-store";
 import Timeline from "./Timeline";
 import EqPanel from "./EqPanel";
+import { useDockHeight } from "@/hooks/useDockHeight";
 import styles from "./PlayerBar.module.css";
 
 function PlayIcon() {
@@ -46,6 +47,8 @@ export default function PlayerBar({
   const cycleRepeat = usePlayer((s) => s.cycleRepeat);
   const [eqOpen, setEqOpen] = useState(false);
   const eqTriggerRef = useRef<HTMLButtonElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  useDockHeight(dockRef);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -67,7 +70,9 @@ export default function PlayerBar({
 
   return (
     <div
-      className={`fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 transition-all duration-700 md:inset-x-auto md:left-1/2 md:bottom-6 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
+      ref={dockRef}
+      data-dock
+      className={`fixed inset-x-4 bottom-[calc(var(--dock-gap)+var(--safe-b))] z-(--z-dock) transition-all duration-700 md:inset-x-auto md:left-1/2 md:w-[min(1120px,calc(100vw-6rem))] md:-translate-x-1/2 ${
         immersive ? "pointer-events-none translate-y-6 opacity-0" : "opacity-100"
       }`}
     >

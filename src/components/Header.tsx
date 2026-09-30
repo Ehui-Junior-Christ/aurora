@@ -103,7 +103,7 @@ export default function Header({ immersive }: { immersive: boolean }) {
 
   return (
     <header
-      className={`relative z-20 flex items-center justify-between px-5 py-5 transition-all duration-700 md:px-12 md:py-7 ${
+      className={`relative z-(--z-content) flex items-center justify-between px-5 py-5 transition-all duration-700 md:px-12 md:py-7 ${
         immersive ? "pointer-events-none -translate-y-4 opacity-0" : "opacity-100"
       }`}
     >

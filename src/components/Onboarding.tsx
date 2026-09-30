@@ -96,7 +96,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div data-lenis-prevent className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/70 p-5 backdrop-blur-md">
+    <div data-lenis-prevent className="fixed inset-0 z-(--z-overlay) grid place-items-center overflow-y-auto bg-black/70 p-5 backdrop-blur-md">
       <div
         ref={dialogRef}
         role="dialog"

@@ -6,7 +6,7 @@
   height: 40px;
   border-radius: 50%;
   border: 1.5px solid rgba(255, 255, 255, 0.85);
-  z-index: 9998;
+  z-index: var(--z-cursor);
   pointer-events: none;
   mix-blend-mode: difference;
   will-change: transform;
@@ -20,7 +20,7 @@
   height: 6px;
   border-radius: 50%;
   background: #fff;
-  z-index: 9999;
+  z-index: var(--z-cursor);
   pointer-events: none;
   mix-blend-mode: difference;
   will-change: transform;

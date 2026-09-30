@@ -86,8 +86,10 @@
   --space-8: 2rem;
   --gutter: clamp(1.25rem, 4vw, 3rem);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  /* Real value is written by a ResizeObserver on the player dock. */
-  --dock-h: 4.75rem;
+  /* Real value is written by a ResizeObserver on the player dock
+     (useDockHeight); it includes the dock's bottom gap. */
+  --dock-gap: 1rem;
+  --dock-h: calc(4.5rem + var(--dock-gap));
 
   --dur-1: 120ms;
   --dur-2: 200ms;
@@ -113,7 +115,8 @@
 
 @media (min-width: 768px) {
   :root {
-    --dock-h: 6.5rem;
+    --dock-gap: 1.5rem;
+    --dock-h: calc(5.5rem + var(--dock-gap));
   }
 }
 

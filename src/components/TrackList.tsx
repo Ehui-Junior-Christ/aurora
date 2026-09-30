@@ -217,7 +217,7 @@ export default function TrackList({ immersive }: { immersive: boolean }) {
       aria-label="Bibliothèque"
       data-panel
       data-lenis-prevent
-      className={`glass fixed inset-x-3 top-20 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-20 flex flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 md:bottom-36 ${
+      className={`glass fixed inset-x-3 top-20 bottom-[calc(var(--dock-h)+var(--space-4)+var(--safe-b))] z-(--z-panel) flex flex-col overflow-hidden rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] sm:left-auto sm:right-4 sm:w-[min(380px,calc(100vw-2rem))] md:right-6 md:top-24 ${
         queueOpen && !immersive
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-10 opacity-0"

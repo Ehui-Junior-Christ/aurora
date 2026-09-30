@@ -32,7 +32,7 @@ export default function VisualTuner({
       role="dialog"
       aria-label="Réglage visuel"
       data-panel
-      className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-40 mb-3 w-64 rounded-2xl p-4 shadow-2xl">
+      className="glass-strong absolute bottom-full right-0 md:left-0 md:right-auto z-(--z-popover) mb-3 w-64 rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Réglage visuel
