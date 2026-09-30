@@ -8,6 +8,7 @@ import { saveTextFile } from "@/lib/backup";
 import { usePlayer } from "@/store/player-store";
 import { usePresence } from "@/hooks/usePresence";
 import { useLyricsSync } from "@/hooks/useLyricsSync";
+import { useDismissable } from "@/hooks/useDismissable";
 
 /**
  * Synced lyrics panel (right panel on desktop, sheet over the hero on mobile,
@@ -35,7 +36,9 @@ function LyricsBody({ visible, onClose }: { visible: boolean; onClose: () => voi
   const [pasteText, setPasteText] = useState("");
   const [saved, setSaved] = useState(false);
   const activeRef = useRef<HTMLParagraphElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const sync = useLyricsSync();
+  useDismissable(panelRef, onClose, { outside: false, manageFocus: false });
 
   useEffect(() => {
     const interval = window.setInterval(() => setTime(engine.currentTime), 100);
@@ -58,6 +61,7 @@ function LyricsBody({ visible, onClose }: { visible: boolean; onClose: () => voi
 
   return (
     <div
+      ref={panelRef}
       role="region"
       aria-label="Paroles synchronisées"
       data-panel

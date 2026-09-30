@@ -43,7 +43,7 @@
   --text-body: clamp(0.875rem, 0.84rem + 0.16vw, 0.9375rem);
   --text-lead: clamp(1rem, 0.95rem + 0.28vw, 1.125rem);
   --text-title: clamp(1.25rem, 1.1rem + 0.6vw, 1.625rem);
-  --text-display: clamp(2rem, 1.1rem + 4.6vw, 5.75rem);
+  --text-display: clamp(1.75rem, 0.9rem + 3.4vw, 4.25rem);
   --text-hero: clamp(2.8rem, 11vw, 10rem);
 
   --radius-chip: 12px;
