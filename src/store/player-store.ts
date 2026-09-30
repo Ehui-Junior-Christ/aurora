@@ -90,6 +90,10 @@ const playHistory: number[] = [];
 let lastActionTime = 0; // Pour l'anti-spam (idempotence)
 
 export type RepeatMode = "off" | "all" | "one";
+/** "time": stop at `sleepAt`; "track": stop at the end of the current track. */
+export type SleepMode = "off" | "time" | "track";
+/** Volume fade duration before the sleep timer stops playback. */
+export const SLEEP_FADE_MS = 30000;
 export type VisualMode =
   | "organism"
   | "tunnel"
@@ -177,6 +181,7 @@ interface PlayerState {
   skipSilence: boolean;
   normalize: boolean;
   sleepAt: number | null;
+  sleepMode: SleepMode;
   ambient: boolean;
   lyrics: LyricsCue[];
   lyricsAvailable: boolean;
@@ -239,7 +244,11 @@ interface PlayerState {
   setSpeed(value: number): void;
   setSkipSilence(value: boolean): void;
   setNormalize(value: boolean): void;
+  /** Stop after `minutes` (any custom value); 0 or less cancels. */
   setSleep(minutes: number): void;
+  /** Stop when the current track ends (with a fade over its last 30 s). */
+  setSleepEndOfTrack(): void;
+  cancelSleep(): void;
   setAmbient(value: boolean): void;
   setVisualPreset(preset: VisualPreset): void;
   resetVisualPreset(): void;
@@ -334,8 +343,75 @@ function effectiveEnd(trackId: string, duration: number): number {
   return duration;
 }
 
+let sleepFading = false;
+
+function restoreSleepVolume(): void {
+  if (!sleepFading) return;
+  sleepFading = false;
+  const state = usePlayer.getState();
+  engine.volume = state.muted ? 0 : state.volume;
+}
+
+function applySleepFade(remainingMs: number): void {
+  const state = usePlayer.getState();
+  if (remainingMs >= SLEEP_FADE_MS) {
+    restoreSleepVolume();
+    return;
+  }
+  sleepFading = true;
+  const factor = Math.max(0, Math.min(1, remainingMs / SLEEP_FADE_MS));
+  // Equal-power curve sounds more natural than a linear ramp.
+  engine.volume = state.muted ? 0 : state.volume * Math.sin((factor * Math.PI) / 2);
+}
+
+/** Pauses playback for the sleep timer and resets it. */
+function sleepStop(): void {
+  engine.pause();
+  usePlayer.setState({ playing: false, sleepAt: null, sleepMode: "off" });
+  restoreSleepVolume();
+}
+
+/** Seconds left before the sleep timer stops playback (null when off). */
+export function sleepRemainingSeconds(state: {
+  sleepMode: SleepMode;
+  sleepAt: number | null;
+  current: number;
+}): number | null {
+  if (state.sleepMode === "time" && state.sleepAt !== null) {
+    return Math.max(0, (state.sleepAt - Date.now()) / 1000);
+  }
+  if (state.sleepMode === "track" && state.current >= 0) {
+    const dur = engine.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return null;
+    return Math.max(0, dur - engine.currentTime);
+  }
+  return null;
+}
+
+function sleepTick(): boolean {
+  const state = usePlayer.getState();
+  if (state.sleepMode === "time" && state.sleepAt !== null) {
+    const remaining = state.sleepAt - Date.now();
+    if (remaining <= 0) {
+      sleepStop();
+      return true;
+    }
+    if (state.playing) applySleepFade(remaining);
+  } else if (state.sleepMode === "track" && state.playing) {
+    const track = state.tracks[state.current];
+    const dur = engine.duration;
+    if (track && Number.isFinite(dur) && dur > 0) {
+      let end = engine.ytActive ? dur : effectiveEnd(track.id, dur);
+      if (!engine.ytActive && state.crossfade > 0) end -= state.crossfade;
+      applySleepFade((end - engine.currentTime) * 1000);
+    }
+  }
+  return false;
+}
+
 function playbackTick(): void {
   const get = usePlayer.getState;
+  if (sleepTick()) return;
   const state = get();
   if (state.playing) pushMediaPosition();
   const { a, b } = state.abLoop;
@@ -475,6 +551,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   skipSilence: false,
   normalize: false,
   sleepAt: null,
+  sleepMode: "off",
   ambient: false,
   lyrics: [],
   lyricsAvailable: false,
@@ -977,6 +1054,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
     const { current, tracks, shuffle, repeat } = get();
     if (tracks.length === 0) return;
+    if (auto && get().sleepMode === "track") {
+      sleepStop();
+      if (!engine.ytActive) engine.seek(0);
+      return;
+    }
     if (auto && repeat === "one") {
       engine.seek(0);
       void engine.play();
@@ -1241,8 +1323,22 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   setSleep(minutes) {
-    const sleepAt = minutes > 0 ? Date.now() + minutes * 60000 : null;
-    set({ sleepAt });
+    if (!(minutes > 0)) {
+      get().cancelSleep();
+      return;
+    }
+    restoreSleepVolume();
+    set({ sleepAt: Date.now() + minutes * 60000, sleepMode: "time" });
+  },
+
+  setSleepEndOfTrack() {
+    restoreSleepVolume();
+    set({ sleepAt: null, sleepMode: "track" });
+  },
+
+  cancelSleep() {
+    restoreSleepVolume();
+    set({ sleepAt: null, sleepMode: "off" });
   },
 
   setAmbient(ambient) {
