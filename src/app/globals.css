@@ -130,7 +130,7 @@ body::before {
   content: "";
   position: fixed;
   inset: -20%;
-  z-index: 0;
+  z-index: var(--z-canvas);
   pointer-events: none;
   background:
     radial-gradient(
@@ -154,7 +154,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-grain);
   pointer-events: none;
   opacity: 0.055;
   mix-blend-mode: overlay;
@@ -162,17 +162,25 @@ body::after {
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--surface-1);
+  backdrop-filter: blur(var(--blur-1)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-1)) saturate(140%);
+  border: 1px solid var(--line);
 }
 
 .glass-strong {
-  background: rgba(12, 12, 20, 0.55);
-  backdrop-filter: blur(26px) saturate(160%);
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface-2);
+  backdrop-filter: blur(var(--blur-2)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--blur-2)) saturate(160%);
+  border: 1px solid var(--line-2);
+}
+
+/* Opaque fallback for sheets that sit over busy WebGL on small screens. */
+.glass-solid {
+  background: var(--surface-solid);
+  backdrop-filter: blur(var(--blur-2)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--blur-2)) saturate(160%);
+  border: 1px solid var(--line-2);
 }
 
 .text-gradient {
