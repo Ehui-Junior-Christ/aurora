@@ -23,6 +23,12 @@ import {
 } from "@/lib/invidious";
 import { fnv1a } from "@/lib/hash";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
+import {
+  installMediaSessionHandlers,
+  setMediaMetadata,
+  setMediaPlaybackState,
+  updateMediaPosition,
+} from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
 
 let wired = false;
@@ -194,6 +200,8 @@ interface PlayerState {
   next(auto?: boolean): void;
   prev(): void;
   seek(time: number): void;
+  /** Relative seek in seconds (clamped to the track bounds). */
+  seekBy(delta: number): void;
   setVolume(value: number): void;
   setQueueOpen(value: boolean): void;
   toggleShuffle(): void;
@@ -238,24 +246,36 @@ function applyPalette(palette: PaletteColor[]): void {
 }
 
 function syncMediaSession(track: Track | null): void {
-  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-  const session = navigator.mediaSession;
-  if (!track) {
-    session.metadata = null;
-    return;
-  }
-  session.metadata = new MediaMetadata({
-    title: track.title,
-    artist: track.artist,
-    album: track.album,
-    artwork: track.coverUrl
-      ? [{ src: track.coverUrl, sizes: "512x512", type: "image/jpeg" }]
-      : [],
+  installMediaSessionHandlers(() => {
+    const state = usePlayer.getState();
+    return {
+      play: () => {
+        if (engine.paused) state.toggle();
+      },
+      pause: () => {
+        if (!engine.paused) state.toggle();
+      },
+      previous: () => state.prev(),
+      next: () => state.next(),
+      seekTo: (time) => state.seek(time),
+      seekBy: (delta) => state.seekBy(delta),
+      stop: () => engine.pause(),
+    };
   });
-  session.setActionHandler("play", () => usePlayer.getState().toggle());
-  session.setActionHandler("pause", () => usePlayer.getState().toggle());
-  session.setActionHandler("previoustrack", () => usePlayer.getState().prev());
-  session.setActionHandler("nexttrack", () => usePlayer.getState().next());
+  setMediaMetadata(track);
+  if (track) setMediaPlaybackState(!engine.paused);
+}
+
+function pushMediaPosition(force = false): void {
+  const state = usePlayer.getState();
+  if (state.current < 0) return;
+  updateMediaPosition(
+    engine.currentTime,
+    engine.duration,
+    state.speed,
+    engine.paused,
+    force
+  );
 }
 
 export const usePlayer = create<PlayerState>((set, get) => ({
@@ -654,10 +674,14 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         el.addEventListener("play", (event) => {
           if (event.target !== engine.el) return;
           set({ playing: true });
+          setMediaPlaybackState(true);
+          pushMediaPosition(true);
         });
         el.addEventListener("pause", (event) => {
           if (event.target !== engine.el) return;
           set({ playing: false });
+          setMediaPlaybackState(false);
+          pushMediaPosition(true);
         });
         el.addEventListener("ended", (event) => {
           if (event.target !== engine.el) return;
@@ -668,12 +692,18 @@ export const usePlayer = create<PlayerState>((set, get) => ({
           set({
             duration: Number.isFinite(el.duration) ? el.duration : 0,
           });
+          pushMediaPosition(true);
+        });
+        el.addEventListener("ratechange", (event) => {
+          if (event.target !== engine.el) return;
+          pushMediaPosition(true);
         });
       }
       
       let lastCrossfadeId: string | null = null;
       setInterval(() => {
         const state = get();
+        if (state.playing) pushMediaPosition();
         if (state.crossfade <= 0 || !state.playing || state.current < 0) return;
         if (engine.ytActive) return; // Crossfade doesn't work well with YouTube iframe yet
         
@@ -694,10 +724,15 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         if (state === 1) {
           ytErrorStreak = 0;
           set({ playing: true, duration: engine.duration });
+          setMediaPlaybackState(true);
+          pushMediaPosition(true);
         } else if (state === 2) {
           set({ playing: false });
+          setMediaPlaybackState(false);
+          pushMediaPosition(true);
         } else if (state === 0) {
           set({ playing: false });
+          setMediaPlaybackState(false);
           get().next(true);
         }
       };
@@ -894,6 +929,17 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   seek(time) {
     engine.seek(time);
+    pushMediaPosition(true);
+  },
+
+  seekBy(delta) {
+    if (get().current < 0) return;
+    const duration = engine.duration;
+    const target = engine.currentTime + delta;
+    const max =
+      Number.isFinite(duration) && duration > 0 ? duration - 0.25 : target;
+    engine.seek(Math.max(0, Math.min(max, target)));
+    pushMediaPosition(true);
   },
 
   setVolume(value) {
@@ -1059,6 +1105,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setSpeed(speed) {
     engine.setRate(speed);
     set({ speed });
+    pushMediaPosition(true);
     savePref("speed", speed);
   },
 
