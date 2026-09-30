@@ -432,3 +432,8 @@ input:not([type]):focus-visible {
     transform: translateY(8px);
   }
 }
+
+/* Magnetic hero buttons: offsets tweened by lib/motion.ts. */
+[data-magnetic] {
+  translate: var(--mx, 0px) var(--my, 0px);
+}

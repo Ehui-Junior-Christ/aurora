@@ -41,34 +41,14 @@ export default function CustomCursor() {
     let activeEl: HTMLElement | null = null;
     let stretch = false;
 
-    const collectTargets = () =>
-      Array.from(document.querySelectorAll<HTMLElement>("[data-cursor]"));
-
-    let targets = collectTargets();
-    const observer = new MutationObserver(() => {
-      targets = collectTargets();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    const onEnter = (event: Event) => {
-      activeEl = event.currentTarget as HTMLElement;
-      stretch = activeEl.dataset.cursor === "stretch";
+    // Delegated hover detection: no subtree observer, no periodic rebinding.
+    const onOver = (event: PointerEvent) => {
+      const target = (event.target as Element | null)?.closest<HTMLElement>("[data-cursor]") ?? null;
+      if (target === activeEl) return;
+      activeEl = target;
+      stretch = target?.dataset.cursor === "stretch";
     };
-    const onLeave = () => {
-      activeEl = null;
-      stretch = false;
-    };
-
-    const bind = () => {
-      targets.forEach((target) => {
-        target.removeEventListener("mouseenter", onEnter);
-        target.removeEventListener("mouseleave", onLeave);
-        target.addEventListener("mouseenter", onEnter);
-        target.addEventListener("mouseleave", onLeave);
-      });
-    };
-    bind();
-    const rebindInterval = window.setInterval(bind, 1500);
+    document.addEventListener("pointerover", onOver, { passive: true });
 
     const onMove = (event: MouseEvent) => {
       state.x = event.clientX;
@@ -92,6 +72,10 @@ export default function CustomCursor() {
 
     let raf = 0;
     const loop = () => {
+      if (activeEl && !activeEl.isConnected) {
+        activeEl = null;
+        stretch = false;
+      }
       let tx = state.x;
       let ty = state.y;
       if (activeEl) {
@@ -126,8 +110,7 @@ export default function CustomCursor() {
 
     return () => {
       cancelAnimationFrame(raf);
-      observer.disconnect();
-      window.clearInterval(rebindInterval);
+      document.removeEventListener("pointerover", onOver);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);

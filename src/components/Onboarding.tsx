@@ -144,6 +144,7 @@ export default function Onboarding() {
           <button
             type="button"
             data-cursor="magnetic"
+            data-magnetic
             onClick={() => {
               if (isLast) {
                 close();

@@ -14,6 +14,7 @@ import SearchPalette from "@/components/SearchPalette";
 import ShortcutsHelp from "@/components/ShortcutsHelp";
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { useLaunchAction } from "@/hooks/useLaunchAction";
+import { setupMotion } from "@/lib/motion";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
@@ -118,6 +119,8 @@ export default function Home() {
       return nextOpen;
     });
   };
+
+  useEffect(() => setupMotion(), []);
 
   useEffect(() => {
     void usePlayer.getState().restore();
@@ -276,10 +279,10 @@ export default function Home() {
             <main
               className={`pointer-events-none relative z-(--z-content) flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
                 immersive ? "translate-y-6" : ""
-              } ${
-                lyricsOpen 
-                  ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-[calc(var(--dock-h)+5.5rem)] md:pr-[420px]" 
-                  : "opacity-100 pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)]"
+              } pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)] ${
+                lyricsOpen
+                  ? "max-md:opacity-0 md:pr-[calc(min(380px,100vw-2rem)+var(--gutter)+1rem)]"
+                  : ""
               } ${
                 queueOpen && !immersive && !lyricsOpen
                   ? "md:pr-[calc(min(380px,100vw-2rem)+var(--gutter)+1rem)]"
@@ -299,7 +302,7 @@ export default function Home() {
             />
             <TrackList immersive={immersive} />
             <ModeSwitcher lyricsOpen={lyricsOpen} immersive={immersive} />
-            {lyricsOpen && <LyricsPanel />}
+            <LyricsPanel open={lyricsOpen} onClose={() => setLyricsOpen(false)} />
             <GlobalProgressBar immersive={immersive} />
           </>
         ) : (
