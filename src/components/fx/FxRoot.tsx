@@ -2,6 +2,7 @@
 
 import { useBeatPulse } from "@/hooks/useBeatPulse";
 import { useQualityAttribute } from "@/hooks/useQualityAttribute";
+import { useTextScramble } from "@/hooks/useTextScramble";
 
 /**
  * Single mount point for the app-wide UI effects. Everything here works
@@ -11,5 +12,6 @@ import { useQualityAttribute } from "@/hooks/useQualityAttribute";
 export default function FxRoot() {
   useQualityAttribute();
   useBeatPulse();
+  useTextScramble();
   return null;
 }

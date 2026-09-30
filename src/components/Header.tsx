@@ -172,13 +172,14 @@ export default function Header({
             type="button"
             data-cursor="magnetic"
             onClick={onOpenSearch}
+            data-scramble-host
             aria-label="Rechercher"
             aria-keyshortcuts="/ Control+K Meta+K"
             title="Rechercher ( / )"
             className={`${PILL} md:px-3.5`}
           >
             <SearchIcon />
-            <span className="hidden text-micro font-semibold uppercase tracking-[0.16em] md:inline">
+            <span data-scramble className="hidden text-micro font-semibold uppercase tracking-[0.16em] md:inline">
               Rechercher
             </span>
             <kbd className="hidden rounded-md border border-white/15 px-1.5 font-mono text-micro leading-5 text-ink-3 lg:inline">
@@ -192,6 +193,7 @@ export default function Header({
             type="button"
             data-cursor="magnetic"
             onClick={() => setQueueOpen(!queueOpen)}
+            data-scramble-host
             aria-label={`Bibliothèque, ${count} titres`}
             aria-expanded={queueOpen}
             aria-controls="library-panel"
@@ -200,7 +202,7 @@ export default function Header({
             }`}
           >
             <LibraryIcon />
-            <span className="hidden text-micro font-semibold uppercase tracking-[0.16em] md:inline">
+            <span data-scramble className="hidden text-micro font-semibold uppercase tracking-[0.16em] md:inline">
               Bibliothèque
             </span>
             <span
@@ -406,6 +408,7 @@ function HeaderMenu({
           role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
           aria-checked={item.checked}
           disabled={item.disabled}
+          data-scramble-host
           onClick={() => {
             item.onSelect();
             onClose();
@@ -415,7 +418,7 @@ function HeaderMenu({
           <span className="grid size-5 shrink-0 place-items-center text-ink-2">
             {item.icon}
           </span>
-          <span className="flex-1">{item.label}</span>
+          <span data-scramble className="flex-1">{item.label}</span>
           {item.checked !== undefined && (
             <span
               aria-hidden

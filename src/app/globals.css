@@ -645,3 +645,45 @@ input:not([type]):focus-visible {
 :root[data-quality="low"] .beat-line {
   display: none;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Kinetic marquee (fx/Marquee): scrolls only when the text overflows */
+/* ------------------------------------------------------------------ */
+
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-track {
+  display: inline-flex;
+}
+
+.marquee[data-overflow] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+}
+
+.marquee[data-overflow] .marquee-item {
+  padding-right: 2.5rem;
+}
+
+.marquee[data-overflow] .marquee-track {
+  animation: marquee var(--marquee-dur, 12s) linear infinite;
+}
+
+@keyframes marquee {
+  0%,
+  14% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee[data-overflow] .marquee-track {
+    animation: none;
+  }
+}

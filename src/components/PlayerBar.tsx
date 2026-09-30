@@ -9,6 +9,7 @@ import { useDockHeight } from "@/hooks/useDockHeight";
 import { useDismissable } from "@/hooks/useDismissable";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePresence } from "@/hooks/usePresence";
+import Marquee from "@/components/fx/Marquee";
 
 /* ------------------------------------------------------------------ */
 /*  Icons                                                              */
@@ -683,10 +684,14 @@ function NowPlayingSheetBody({
           <p className="font-display line-clamp-2 text-[clamp(1.5rem,7vw,2rem)] font-extrabold uppercase leading-[0.95] tracking-tight">
             {track?.title ?? "—"}
           </p>
-          <p className="mt-2 truncate text-body text-ink-2">
+          <Marquee
+            key={track?.id ?? "none"}
+            text={`${track?.artist ?? ""}${track?.album ? ` · ${track.album}` : ""}`}
+            className="mt-2 text-body text-ink-2"
+          >
             {track?.artist}
             {track?.album ? <span className="text-ink-3"> · {track.album}</span> : null}
-          </p>
+          </Marquee>
         </div>
 
         <div className="relative mt-5">
