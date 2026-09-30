@@ -123,17 +123,16 @@ function NoteIcon() {
 /*  Shared pieces                                                      */
 /* ------------------------------------------------------------------ */
 
-function Cover({ className, iconless = false }: { className: string; iconless?: boolean }) {
-  const coverUrl = usePlayer((s) => s.tracks[s.current]?.coverUrl);
-  if (coverUrl) {
+function CoverLayer({ url, iconless, className = "" }: { url?: string; iconless: boolean; className?: string }) {
+  if (url) {
     // YouTube hq/mq/sd thumbnails are 4:3 with baked-in letterbox bars:
     // zoom them so a square crop shows only the 16:9 picture.
-    const letterboxed = /ytimg\.com\/vi\/[^/]+\/(hq|mq|sd)default/.test(coverUrl);
+    const letterboxed = /ytimg\.com\/vi\/[^/]+\/(hq|mq|sd)default/.test(url);
     return (
-      <div className={`shrink-0 overflow-hidden ${className}`}>
+      <div className={`absolute inset-0 ${className}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={coverUrl}
+          src={url}
           alt=""
           className={`size-full object-cover ${letterboxed ? "scale-[1.34]" : ""}`}
         />
@@ -142,13 +141,47 @@ function Cover({ className, iconless = false }: { className: string; iconless?: 
   }
   return (
     <div
-      className={`grid shrink-0 place-items-center ${className}`}
+      className={`absolute inset-0 grid place-items-center ${className}`}
       style={{
         background:
           "linear-gradient(135deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c3) 55%, transparent))",
       }}
     >
       {!iconless && <NoteIcon />}
+    </div>
+  );
+}
+
+/**
+ * Track cover. On track change the outgoing art stays underneath while the
+ * new one wipes in (clip-path + settle scale), see .cover-in in globals.css.
+ */
+function Cover({ className, iconless = false }: { className: string; iconless?: boolean }) {
+  const coverUrl = usePlayer((s) => s.tracks[s.current]?.coverUrl);
+  const [shown, setShown] = useState(coverUrl);
+  // null: idle; string ("" = placeholder): the layer being replaced.
+  const [outgoing, setOutgoing] = useState<string | null>(null);
+  if (shown !== coverUrl) {
+    setOutgoing(shown ?? "");
+    setShown(coverUrl);
+  }
+  useEffect(() => {
+    if (outgoing === null) return;
+    const timer = window.setTimeout(() => setOutgoing(null), 760);
+    return () => window.clearTimeout(timer);
+  }, [outgoing]);
+
+  return (
+    <div className={`relative shrink-0 overflow-hidden ${className}`}>
+      {outgoing !== null && (
+        <CoverLayer url={outgoing || undefined} iconless={iconless} className="cover-out" />
+      )}
+      <CoverLayer
+        key={coverUrl ?? "none"}
+        url={coverUrl}
+        iconless={iconless}
+        className={outgoing !== null ? "cover-in" : ""}
+      />
     </div>
   );
 }
@@ -331,7 +364,7 @@ function DesktopDock({
         <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2.5 [grid-template-areas:'meta_ctrl_side''time_time_time'] xl:grid-cols-[minmax(0,250px)_auto_minmax(0,1fr)_auto] xl:gap-x-6 xl:[grid-template-areas:'meta_ctrl_time_side']">
           <div className="flex min-w-0 items-center gap-3 [grid-area:meta]">
             <Cover className="size-14 rounded-xl" />
-            <div className="min-w-0 flex-1">
+            <div key={track?.id ?? "none"} className="meta-swap min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{track?.title ?? "—"}</p>
               <p className="truncate text-xs text-ink-2">{track?.artist}</p>
             </div>
@@ -479,7 +512,7 @@ function MobileDock({ sheetOpen, onOpen }: { sheetOpen: boolean; onOpen: () => v
           className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl py-1 pr-1 text-left"
         >
           <Cover className="size-11 rounded-lg" iconless />
-          <span className="min-w-0 flex-1">
+          <span key={track?.id ?? "none"} className="meta-swap min-w-0 flex-1">
             <span className="block truncate text-[13px] font-semibold leading-tight">
               {track?.title ?? "—"}
             </span>

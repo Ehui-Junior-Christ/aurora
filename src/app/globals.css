@@ -564,3 +564,48 @@ input:not([type]):focus-visible {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Track change: cover art wipe (dock + "En lecture" sheet)           */
+/* ------------------------------------------------------------------ */
+
+.cover-in {
+  animation: cover-in 0.7s var(--ease-out-expo) both;
+}
+
+.cover-out {
+  animation: cover-out 0.7s var(--ease-out-expo) both;
+}
+
+@keyframes cover-in {
+  from {
+    clip-path: inset(0 0 0 100%);
+    transform: scale(1.14);
+    opacity: 0.6;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes cover-out {
+  to {
+    transform: scale(0.94);
+    opacity: 0.35;
+  }
+}
+
+/* Dock title/artist swap on track change. */
+.meta-swap {
+  animation: meta-swap 0.55s var(--ease-out-expo) both;
+}
+
+@keyframes meta-swap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(4px);
+  }
+}

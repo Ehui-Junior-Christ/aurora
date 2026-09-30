@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
 import { usePlayer } from "@/store/player-store";
 import { prefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { introDelay } from "@/components/fx/Intro";
 
 /** Titles longer than this step down from --text-hero to --text-display. */
 const LONG_TITLE = 28;
@@ -40,6 +41,7 @@ export default function TrackTitle() {
     }
 
     gsap.registerPlugin(SplitText);
+    const lowQuality = usePlayer.getState().qualityLow;
 
     const oldChars = splitRef.current?.chars ?? null;
     splitRef.current?.revert();
@@ -54,19 +56,24 @@ export default function TrackTitle() {
         yPercent: 130,
         opacity: 0,
         rotateX: -55,
+        // Blur is per-glyph and short-lived; skipped when the GPU struggles.
+        filter: lowQuality ? undefined : "blur(10px)",
         stagger: 0.02,
         duration: 0.85,
         ease: "power4.out",
+        delay: oldChars ? 0.04 : introDelay(),
+        clearProps: "filter",
       });
     };
 
     const ctx = gsap.context(() => {
       if (oldChars && oldChars.length > 0) {
         gsap.to(oldChars, {
-          yPercent: -120,
+          yPercent: -70,
           opacity: 0,
-          stagger: 0.016,
-          duration: 0.34,
+          filter: lowQuality ? undefined : "blur(8px)",
+          stagger: { each: 0.014, from: "start" },
+          duration: 0.36,
           ease: "power3.in",
           onComplete: enter,
         });
