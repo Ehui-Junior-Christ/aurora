@@ -148,8 +148,9 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
         onClick={toggleSave}
         aria-label={isSaved ? `Retirer ${result.title} des favoris` : `Ajouter ${result.title} aux favoris`}
         aria-pressed={isSaved}
+        data-burst-on
         title={isSaved ? "Retirer des favoris" : "Ajouter aux favoris"}
-        className={`btn-icon grid size-10 shrink-0 place-items-center rounded-full ${
+        className={`btn-icon relative grid size-10 shrink-0 place-items-center rounded-full ${
           isSaved ? "text-pink-400" : "text-white/35 hover:bg-white/5 hover:text-white/80"
         }`}
       >

@@ -15,19 +15,28 @@ import Marquee from "@/components/fx/Marquee";
 /*  Icons                                                              */
 /* ------------------------------------------------------------------ */
 
-function PlayIcon({ size = 17 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-      <path d="M4.2 2.6a1 1 0 0 1 1.53-.85l9 5.4a1 1 0 0 1 0 1.72l-9 5.4a1 1 0 0 1-1.53-.86V2.6Z" />
-    </svg>
-  );
-}
+/* Play <-> pause morph: two quads whose vertices slide between a split
+   triangle and two bars (CSS `d` transition; browsers without it snap). */
+const PLAY_A = "M5 2.6 L9.6 5.3 L9.6 10.7 L5 13.4 Z";
+const PLAY_B = "M9.6 5.3 L14 8 L14 8 L9.6 10.7 Z";
+const PAUSE_A = "M3.2 2.2 L6.8 2.2 L6.8 13.8 L3.2 13.8 Z";
+const PAUSE_B = "M9.2 2.2 L12.8 2.2 L12.8 13.8 L9.2 13.8 Z";
 
-function PauseIcon({ size = 15 }: { size?: number }) {
+function PlayPauseGlyph({ playing, size }: { playing: boolean; size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-      <rect x="2.5" y="1.5" width="4" height="13" rx="1.2" />
-      <rect x="9.5" y="1.5" width="4" height="13" rx="1.2" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinejoin="round"
+      aria-hidden
+      className="pp-glyph"
+    >
+      <path d={playing ? PAUSE_A : PLAY_A} />
+      <path d={playing ? PAUSE_B : PLAY_B} />
     </svg>
   );
 }
@@ -212,12 +221,7 @@ function PlayPauseButton({
       style={{ boxShadow: "0 0 24px color-mix(in srgb, var(--c2) 35%, transparent)" }}
     >
       <span aria-hidden className="beat-halo" />
-      <span className={`ml-0.5 transition-opacity duration-200 ${playing ? "opacity-0" : "opacity-100"}`}>
-        <PlayIcon size={Math.round(17 * iconScale)} />
-      </span>
-      <span className={`absolute transition-opacity duration-200 ${playing ? "opacity-100" : "opacity-0"}`}>
-        <PauseIcon size={Math.round(15 * iconScale)} />
-      </span>
+      <PlayPauseGlyph playing={playing} size={Math.round(16 * iconScale)} />
     </button>
   );
 }
@@ -274,7 +278,7 @@ function ToggleButton({
 
 function RepeatOneBadge() {
   return (
-    <span className="absolute right-0 top-0 grid size-3.5 place-items-center rounded-full bg-[var(--c2)] text-[8px] font-bold text-black">
+    <span className="badge-pop absolute right-0 top-0 grid size-3.5 place-items-center rounded-full bg-[var(--c2)] text-[8px] font-bold text-black">
       1
     </span>
   );

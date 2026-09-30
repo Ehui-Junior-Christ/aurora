@@ -36,6 +36,22 @@ export function usePressFx(): void {
       window.setTimeout(cleanup, 1000);
     };
 
+    // Toggle feedback: [aria-pressed] icon buttons pop on user clicks only
+    // (never on mount); [data-burst-on] bursts instead when switching on.
+    const onClick = (event: MouseEvent) => {
+      if (prefersReducedMotion()) return;
+      const button = (event.target as Element | null)?.closest<HTMLElement>(
+        "button.btn-icon[aria-pressed], [data-burst-on]"
+      );
+      if (!button) return;
+      const turningOn = button.getAttribute("aria-pressed") === "false";
+      const attr = button.hasAttribute("data-burst-on") && turningOn ? "data-burst" : "data-pop";
+      button.removeAttribute(attr);
+      void button.offsetWidth; // restart the CSS animation
+      button.setAttribute(attr, "");
+      window.setTimeout(() => button.removeAttribute(attr), 700);
+    };
+
     let tiltEl: HTMLElement | null = null;
     let pending: PointerEvent | null = null;
     let raf = 0;
@@ -81,12 +97,14 @@ export function usePressFx(): void {
     };
 
     document.addEventListener("pointerdown", onDown, { passive: true });
+    document.addEventListener("click", onClick, { passive: true });
     document.addEventListener("pointermove", onMove, { passive: true });
     document.documentElement.addEventListener("pointerleave", resetTilt);
     return () => {
       cancelAnimationFrame(raf);
       resetTilt();
       document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("click", onClick);
       document.removeEventListener("pointermove", onMove);
       document.documentElement.removeEventListener("pointerleave", resetTilt);
     };
