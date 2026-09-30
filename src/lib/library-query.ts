@@ -40,7 +40,7 @@ export interface LibraryContext {
 }
 
 export const SORT_LABELS: Record<LibrarySortKey, string> = {
-  default: "Ordre de la bibliothèque",
+  default: "Par défaut",
   added: "Date d'ajout",
   plays: "Les plus écoutés",
   bpm: "BPM",
