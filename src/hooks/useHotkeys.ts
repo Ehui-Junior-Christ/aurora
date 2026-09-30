@@ -25,8 +25,25 @@ export const SHORTCUTS: ShortcutInfo[] = [
   { keys: ["/", "Ctrl + K"], label: "Rechercher", group: "Navigation" },
   { keys: ["?"], label: "Aide des raccourcis", group: "Navigation" },
   { keys: ["F"], label: "Plein écran", group: "Affichage" },
-  { keys: ["1 … 7"], label: "Mode visuel", group: "Affichage" },
+  { keys: ["1 … 9", "0"], label: "Mode visuel (dix premiers)", group: "Affichage" },
+  { keys: ["V", "Maj + V"], label: "Mode visuel suivant / précédent", group: "Affichage" },
 ];
+
+/** Keyboard digit for a mode index: 1…9 then 0 (10th), none beyond. */
+export function modeShortcut(index: number): string | undefined {
+  if (index < 9) return String(index + 1);
+  if (index === 9) return "0";
+  return undefined;
+}
+
+/** Mode index for a digit key (layout independent: AZERTY digits need Shift). */
+function modeIndexForKey(event: KeyboardEvent): number | null {
+  const match = /^(?:Digit|Numpad)(\d)$/.exec(event.code);
+  const digit = match ? Number(match[1]) : /^\d$/.test(event.key) ? Number(event.key) : null;
+  if (digit === null) return null;
+  const index = digit === 0 ? 9 : digit - 1;
+  return index < MODE_KEYS.length ? index : null;
+}
 
 export interface HotkeyCallbacks {
   onToggleLyrics?: () => void;
@@ -144,12 +161,18 @@ export function useHotkeys(callbacks: HotkeyCallbacks = {}): void {
           return once(() => player.cycleAbLoop());
         case "f":
           return once(() => (cb.onFullscreen ?? toggleFullscreen)());
+        case "v":
+          return once(() => {
+            const i = MODE_KEYS.indexOf(player.visualMode);
+            const step = event.shiftKey ? -1 : 1;
+            player.setVisualMode(MODE_KEYS[(i + step + MODE_KEYS.length) % MODE_KEYS.length]);
+          });
         default: {
-          if (event.shiftKey) return;
-          const n = Number(key);
-          if (Number.isInteger(n) && n >= 1 && n <= MODE_KEYS.length) {
-            once(() => player.setVisualMode(MODE_KEYS[n - 1]));
-          }
+          const index = modeIndexForKey(event);
+          if (index === null) return;
+          // On AZERTY the digit row needs Shift; elsewhere Shift+digit is a symbol.
+          if (event.shiftKey && !/^\d$/.test(key)) return;
+          once(() => player.setVisualMode(MODE_KEYS[index]));
         }
       }
     };

@@ -14,6 +14,16 @@ import Nebula from "./scenes/Nebula";
 import Tunnel from "./scenes/Tunnel";
 import Waves from "./scenes/Waves";
 import PerfGuard from "./PerfGuard";
+import type { VisualMode } from "@/store/player-store";
+
+/** Bloom strength per mode: artwork-based scenes keep their detail. */
+const BLOOM: Partial<Record<VisualMode, number>> = {
+  prism: 0.6,
+  liquid: 0.8,
+  vinyl: 0.55,
+  mosaic: 0.45,
+  borealis: 0.22,
+};
 
 function SceneContent() {
   const mode = usePlayer((s) => s.visualMode);
@@ -56,7 +66,7 @@ function SceneContent() {
         <EffectComposer multisampling={0}>
           <Bloom
             mipmapBlur
-            intensity={1.2}
+            intensity={BLOOM[mode] ?? 1.2}
             luminanceThreshold={0}
             luminanceSmoothing={0.9}
             radius={0.8}

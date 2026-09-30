@@ -11,6 +11,7 @@ import {
 import gsap from "gsap";
 import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
 import { useDismissable } from "@/hooks/useDismissable";
+import { modeShortcut } from "@/hooks/useHotkeys";
 import VisualTuner from "./VisualTuner";
 
 const ICONS: Record<string, ReactNode> = {
@@ -75,6 +76,83 @@ const ICONS: Record<string, ReactNode> = {
       <circle cx="8" cy="8" r="1.4" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   ),
+  borealis: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M1.5 10.5c2.2-4.5 4.3-4.5 6.5-.8s4.4 3.4 6.5-2.2"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 8.2V3.5M7 7.6V2.5M10 9.6V4M12.8 8V3.8"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        opacity=".55"
+      />
+    </svg>
+  ),
+  prism: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2.2 13.2 12H2.8L8 2.2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M.8 8.6 5.6 7.8M10.6 7.4l4.6-1.6M10.9 8.2l4.4.4M11.2 9l3.9 2.2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  ),
+  liquid: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 1.8c2.6 3.2 4.3 5.6 4.3 7.7a4.3 4.3 0 0 1-8.6 0c0-2.1 1.7-4.5 4.3-7.7Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M6 10.2c.3 1.2 1.1 1.8 2.2 1.9" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  ),
+  spectrum: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+      <rect x="1.5" y="8" width="2" height="6" rx="1" />
+      <rect x="4.9" y="4" width="2" height="10" rx="1" />
+      <rect x="8.3" y="6" width="2" height="8" rx="1" />
+      <rect x="11.7" y="2" width="2" height="12" rx="1" />
+    </svg>
+  ),
+  vinyl: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="7" cy="8.5" r="5.8" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="7" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.1" />
+      <path d="M14.5 1.5 11 9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  ),
+  warp: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 5.6V1.5M8 10.4v4.1M5.6 8H1.5M10.4 8h4.1M6.3 6.3 3.4 3.4M9.7 9.7l2.9 2.9M9.7 6.3l2.9-2.9M6.3 9.7l-2.9 2.9"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  mosaic: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" opacity=".55" />
+      <rect x="2" y="9" width="5" height="5" rx="1" opacity=".55" />
+      <rect x="9.6" y="9.6" width="4.4" height="4.4" rx="1" transform="rotate(12 11.8 11.8)" />
+    </svg>
+  ),
+  constellation: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="m3 11.5 3.5-6 4 3 2.5-5.5M6.5 5.5 5 2.5M10.5 8.5l1.5 5" stroke="currentColor" strokeWidth="1" opacity=".6" />
+      <circle cx="3" cy="11.5" r="1.3" fill="currentColor" />
+      <circle cx="6.5" cy="5.5" r="1.3" fill="currentColor" />
+      <circle cx="10.5" cy="8.5" r="1.3" fill="currentColor" />
+      <circle cx="13" cy="3" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="13.5" r="1" fill="currentColor" />
+    </svg>
+  ),
 };
 
 const LABELS: Record<string, string> = {
@@ -85,6 +163,15 @@ const LABELS: Record<string, string> = {
   galaxy: "Galaxie",
   nebula: "Nébuleuse",
   waves: "Ondes",
+  borealis: "Aurore",
+  prism: "Prisme",
+  liquid: "Liquide",
+  spectrum: "Spectre",
+  vinyl: "Vinyle",
+  // Soft hyphens let the long names wrap inside the mobile grid tiles.
+  warp: "Hyper­espace",
+  mosaic: "Mosaïque",
+  constellation: "Constel­lation",
 };
 
 function TunerIcon() {
@@ -162,8 +249,46 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
   const groupRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const placedRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [fades, setFades] = useState({ left: false, right: false });
+  const barRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<{ label: string; shortcut?: string; x: number } | null>(null);
+
+  const showTip = (el: HTMLElement, label: string, shortcut?: string) => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const a = el.getBoundingClientRect();
+    const b = bar.getBoundingClientRect();
+    setTip({ label, shortcut, x: a.left - b.left + a.width / 2 });
+  };
 
   const select = (entry: VisualMode) => setVisualMode(entry);
+
+  // Edge fades only where more modes hide behind the scroll.
+  const updateFades = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setFades((f) => (f.left === left && f.right === right ? f : { left, right }));
+  };
+
+  // Keep the active mode visible (keys, AUTO) without scrolling the page.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const target = el?.querySelector<HTMLElement>(`[data-mode="${mode}"]`);
+    if (!el || !target) return;
+    const start = target.offsetLeft;
+    const end = start + target.offsetWidth;
+    const pad = 40;
+    let next: number | null = null;
+    if (start - pad < el.scrollLeft) next = Math.max(0, start - pad);
+    else if (end + pad > el.scrollLeft + el.clientWidth) next = end + pad - el.clientWidth;
+    if (next !== null) {
+      el.scrollTo({ left: next, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    }
+    updateFades();
+  }, [mode]);
 
   // Sliding active pill: follows the current mode with an expo ease.
   useLayoutEffect(() => {
@@ -195,13 +320,21 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
         gsap.set(indicator, { x: target.offsetLeft, width: target.offsetWidth });
         placedRef.current = true;
       }
+      const el = scrollRef.current;
+      if (el) {
+        const left = el.scrollLeft > 2;
+        const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+        setFades((f) => (f.left === left && f.right === right ? f : { left, right }));
+      }
     });
     observer.observe(group);
+    if (scrollRef.current) observer.observe(scrollRef.current);
     return () => observer.disconnect();
   }, []);
 
   return (
     <div
+      ref={barRef}
       className={`glass fixed bottom-[calc(var(--dock-h)+var(--space-3)+var(--safe-b))] left-(--gutter) z-(--z-dock) hidden items-center gap-1 rounded-full p-1 transition-all duration-(--dur-4) lg:flex ${
         hidden ? "pointer-events-none translate-y-3 opacity-0" : "opacity-100"
       }`}
@@ -221,11 +354,30 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
       </button>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-white/15" />
       <div
+        ref={scrollRef}
+        onScroll={() => {
+          updateFades();
+          setTip(null);
+        }}
+        onWheel={(event) => {
+          // Vertical wheels scroll the mode strip sideways.
+          const el = scrollRef.current;
+          if (!el || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+          el.scrollLeft += event.deltaY;
+        }}
+        data-lenis-prevent
+        className="max-w-[min(25.25rem,calc(100vw-22rem))] overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          maskImage: `linear-gradient(to right, transparent 0, #000 ${fades.left ? "2.25rem" : "0"}, #000 calc(100% - ${fades.right ? "2.25rem" : "0px"}), transparent 100%)`,
+          WebkitMaskImage: `linear-gradient(to right, transparent 0, #000 ${fades.left ? "2.25rem" : "0"}, #000 calc(100% - ${fades.right ? "2.25rem" : "0px"}), transparent 100%)`,
+        }}
+      >
+      <div
         ref={groupRef}
         role="radiogroup"
         aria-label="Mode visuel"
         onKeyDown={(event) => onRadioKeys(event, mode, select)}
-        className="relative flex items-center gap-1"
+        className="relative flex w-max items-center gap-1"
       >
         <span
           ref={indicatorRef}
@@ -245,11 +397,23 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
               data-mode={entry}
               data-cursor="magnetic"
               aria-checked={!autoMode && active}
-              aria-label={`${LABELS[entry]} (touche ${index + 1})`}
-              aria-keyshortcuts={String(index + 1)}
+              aria-label={
+                modeShortcut(index)
+                  ? `${LABELS[entry]} (touche ${modeShortcut(index)})`
+                  : LABELS[entry]
+              }
+              aria-keyshortcuts={modeShortcut(index)}
               tabIndex={active ? 0 : -1}
               onClick={() => select(entry)}
-              className={`btn-icon group relative grid size-9 place-items-center rounded-full ${
+              onMouseEnter={(event) => showTip(event.currentTarget, LABELS[entry], modeShortcut(index))}
+              onMouseLeave={() => setTip(null)}
+              onFocus={(event) => {
+                if (event.currentTarget.matches(":focus-visible")) {
+                  showTip(event.currentTarget, LABELS[entry], modeShortcut(index));
+                }
+              }}
+              onBlur={() => setTip(null)}
+              className={`btn-icon relative grid size-9 shrink-0 place-items-center rounded-full ${
                 active && !autoMode
                   ? "text-white"
                   : autoMode
@@ -260,10 +424,10 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
               }`}
             >
               {ICONS[entry]}
-              <Tooltip label={LABELS[entry]} shortcut={String(index + 1)} />
             </button>
           );
         })}
+      </div>
       </div>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-white/15" />
       <div className="relative">
@@ -286,6 +450,20 @@ function DesktopModeBar({ hidden }: { hidden: boolean }) {
           <VisualTuner onClose={() => setTunerOpen(false)} triggerRef={tunerTriggerRef} />
         )}
       </div>
+      {tip && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-full mb-2.5 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[rgba(9,9,15,0.92)] px-2.5 py-1.5 text-micro font-medium text-ink-1 shadow-(--shadow-pop)"
+          style={{ left: tip.x }}
+        >
+          {tip.label}
+          {tip.shortcut && (
+            <kbd className="rounded border border-white/15 px-1 font-mono text-micro leading-4 text-ink-2">
+              {tip.shortcut}
+            </kbd>
+          )}
+        </span>
+      )}
     </div>
   );
 }
@@ -416,7 +594,7 @@ function MobileModePill({ hidden }: { hidden: boolean }) {
             role="radiogroup"
             aria-label="Mode visuel"
             onKeyDown={(event) => onRadioKeys(event, mode, select)}
-            className="-mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none]"
+            className="grid grid-cols-4 gap-2 pb-1 min-[420px]:grid-cols-5"
           >
             {MODE_KEYS.map((entry) => {
               const active = mode === entry;
@@ -429,7 +607,7 @@ function MobileModePill({ hidden }: { hidden: boolean }) {
                   aria-checked={!autoMode && active}
                   tabIndex={active ? 0 : -1}
                   onClick={() => select(entry)}
-                  className={`btn-icon flex min-h-16 w-[4.75rem] shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-(--radius-card) border text-micro ${
+                  className={`btn-icon flex min-h-16 min-w-0 flex-col items-center justify-center gap-1.5 rounded-(--radius-card) border px-1 text-center text-micro leading-tight ${
                     active
                       ? autoMode
                         ? "border-white/20 bg-white/[0.07] text-white"
@@ -438,7 +616,7 @@ function MobileModePill({ hidden }: { hidden: boolean }) {
                   }`}
                 >
                   {ICONS[entry]}
-                  <span>{LABELS[entry]}</span>
+                  <span className="max-w-full hyphens-manual">{LABELS[entry]}</span>
                 </button>
               );
             })}

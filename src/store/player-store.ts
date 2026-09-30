@@ -166,7 +166,15 @@ export type VisualMode =
   | "particles"
   | "galaxy"
   | "nebula"
-  | "waves";
+  | "waves"
+  | "borealis"
+  | "prism"
+  | "liquid"
+  | "spectrum"
+  | "vinyl"
+  | "warp"
+  | "mosaic"
+  | "constellation";
 
 export const MODE_KEYS: VisualMode[] = [
   "organism",
@@ -176,6 +184,14 @@ export const MODE_KEYS: VisualMode[] = [
   "galaxy",
   "nebula",
   "waves",
+  "borealis",
+  "prism",
+  "liquid",
+  "spectrum",
+  "vinyl",
+  "warp",
+  "mosaic",
+  "constellation",
 ];
 
 interface EqSettings {
