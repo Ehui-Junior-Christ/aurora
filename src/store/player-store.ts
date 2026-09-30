@@ -11,7 +11,7 @@ import {
   type FsNode,
 } from "@/lib/fs-scanner";
 import { Capacitor } from "@capacitor/core";
-import { parseTrack } from "@/lib/metadata";
+import { buildTracks, patchCachedTags } from "@/lib/library-cache";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
@@ -541,6 +541,22 @@ async function resumeLastSession(): Promise<void> {
     .play(index, { autoplay: false, startAt, countPlay: false });
 }
 
+// ---- Library cache helpers ---------------------------------------------------
+
+/** Stores the real duration of the current local track (sort by duration). */
+function rememberDuration(duration: number): void {
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  const state = usePlayer.getState();
+  const track = state.tracks[state.current];
+  if (!track || track.isOnline) return;
+  const rounded = Math.round(duration * 10) / 10;
+  if (track.durationSec === rounded) return;
+  const tracks = [...state.tracks];
+  tracks[state.current] = { ...track, durationSec: rounded };
+  usePlayer.setState({ tracks });
+  if (track.file) void patchCachedTags(track.id, { durationSec: rounded });
+}
+
 // ---- Queue ------------------------------------------------------------------
 
 /** Playlist entries as Track objects (library first, then online snapshots). */
@@ -821,6 +837,7 @@ function wireEngine(): void {
           duration: Number.isFinite(el.duration) ? el.duration : 0,
         });
         pushMediaPosition(true);
+        rememberDuration(el.duration);
       });
       el.addEventListener("ratechange", (event) => {
         if (event.target !== engine.el) return;
@@ -1450,21 +1467,30 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         perDir.push(scanned);
         total += scanned.audio.length;
       }
+      const allFiles: File[] = [];
       for (const scanned of perDir) {
-        const files = [...scanned.audio].sort((a, b) =>
-          a.name.localeCompare(b.name)
+        allFiles.push(
+          ...[...scanned.audio].sort((a, b) => a.name.localeCompare(b.name))
         );
-        for (const file of files) {
-          const track = await parseTrack(file);
-          const relPath = relativePathOf(file);
-          if (relPath) track.relPath = relPath;
-          if (!byId.has(track.id)) byId.set(track.id, track);
-          done++;
-          set({ progress: { done, total } });
-        }
         for (const [base, file] of scanned.lyrics) {
           lyricsFiles.set(base, file);
         }
+      }
+      // Cached tags are reused; only new/modified files are parsed, in
+      // parallel workers. Progress updates are throttled (~10/s).
+      let lastProgress = 0;
+      const { tracks: built } = await buildTracks(allFiles, (d) => {
+        done = d;
+        const now = Date.now();
+        if (now - lastProgress > 100 || d === total) {
+          lastProgress = now;
+          set({ progress: { done, total } });
+        }
+      });
+      for (const track of built) {
+        const relPath = track.file ? relativePathOf(track.file) : undefined;
+        if (relPath) track.relPath = relPath;
+        if (!byId.has(track.id)) byId.set(track.id, track);
       }
       const tracks = [...byId.values()].sort(
         (a, b) =>
