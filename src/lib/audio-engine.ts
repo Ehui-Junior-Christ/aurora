@@ -290,7 +290,7 @@ class AudioEngine {
    * current source or part of a running transition; `layers[i]` is the
    * opacity of player i (the incoming video fades in over the outgoing one).
    */
-  ytVisual(): { show: boolean; layers: [number, number]; front: number } {
+  ytVisual(): { show: boolean; mixing: boolean; layers: [number, number]; front: number } {
     const m = this.mix;
     if (m && (m.inKind === "yt" || m.outKind === "yt")) {
       const layers: [number, number] = [0, 0];
@@ -299,11 +299,11 @@ class AudioEngine {
       }
       if (m.inKind === "yt" && m.inYt >= 0) layers[m.inYt] = this.yt[m.inYt].fade;
       const front = m.inKind === "yt" ? m.inYt : m.outYt;
-      return { show: true, layers, front };
+      return { show: true, mixing: true, layers, front };
     }
     const layers: [number, number] = [0, 0];
     layers[this.ytIdx] = 1;
-    return { show: this.ytActive, layers, front: this.ytIdx };
+    return { show: this.ytActive, mixing: false, layers, front: this.ytIdx };
   }
 
   private createYtPlayer(i: number): void {

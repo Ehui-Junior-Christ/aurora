@@ -202,7 +202,9 @@ export default function VideoStage() {
       raf = 0;
       const stage = document.getElementById(YT_STAGE_ID);
       const visual = engine.ytVisual();
-      const show = !!stage && visual.show && ytTrackRef.current;
+      // A transition into a YouTube track shows the incoming video before
+      // the store switches tracks; otherwise the current track must be one.
+      const show = !!stage && visual.show && (ytTrackRef.current || visual.mixing);
       if (!stage || !show) {
         if (stage && stage.style.visibility !== "hidden") {
           stage.style.visibility = "hidden";

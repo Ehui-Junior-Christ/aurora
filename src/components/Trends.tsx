@@ -150,8 +150,12 @@ export default function Trends({
   if (data === null) return null; // no bundled charts (offline first visit)
 
   return (
-    <section aria-label="Tendances" className={palette ? "px-1 pb-2" : "w-full text-left"}>
-      <div className={`flex flex-wrap items-end justify-between gap-x-4 gap-y-2 ${palette ? "px-2 pt-3" : ""}`}>
+    <section aria-label="Tendances" className={
+        palette
+          ? "px-1 pb-2"
+          : "glass-strong w-full rounded-(--radius-panel) p-3 text-left md:p-5"
+      }>
+      <div className={`flex flex-wrap items-end justify-between gap-x-4 gap-y-2 ${palette ? "px-2 pt-3" : "px-1.5 pt-1"}`}>
         <div className="min-w-0">
           <h2
             className={
@@ -188,7 +192,7 @@ export default function Trends({
       <div
         role="tablist"
         aria-label="Pays du classement"
-        className={`mt-3 flex gap-1.5 overflow-hidden ${palette ? "px-2" : ""}`}
+        className={`mt-3 flex gap-1.5 overflow-hidden ${palette ? "px-2" : "px-1.5"}`}
       >
         {TREND_COUNTRIES.map((cc) => {
           const selected = cc === country;

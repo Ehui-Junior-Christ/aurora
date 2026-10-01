@@ -200,7 +200,10 @@ function OnlineRow({
 
 function catalogMeta(song: CatalogSong): string {
   const year = song.releaseDate?.slice(0, 4);
-  return [song.artist, song.album && song.album !== song.title ? song.album : "", year, formatDurationMs(song.durationMs)]
+  // "Titre - Single" / "Titre - EP" albums only repeat the title.
+  const album = song.album.replace(/\s+-\s+(Single|EP)$/i, "");
+  const showAlbum = album && album.toLowerCase() !== song.title.toLowerCase();
+  return [song.artist, showAlbum ? album : "", year, formatDurationMs(song.durationMs)]
     .filter(Boolean)
     .join(" · ");
 }
