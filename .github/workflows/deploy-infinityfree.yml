@@ -41,12 +41,12 @@ jobs:
       - name: Upload over FTP
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          server: ${{ secrets.AURORA_FTP_SERVER }}
+          username: ${{ secrets.AURORA_FTP_USERNAME }}
+          password: ${{ secrets.AURORA_FTP_PASSWORD }}
           protocol: ftp
           local-dir: ./dist-infinityfree/
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          server-dir: ${{ secrets.AURORA_FTP_SERVER_DIR }}
           # Incremental sync: only changed files are sent, and files removed
           # since the last deploy (old hashed bundles) are deleted remotely.
           dangerous-clean-slate: false
