@@ -89,8 +89,20 @@ export async function searchOnlineMusic(
     });
 
     if (!response.ok) {
+      let reason = "";
+      try {
+        const body = (await response.json()) as { error?: { errors?: { reason?: string }[] } };
+        reason = body.error?.errors?.[0]?.reason ?? "";
+      } catch {
+        /* non-JSON error page */
+      }
+      if (response.status === 429 || /quota|dailyLimit|rateLimit/i.test(reason)) {
+        throw new Error(
+          "Quota YouTube du jour épuisé. La recherche du catalogue et les Tendances restent disponibles ; réessaie après 9 h (heure de Paris)."
+        );
+      }
       if (response.status === 403) {
-        throw new Error("Quota ou clé API YouTube invalide (403).");
+        throw new Error(`Clé API YouTube refusée (403${reason ? ` · ${reason}` : ""}).`);
       }
       if (response.status === 429) {
         throw new Error(

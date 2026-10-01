@@ -31,9 +31,12 @@ export function exportM3u(tracks: readonly Track[], name?: string): string {
     lines.push(
       `#EXTINF:${duration},${escapeLine(track.artist)} - ${escapeLine(track.title)}`
     );
-    if (track.isOnline) {
+    if (track.isOnline && (track.streamUrl ?? track.id).startsWith("yt:")) {
       const id = (track.streamUrl ?? track.id).replace(/^(?:yt:)+/, "");
       lines.push(`https://www.youtube.com/watch?v=${id}`);
+    } else if (track.isOnline) {
+      // Catalog entry whose video was never resolved: keep a readable line.
+      lines.push(`${escapeLine(track.artist)} - ${escapeLine(track.title)}`);
     } else {
       lines.push(track.relPath ?? track.file?.name ?? `${track.artist} - ${track.title}`);
     }

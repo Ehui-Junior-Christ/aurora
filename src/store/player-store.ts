@@ -49,6 +49,8 @@ import {
   type OnlineMusicResult,
 } from "@/lib/invidious";
 import { fnv1a } from "@/lib/hash";
+import { isOnlineTrackId } from "@/lib/catalog";
+import { resolveCached, resolveYouTube, YtResolveError } from "@/lib/yt-resolve";
 import { replayGainMultiplier } from "@/lib/replaygain";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
 import {
@@ -313,6 +315,8 @@ interface PlayerState {
   onlineSearching: boolean;
   onlineError: string | null;
   playbackError: string | null;
+  /** Id of the catalog track whose YouTube video is being looked up. */
+  resolvingId: string | null;
   youtubeApiKey: string;
   showHome: boolean;
   history: Track[];
@@ -383,6 +387,8 @@ interface PlayerState {
   setPlaybackError(message: string | null): void;
   searchOnline(query: string): Promise<void>;
   playOnlineResult(result: OnlineMusicResult): Promise<void>;
+  /** Plays an online Track (YouTube or catalog): history + library insert. */
+  playOnlineTrack(track: Track): void;
   removeSource(source: string): void;
   setSupported(value: boolean): void;
   restore(): Promise<void>;
@@ -421,7 +427,8 @@ interface PlayerState {
   refreshApp(): void;
   createPlaylist(name: string): Promise<void>;
   deletePlaylist(id: string): Promise<void>;
-  addToPlaylist(playlistId: string, trackId: string): Promise<void>;
+  /** `track` lets online entries (search results) carry their metadata. */
+  addToPlaylist(playlistId: string, trackId: string, track?: Track): Promise<void>;
   removeFromPlaylist(playlistId: string, trackId: string): Promise<void>;
   resetStats(): void;
   setCrossfade(seconds: number): void;
@@ -607,7 +614,7 @@ async function resumeLastSession(): Promise<void> {
   const state = usePlayer.getState();
   if (state.current >= 0) return; // the user already picked something
   let index = state.tracks.findIndex((t) => t.id === lastId);
-  if (index < 0 && lastId.startsWith("yt:")) {
+  if (index < 0 && isOnlineTrackId(lastId)) {
     const online =
       state.history.find((t) => t.id === lastId) ??
       state.savedOnlineTracks.find((t) => t.id === lastId);
@@ -762,6 +769,146 @@ function playTrackObject(track: Track, fromQueue: boolean): void {
   const index = ensureTrackIndex(track);
   usePlayer.getState().play(index);
   currentFromQueue = fromQueue;
+}
+
+// ---- Catalog tracks: YouTube resolution at play time ------------------------
+
+/** Catalog track whose YouTube video is not known yet. */
+function needsResolve(track: Track | undefined): boolean {
+  return !!track && track.isOnline && !track.file && !track.streamUrl && !!track.catalog;
+}
+
+function resolveTarget(track: Track) {
+  return {
+    title: track.title,
+    artist: track.artist,
+    durationMs:
+      track.catalog?.durationMs ?? (track.durationSec ? track.durationSec * 1000 : undefined),
+  };
+}
+
+/**
+ * Applies `patch` to an online track wherever a copy lives (library, queue,
+ * history, favourites, playlist snapshots) and persists the changed lists.
+ */
+function patchOnlineTrack(id: string, patch: Partial<Track>): void {
+  const state = usePlayer.getState();
+  const update = (t: Track): Track => (t.id === id ? { ...t, ...patch } : t);
+  const touched = (list: readonly Track[]) => list.some((t) => t.id === id);
+  const next: Partial<PlayerState> = {};
+  if (touched(state.tracks)) next.tracks = state.tracks.map(update);
+  if (state.queue.some((item) => item.track.id === id)) {
+    next.queue = state.queue.map((item) =>
+      item.track.id === id ? { ...item, track: update(item.track) } : item
+    );
+    savePref("queue", toStoredQueue(next.queue));
+  }
+  if (touched(state.history)) {
+    next.history = state.history.map(update);
+    savePref("history", next.history);
+  }
+  if (touched(state.savedOnlineTracks)) {
+    next.savedOnlineTracks = state.savedOnlineTracks.map(update);
+    savePref("savedOnlineTracks", next.savedOnlineTracks);
+  }
+  if (state.playlists.some((p) => p.online && touched(p.online))) {
+    next.playlists = state.playlists.map((p) => {
+      if (!p.online || !touched(p.online)) return p;
+      const updated = { ...p, online: p.online.map(update) };
+      void idbSet("playlists", updated.id, updated);
+      return updated;
+    });
+  }
+  usePlayer.setState(next);
+}
+
+let resolveToken = 0;
+
+/**
+ * Selects a catalog track and looks up its YouTube video (trends map → cache
+ * → YouTube search), then plays it. A paused selection (session resume)
+ * never spends quota: the lookup waits for the user to press play.
+ */
+function startResolve(index: number, track: Track, options: PlayOptions): void {
+  const set = usePlayer.setState;
+  const get = usePlayer.getState;
+  const token = ++resolveToken;
+  const autoplay = options.autoplay ?? true;
+  wireEngine();
+  flushListening(true);
+  resetDirector();
+  engine.pause();
+  applyPalette(track.palette);
+  syncMediaSession(track);
+  if (typeof document !== "undefined") {
+    document.title = `${track.title} · ${track.artist} — AURORA`;
+  }
+  savePref("lastTrackId", track.id);
+  set({
+    current: index,
+    playing: false,
+    duration: track.durationSec ?? 0,
+    resolvingId: autoplay ? track.id : null,
+    lyricsOffset: 0,
+    abLoop: { a: null, b: null },
+    trackMix: null,
+  });
+  if (!autoplay) return;
+  void resolveYouTube(resolveTarget(track), get().youtubeApiKey).then(
+    (found) => {
+      if (token !== resolveToken) return;
+      patchOnlineTrack(track.id, { streamUrl: `yt:${found.videoId}` });
+      set({ resolvingId: null });
+      const state = get();
+      if (state.tracks[state.current]?.id === track.id) state.play(state.current, options);
+    },
+    (error: unknown) => {
+      if (token !== resolveToken) return;
+      set({ resolvingId: null, playing: false });
+      get().setPlaybackError(
+        error instanceof Error && error.message ? error.message : "Lecture en ligne impossible."
+      );
+      // Nothing matched this song: move on (bounded); quota/key errors would
+      // fail the same way for every track, so playback stops there.
+      if (error instanceof YtResolveError && error.code === "notfound") {
+        ytErrorStreak++;
+        if (ytErrorStreak < 3 && get().tracks.length > 1) get().next(true);
+      }
+    }
+  );
+}
+
+const STREAM_PREFETCH_S = 40;
+let lastStreamPrefetch = 0;
+const prefetchedStreams = new Set<string>();
+
+/**
+ * Near the end of a track, resolves the next catalog track only when that is
+ * free (Tendances map or cache): quota is never spent speculatively, a cache
+ * miss is resolved when the track actually starts. Done ~40 s ahead so that
+ * Aurora Mix can still plan a YouTube → YouTube transition.
+ */
+function prefetchUpcomingStream(): void {
+  const now = Date.now();
+  if (now - lastStreamPrefetch < 1000) return;
+  lastStreamPrefetch = now;
+  const dur = engine.duration;
+  if (!Number.isFinite(dur) || dur <= 0 || dur - engine.currentTime > STREAM_PREFETCH_S) return;
+  const plan = planNext(true);
+  const state = usePlayer.getState();
+  const next =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? state.tracks[plan.index]
+        : undefined;
+  if (!next || !needsResolve(next) || prefetchedStreams.has(next.id)) return;
+  prefetchedStreams.add(next.id);
+  void resolveCached(resolveTarget(next))
+    .then((found) => {
+      if (found) patchOnlineTrack(next.id, { streamUrl: `yt:${found.videoId}` });
+    })
+    .catch(() => void 0);
 }
 
 type NextPlan =
@@ -958,6 +1105,7 @@ function playbackTick(): void {
     engine.seek(a);
   }
   if (!state.playing || state.current < 0) return;
+  prefetchUpcomingStream();
   const mixOn = state.mix.enabled;
   if (mixOn) directorTick();
   if (engine.ytActive) return; // crossfade / silence: local tracks only
@@ -993,12 +1141,19 @@ function playbackTick(): void {
   }
 }
 
-/** Track resolved by planNext(true) (what Aurora Mix will mix into). */
+/**
+ * Track resolved by planNext(true) (what Aurora Mix will mix into). Catalog
+ * tracks without a known video cannot be mixed: they start after the end.
+ */
 function upcomingTrack(): Track | undefined {
   const plan = planNext(true);
-  if (plan.kind === "queue") return plan.item.track;
-  if (plan.kind === "library") return usePlayer.getState().tracks[plan.index];
-  return undefined;
+  const track =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? usePlayer.getState().tracks[plan.index]
+        : undefined;
+  return needsResolve(track) ? undefined : track;
 }
 
 function attachMixDirector(): void {
@@ -1162,6 +1317,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   onlineResults: [],
   onlineSearching: false,
   onlineError: null,
+  resolvingId: null,
   playbackError: null,
   youtubeApiKey: DEFAULT_YOUTUBE_API_KEY,
   showHome: false,
@@ -1473,8 +1629,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   addToHistory(track) {
     if (!track.isOnline) return;
     set((state) => {
+      // Keep a video already resolved for this catalog entry.
+      const previous = state.history.find((t) => t.id === track.id);
+      const entry =
+        previous?.streamUrl && !track.streamUrl ? { ...track, streamUrl: previous.streamUrl } : track;
       const filtered = state.history.filter((t) => t.id !== track.id);
-      const nextHistory = [track, ...filtered].slice(0, 50);
+      const nextHistory = [entry, ...filtered].slice(0, 50);
       savePref("history", nextHistory);
       return { history: nextHistory };
     });
@@ -1545,12 +1705,19 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   async playOnlineResult(result) {
+    get().playOnlineTrack(onlineResultToTrack(result));
+  },
+
+  playOnlineTrack(track) {
     ytErrorStreak = 0; // explicit user choice: give the skip budget back
-    const track = onlineResultToTrack(result);
     get().addToHistory(track);
     const { tracks, current } = get();
     const existingIndex = tracks.findIndex(t => t.id === track.id);
     if (existingIndex >= 0) {
+      if (!tracks[existingIndex].streamUrl && track.streamUrl) {
+        patchOnlineTrack(track.id, { streamUrl: track.streamUrl });
+      }
+      set({ showHome: false });
       get().play(existingIndex);
       return;
     }
@@ -1831,6 +1998,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const loadOptions = { autoplay, startAt: options.startAt ?? 0 };
     const track = tracks[index];
     if (!track) return;
+    if (needsResolve(track)) {
+      startResolve(index, track, options);
+      return;
+    }
+    resolveToken++; // a pending catalog lookup no longer applies
+    if (get().resolvingId) set({ resolvingId: null });
 
     wireEngine();
 
@@ -1952,9 +2125,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (now - lastActionTime < 300) return; // Anti-spam (idempotence)
     lastActionTime = now;
 
-    const { current, tracks } = get();
+    const { current, tracks, resolvingId } = get();
     if (current < 0 || current >= tracks.length) {
       get().play(0);
+      return;
+    }
+    if (needsResolve(tracks[current])) {
+      if (!resolvingId) get().play(current);
       return;
     }
     // engine.paused also covers the YouTube player (the <audio> element is
@@ -2187,9 +2364,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     await idbDelete("playlists", id);
   },
 
-  async addToPlaylist(playlistId, trackId) {
-    const online = trackId.startsWith("yt:")
-      ? [...get().tracks, ...get().savedOnlineTracks, ...get().history].find(
+  async addToPlaylist(playlistId, trackId, track) {
+    const online = isOnlineTrackId(trackId)
+      ? (track?.id === trackId && track.isOnline ? track : undefined) ??
+        [...get().tracks, ...get().savedOnlineTracks, ...get().history].find(
           (t) => t.id === trackId
         )
       : undefined;

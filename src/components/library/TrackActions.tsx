@@ -115,7 +115,7 @@ export default function TrackActions({
             <Item
               icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>}
               onClick={() => setView("playlists")}
-              disabled={!inLibrary}
+              disabled={!inLibrary && !track.isOnline}
             >
               Ajouter à une playlist…
             </Item>
@@ -145,7 +145,7 @@ export default function TrackActions({
                   void createPlaylist(newName).then(() => {
                     const list = usePlayer.getState().playlists;
                     const created = list[list.length - 1];
-                    if (created) void addToPlaylist(created.id, track.id);
+                    if (created) void addToPlaylist(created.id, track.id, track);
                     done(`Ajouté à « ${newName.trim()} »`);
                   });
                 }}
@@ -162,7 +162,7 @@ export default function TrackActions({
                 key={playlist.id}
                 icon={<span className="block size-2 rounded-full bg-white/40" />}
                 onClick={() => {
-                  void addToPlaylist(playlist.id, track.id);
+                  void addToPlaylist(playlist.id, track.id, track);
                   done(`Ajouté à « ${playlist.name} »`);
                 }}
               >

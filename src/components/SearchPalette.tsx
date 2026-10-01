@@ -46,7 +46,7 @@ export default function SearchPalette({ onClose }: { onClose: () => void }) {
         <UnifiedSearch variant="palette" onClose={onClose} />
         <div className="hidden items-center gap-4 border-t border-white/10 px-4 py-2.5 font-mono text-micro text-ink-3 md:flex">
           <span>
-            <kbd className="rounded border border-white/15 px-1">Entrée</kbd> chercher en ligne
+            <kbd className="rounded border border-white/15 px-1">Entrée</kbd> chercher dans le catalogue
           </span>
           <span>
             <kbd className="rounded border border-white/15 px-1">Échap</kbd> fermer

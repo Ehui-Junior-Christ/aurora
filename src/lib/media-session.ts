@@ -45,7 +45,8 @@ function guessImageType(src: string): string | undefined {
 
 /** Artwork list in several sizes (lock screens pick the closest one). */
 export function buildArtwork(track: Track): MediaImage[] {
-  const ytId = track.isOnline ? youtubeId(track) : null;
+  // Catalog tracks carry a square 600x600 cover: better than video frames.
+  const ytId = track.isOnline && !track.catalog ? youtubeId(track) : null;
   if (ytId) {
     const base = `https://i.ytimg.com/vi/${ytId}`;
     return [
@@ -57,6 +58,14 @@ export function buildArtwork(track: Track): MediaImage[] {
   }
   if (track.coverUrl) {
     const type = guessImageType(track.coverUrl);
+    if (track.catalog && /\/600x600bb\.jpg$/.test(track.coverUrl)) {
+      const url = track.coverUrl;
+      return [100, 300, 600].map((size) => ({
+        src: url.replace(/600x600bb\.jpg$/, `${size}x${size}bb.jpg`),
+        sizes: `${size}x${size}`,
+        type: "image/jpeg",
+      }));
+    }
     return [96, 128, 192, 256, 384, 512].map((size) => ({
       src: track.coverUrl as string,
       sizes: `${size}x${size}`,

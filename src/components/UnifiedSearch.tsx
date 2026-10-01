@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlayer } from "@/store/player-store";
 import { createPortal } from "react-dom";
-import { onlineResultToTrack, type OnlineMusicResult } from "@/lib/invidious";
+import { onlineResultToTrack } from "@/lib/invidious";
+import { catalogSongToTrack, formatDurationMs, type CatalogSong } from "@/lib/catalog";
+import { useCatalogSearch } from "@/hooks/useCatalogSearch";
 import TrackActions from "@/components/library/TrackActions";
+import Trends from "@/components/Trends";
 import type { Track } from "@/lib/types";
 
 const RECENT_KEY = "aurora-recent-searches";
@@ -100,28 +103,41 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
   );
 }
 
-function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClose?: () => void }) {
+function Spinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden className="animate-spin">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** One online track (catalog, YouTube result, history, favourite). */
+function OnlineRow({
+  track,
+  meta,
+  onClose,
+}: {
+  track: Track;
+  /** Secondary line (defaults to the artist). */
+  meta?: string;
+  onClose?: () => void;
+}) {
   const [actionsOpen, setActionsOpen] = useState(false);
-  const playOnlineResult = usePlayer((s) => s.playOnlineResult);
+  const playOnlineTrack = usePlayer((s) => s.playOnlineTrack);
   const saveOnlineTrack = usePlayer((s) => s.saveOnlineTrack);
   const removeOnlineTrack = usePlayer((s) => s.removeOnlineTrack);
-  const savedOnlineTracks = usePlayer((s) => s.savedOnlineTracks);
-
-  // onlineResultToTrack generates an ID like `yt:${result.id}`
-  const trackId = `yt:${result.id}`;
-  const isSaved = savedOnlineTracks.some((t) => t.id === trackId);
+  const isSaved = usePlayer((s) => s.savedOnlineTracks.some((t) => t.id === track.id));
+  const resolving = usePlayer((s) => s.resolvingId === track.id);
 
   const toggleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isSaved) {
-      removeOnlineTrack(trackId);
-    } else {
-      saveOnlineTrack(onlineResultToTrack(result));
-    }
+    if (isSaved) removeOnlineTrack(track.id);
+    else saveOnlineTrack(track);
   };
 
   const play = () => {
-    void playOnlineResult(result);
+    playOnlineTrack(track);
     onClose?.();
   };
 
@@ -134,19 +150,16 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
         aria-hidden
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
-        <Thumb src={result.thumbnail} />
+        <Thumb src={track.coverUrl} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold leading-tight text-ink-1 md:text-sm">{result.title}</p>
-          <p className="mt-0.5 truncate text-xs text-ink-2">
-            {result.artist}
-            {result.durationText ? ` · ${result.durationText}` : ""}
-          </p>
+          <p className="truncate text-[13px] font-semibold leading-tight text-ink-1 md:text-sm">{track.title}</p>
+          <p className="mt-0.5 truncate text-xs text-ink-2">{meta ?? track.artist}</p>
         </div>
       </button>
       <button
         type="button"
         onClick={toggleSave}
-        aria-label={isSaved ? `Retirer ${result.title} des favoris` : `Ajouter ${result.title} aux favoris`}
+        aria-label={isSaved ? `Retirer ${track.title} des favoris` : `Ajouter ${track.title} aux favoris`}
         aria-pressed={isSaved}
         data-burst-on
         title={isSaved ? "Retirer des favoris" : "Ajouter aux favoris"}
@@ -159,7 +172,7 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
       <button
         type="button"
         onClick={() => setActionsOpen(true)}
-        aria-label={`Actions pour ${result.title}`}
+        aria-label={`Actions pour ${track.title}`}
         aria-haspopup="dialog"
         className="btn-icon grid size-10 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/5 hover:text-white"
       >
@@ -170,32 +183,31 @@ function OnlineResultRow({ result, onClose }: { result: OnlineMusicResult; onClo
         </svg>
       </button>
       {actionsOpen &&
-        createPortal(
-          <TrackActions track={onlineResultToTrack(result)} onClose={() => setActionsOpen(false)} />,
-          document.body
-        )}
+        createPortal(<TrackActions track={track} onClose={() => setActionsOpen(false)} />, document.body)}
       <button
         type="button"
         data-cursor="magnetic"
         onClick={play}
-        aria-label={`Lire ${result.title}`}
+        aria-label={resolving ? `Recherche de la vidéo de ${track.title}…` : `Lire ${track.title}`}
+        aria-busy={resolving}
         className="btn-icon grid size-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/[0.07] text-white/80 hover:border-white/35 hover:text-white"
       >
-        <PlayIcon />
+        {resolving ? <Spinner /> : <PlayIcon />}
       </button>
     </div>
   );
 }
 
-function trackToResult(track: Track): OnlineMusicResult {
-  return {
-    id: track.id.replace(/^(yt:|online_)/, ""),
-    title: track.title,
-    artist: track.artist,
-    thumbnail: track.coverUrl,
-    durationText: track.durationText,
-    isOnline: true,
-  };
+function catalogMeta(song: CatalogSong): string {
+  const year = song.releaseDate?.slice(0, 4);
+  return [song.artist, song.album && song.album !== song.title ? song.album : "", year, formatDurationMs(song.durationMs)]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function CatalogRow({ song, onClose }: { song: CatalogSong; onClose?: () => void }) {
+  const track = useMemo(() => catalogSongToTrack(song), [song]);
+  return <OnlineRow track={track} meta={catalogMeta(song)} onClose={onClose} />;
 }
 
 function LocalMatches({ query, onClose }: { query: string; onClose?: () => void }) {
@@ -258,6 +270,7 @@ export default function UnifiedSearch({
 }) {
   const removeSource = usePlayer((s) => s.removeSource);
   const searchOnline = usePlayer((s) => s.searchOnline);
+  const onlineQuery = usePlayer((s) => s.onlineQuery);
   const onlineResults = usePlayer((s) => s.onlineResults);
   const onlineSearching = usePlayer((s) => s.onlineSearching);
   const onlineError = usePlayer((s) => s.onlineError);
@@ -269,6 +282,11 @@ export default function UnifiedSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const palette = variant === "palette";
   const trimmed = query.trim();
+  const catalog = useCatalogSearch(query);
+  // The YouTube search (100 quota units) only runs on explicit request; its
+  // results stay visible while the query they belong to is still typed.
+  const ytShown = trimmed.length >= 2 && onlineQuery.trim() === trimmed;
+  const ytTracks = useMemo(() => onlineResults.map(onlineResultToTrack), [onlineResults]);
 
   useEffect(() => {
     setRecent(readRecent());
@@ -288,32 +306,33 @@ export default function UnifiedSearch({
     });
   };
 
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      if (query.trim().length >= 3) void searchOnline(query);
-    }, 450);
-    return () => window.clearTimeout(timeout);
-  }, [query, searchOnline]);
+  const submit = () => {
+    if (trimmed.length < 2) return;
+    remember(trimmed);
+    catalog.runNow();
+  };
 
-  const submit = (value = query) => {
-    if (value.trim().length < 2) return;
-    remember(value);
-    void searchOnline(value);
+  const searchYouTube = () => {
+    if (trimmed.length < 2) return;
+    remember(trimmed);
+    void searchOnline(trimmed);
   };
 
   const pickRecent = (value: string) => {
     setQuery(value);
-    submit(value);
+    remember(value);
     inputRef.current?.focus({ preventScroll: true });
   };
 
   const showEmptyState = trimmed === "";
+  const catalogSettled = !catalog.loading && catalog.query === trimmed;
+  const catalogEmpty = catalogSettled && !catalog.error && catalog.results.length === 0;
   const hasResultsArea =
     palette ||
-    onlineSearching ||
-    !!onlineError ||
-    onlineResults.length > 0 ||
-    (showEmptyState && (history.length > 0 || savedOnlineTracks.length > 0 || recent.length > 0));
+    !showEmptyState ||
+    history.length > 0 ||
+    savedOnlineTracks.length > 0 ||
+    recent.length > 0;
 
   return (
     <section
@@ -325,7 +344,7 @@ export default function UnifiedSearch({
           : "glass-strong w-full max-w-3xl overflow-hidden rounded-(--radius-panel)"
       }
     >
-      <div className={palette ? "p-3 md:p-4" : "p-3 md:p-4"}>
+      <div className="p-3 md:p-4">
         {!palette && (
           <label
             htmlFor="unified-search-input"
@@ -360,12 +379,12 @@ export default function UnifiedSearch({
           <button
             type="button"
             data-cursor="magnetic"
-            onClick={() => submit()}
-            disabled={trimmed.length < 2 || onlineSearching}
+            onClick={submit}
+            disabled={trimmed.length < 2 || catalog.loading}
             className="btn-icon hidden h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/12 px-4 text-micro font-bold uppercase tracking-[0.12em] text-white hover:border-white/40 hover:bg-white/15 disabled:pointer-events-none disabled:opacity-35 md:inline-flex md:tracking-[0.16em]"
           >
             <SearchIcon />
-            {onlineSearching ? "Recherche..." : "En ligne"}
+            {catalog.loading ? "Recherche..." : "Chercher"}
           </button>
         </div>
 
@@ -397,7 +416,7 @@ export default function UnifiedSearch({
         <div
           data-lenis-prevent
           aria-live="polite"
-          aria-busy={onlineSearching}
+          aria-busy={catalog.loading || onlineSearching}
           className={`overflow-y-auto overscroll-contain border-t border-white/10 px-2 pb-3 pt-1 text-left ${
             palette ? "min-h-0 flex-1" : "max-h-[42dvh]"
           }`}
@@ -433,78 +452,123 @@ export default function UnifiedSearch({
             </>
           )}
 
-          {showEmptyState && savedOnlineTracks.length > 0 && !onlineSearching && (
+          {palette && showEmptyState && <Trends variant="palette" onPlayed={onClose} />}
+
+          {showEmptyState && savedOnlineTracks.length > 0 && (
             <>
               <SectionLabel>Tes favoris en ligne</SectionLabel>
               {savedOnlineTracks.map((track) => (
-                <OnlineResultRow key={`saved-${track.id}`} result={trackToResult(track)} onClose={onClose} />
+                <OnlineRow key={`saved-${track.id}`} track={track} onClose={onClose} />
               ))}
             </>
           )}
 
-          {showEmptyState && history.length > 0 && !onlineSearching && (
+          {showEmptyState && history.length > 0 && (
             <>
               <SectionLabel>Écoutés récemment</SectionLabel>
               {history.map((track) => (
-                <OnlineResultRow key={`hist-${track.id}`} result={trackToResult(track)} onClose={onClose} />
+                <OnlineRow key={`hist-${track.id}`} track={track} onClose={onClose} />
               ))}
             </>
           )}
 
-          {palette &&
-            showEmptyState &&
-            recent.length === 0 &&
-            history.length === 0 &&
-            savedOnlineTracks.length === 0 && (
-              <div className="grid place-items-center px-6 py-12 text-center">
-                <div
-                  aria-hidden
-                  className="mb-4 size-12 rounded-full opacity-80"
-                  style={{
-                    background:
-                      "radial-gradient(circle at 30% 30%, var(--c2), transparent 60%), linear-gradient(135deg, var(--c1), var(--c3))",
-                    filter: "blur(0.5px)",
-                  }}
-                />
-                <p className="text-sm text-ink-1">Cherche un artiste, un titre ou un album</p>
-                <p className="mt-1 text-xs text-ink-2">
-                  Ta bibliothèque et le catalogue en ligne, au même endroit.
-                </p>
-              </div>
-            )}
-
           {!showEmptyState && palette && <LocalMatches query={query} onClose={onClose} />}
 
-          {!showEmptyState && (onlineSearching || onlineResults.length > 0) && (
-            <SectionLabel>En ligne</SectionLabel>
+          {!showEmptyState && trimmed.length < 2 && (
+            <p className="px-3 py-6 text-center text-sm text-ink-2">Continue à taper…</p>
           )}
-          {onlineSearching && <SkeletonRows />}
 
-          {onlineError && !onlineSearching && (
-            <div
-              role="alert"
-              className="mx-2 my-3 flex items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4"
-            >
-              <span aria-hidden className="mt-1 block size-2 shrink-0 rounded-full bg-red-400" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-red-100/90">{onlineError}</p>
-                {trimmed.length >= 2 && (
+          {trimmed.length >= 2 && (
+            <>
+              <SectionLabel>Catalogue</SectionLabel>
+              {!catalogSettled && !catalog.error && <SkeletonRows />}
+
+              {catalog.error && !catalog.loading && (
+                <div
+                  role="alert"
+                  className="mx-2 my-3 flex items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4"
+                >
+                  <span aria-hidden className="mt-1 block size-2 shrink-0 rounded-full bg-red-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-red-100/90">{catalog.error}</p>
+                    <button
+                      type="button"
+                      onClick={submit}
+                      className="btn-icon mt-3 inline-flex min-h-9 items-center rounded-full border border-white/20 px-4 text-micro font-bold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                    >
+                      Réessayer
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {catalogSettled &&
+                catalog.results.map((song) => (
+                  <CatalogRow key={song.itunesId} song={song} onClose={onClose} />
+                ))}
+
+              {catalogEmpty && (
+                <p className="px-3 pb-1 pt-4 text-center text-sm text-ink-2">
+                  Rien dans le catalogue pour « {trimmed} ».
+                </p>
+              )}
+
+              {(catalogSettled || !!catalog.error) && !ytShown && !onlineSearching && (
+                <div
+                  className={`flex flex-col items-center gap-1 px-3 ${
+                    catalogEmpty ? "pb-4 pt-2" : "pb-2 pt-4"
+                  }`}
+                >
                   <button
                     type="button"
-                    onClick={() => submit()}
-                    className="btn-icon mt-3 inline-flex min-h-9 items-center rounded-full border border-white/20 px-4 text-micro font-bold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                    onClick={searchYouTube}
+                    className={`btn-icon inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-micro font-bold uppercase tracking-[0.16em] ${
+                      catalogEmpty
+                        ? "border-white/25 bg-white/12 text-white hover:border-white/45"
+                        : "border-white/10 bg-white/[0.04] text-ink-1 hover:border-white/30 hover:text-white"
+                    }`}
                   >
-                    Réessayer
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <rect x="1.5" y="3.5" width="13" height="9" rx="2.5" stroke="currentColor" strokeWidth="1.3" />
+                      <path d="M6.6 6v4l3.4-2-3.4-2Z" fill="currentColor" />
+                    </svg>
+                    Chercher sur YouTube
                   </button>
-                )}
-              </div>
-            </div>
-          )}
+                  <span className="text-center text-micro text-ink-3">
+                    {catalogEmpty
+                      ? "Remixes, lives, titres rares…"
+                      : "Pas le bon titre ? Versions live, remixes, raretés…"}
+                  </span>
+                </div>
+              )}
 
-          {!onlineSearching && !showEmptyState &&
-            onlineResults.map((result) => (
-              <OnlineResultRow key={result.id} result={result} onClose={onClose} />
-            ))}
+              {(ytShown || onlineSearching) && <SectionLabel>Sur YouTube</SectionLabel>}
+              {onlineSearching && <SkeletonRows count={3} />}
+
+              {ytShown && onlineError && !onlineSearching && (
+                <div
+                  role="alert"
+                  className="mx-2 my-3 flex items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4"
+                >
+                  <span aria-hidden className="mt-1 block size-2 shrink-0 rounded-full bg-red-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-red-100/90">{onlineError}</p>
+                    <button
+                      type="button"
+                      onClick={searchYouTube}
+                      className="btn-icon mt-3 inline-flex min-h-9 items-center rounded-full border border-white/20 px-4 text-micro font-bold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                    >
+                      Réessayer
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {ytShown &&
+                !onlineSearching &&
+                ytTracks.map((track) => <OnlineRow key={track.id} track={track} onClose={onClose} />)}
+            </>
+          )}
         </div>
       )}
     </section>
