@@ -3,7 +3,12 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { usePlayer } from "@/store/player-store";
-import { AdaptiveQuality, initialQualityStep } from "@/lib/adaptive-quality";
+import {
+  AdaptiveQuality,
+  DPR_LADDER,
+  LOW_QUALITY_STEP,
+  initialQualityStep,
+} from "@/lib/adaptive-quality";
 
 export default function PerfGuard() {
   const guard = useRef<AdaptiveQuality | null>(null);
@@ -20,10 +25,17 @@ export default function PerfGuard() {
   useFrame((state, delta) => {
     const decision = guard.current?.sample(delta);
     if (!decision) return;
-    state.setDpr(Math.min(decision.dpr, window.devicePixelRatio || 1));
-    if (usePlayer.getState().qualityLow !== decision.qualityLow) {
-      usePlayer.getState().setQualityLow(decision.qualityLow);
+    // Low quality is latched for the session: switching bloom, glass blur and
+    // scene geometry back on made weaker GPUs oscillate (drop → recover → drop),
+    // which flashed the whole screen at every switch. Once latched, the DPR is
+    // also capped so the canvas is not resized back and forth.
+    if (decision.qualityLow && !usePlayer.getState().qualityLow) {
+      usePlayer.getState().setQualityLow(true);
     }
+    const cap = usePlayer.getState().qualityLow
+      ? DPR_LADDER[LOW_QUALITY_STEP]
+      : Infinity;
+    state.setDpr(Math.min(decision.dpr, cap, window.devicePixelRatio || 1));
   });
 
   return null;

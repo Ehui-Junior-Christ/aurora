@@ -93,7 +93,9 @@ function SceneContent() {
           <Bloom
             mipmapBlur
             intensity={BLOOM[mode] ?? 1.2}
-            luminanceThreshold={0}
+            // A small threshold keeps bloom on bright areas only: with 0, tiny
+            // moving particles produced halos that shimmered frame to frame.
+            luminanceThreshold={0.12}
             luminanceSmoothing={0.9}
             radius={0.8}
           />
