@@ -1,10 +1,10 @@
 name: Deploy InfinityFree
 
-# Every push to main rebuilds the static site and syncs it to
+# Every push to main (or feat/overhaul until it is merged) rebuilds the static site and syncs it to
 # https://aurora-music.free.je over FTP. Can also be run by hand on any branch.
 on:
   push:
-    branches: [main]
+    branches: [main, feat/overhaul]
   workflow_dispatch:
 
 permissions:
