@@ -23,6 +23,7 @@ import UpdateToast from "@/components/UpdateToast";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
 import FxRoot from "@/components/fx/FxRoot";
 import Intro from "@/components/fx/Intro";
+import VideoStage from "@/components/VideoStage";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,
@@ -333,6 +334,7 @@ export default function Home() {
       {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       <TrackAnnouncer />
+      <VideoStage />
       <Onboarding />
       <UpdateToast />
       <CustomCursor />

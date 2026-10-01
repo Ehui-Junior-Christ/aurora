@@ -166,7 +166,16 @@ function CoverLayer({ url, iconless, className = "" }: { url?: string; iconless:
  * Track cover. On track change the outgoing art stays underneath while the
  * new one wipes in (clip-path + settle scale), see .cover-in in globals.css.
  */
-function Cover({ className, iconless = false }: { className: string; iconless?: boolean }) {
+function Cover({
+  className,
+  iconless = false,
+  videoSlot,
+}: {
+  className: string;
+  iconless?: boolean;
+  /** Marks the cover as a place where the YouTube video may be shown. */
+  videoSlot?: string;
+}) {
   const coverUrl = usePlayer((s) => s.tracks[s.current]?.coverUrl);
   const [shown, setShown] = useState(coverUrl);
   // null: idle; string ("" = placeholder): the layer being replaced.
@@ -182,7 +191,7 @@ function Cover({ className, iconless = false }: { className: string; iconless?: 
   }, [outgoing]);
 
   return (
-    <div className={`relative shrink-0 overflow-hidden ${className}`}>
+    <div className={`relative shrink-0 overflow-hidden ${className}`} data-video-slot={videoSlot}>
       {outgoing !== null && (
         <CoverLayer url={outgoing || undefined} iconless={iconless} className="cover-out" />
       )}
@@ -305,6 +314,13 @@ export default function PlayerBar({
   useEffect(() => {
     if (isDesktop) setNowPlayingOpen(false);
   }, [isDesktop]);
+
+  // The floating video mini-player's "open" button (VideoStage).
+  useEffect(() => {
+    const open = () => setNowPlayingOpen(true);
+    window.addEventListener("aurora:open-now-playing", open);
+    return () => window.removeEventListener("aurora:open-now-playing", open);
+  }, []);
 
 
   return (
@@ -725,7 +741,10 @@ function NowPlayingSheetBody({
         </div>
 
         <div className="relative grid min-h-0 flex-1 place-items-center py-5">
-          <Cover className="aspect-square w-[min(100%,42dvh)] rounded-(--radius-panel) shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]" />
+          <Cover
+            videoSlot="sheet"
+            className="aspect-square w-[min(100%,max(42dvh,200px))] rounded-(--radius-panel) shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]"
+          />
         </div>
 
         <div className="relative">

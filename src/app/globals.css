@@ -386,6 +386,19 @@ a {
   transform: scale(0.94);
 }
 
+/* YouTube players (audio-engine stage, positioned by VideoStage). */
+#aurora-yt-stage iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+#aurora-yt-stage [data-yt-layer] {
+  transition: opacity 0.25s linear;
+}
+
 /* Loading placeholders. */
 .skeleton {
   /* Shimmer tinted by the current cover palette. */

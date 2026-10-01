@@ -117,6 +117,8 @@ const YT_BUFFERING = 3;
 /** Custom error code used when the IFrame API script itself cannot load. */
 export const YT_API_UNAVAILABLE = -1;
 const YT_API_TIMEOUT = 15000;
+/** Fixed container holding both YouTube players (see ensureYtStage). */
+export const YT_STAGE_ID = "aurora-yt-stage";
 
 /** Public, read-only view of a running Aurora Mix transition. */
 export interface MixRuntimeState {
@@ -237,18 +239,71 @@ class AudioEngine {
     return Math.round(this.desiredVolume * 100 * h.fade);
   }
 
+  /**
+   * The players live in one fixed-position "stage" that is never re-parented
+   * (moving an iframe in the DOM reloads it): the VideoStage component only
+   * moves/resizes the stage over the visible slot (now-playing artwork or the
+   * floating mini-player), so the video is always shown while it plays
+   * (YouTube API terms: no hidden players).
+   */
+  private ensureYtStage(): HTMLElement {
+    let stage = document.getElementById(YT_STAGE_ID);
+    if (stage) return stage;
+    stage = document.createElement("div");
+    stage.id = YT_STAGE_ID;
+    stage.setAttribute("aria-hidden", "true");
+    Object.assign(stage.style, {
+      position: "fixed",
+      left: "0px",
+      top: "0px",
+      width: "320px",
+      height: "180px",
+      transform: "translate3d(-200vw, 0, 0)",
+      visibility: "hidden",
+      overflow: "hidden",
+      pointerEvents: "none",
+      background: "#000",
+      zIndex: "65",
+      contain: "layout paint",
+    });
+    for (let i = 0; i < 2; i++) {
+      const layer = document.createElement("div");
+      layer.dataset.ytLayer = String(i);
+      Object.assign(layer.style, { position: "absolute", inset: "0", opacity: i === 0 ? "1" : "0" });
+      stage.appendChild(layer);
+    }
+    document.body.appendChild(stage);
+    return stage;
+  }
+
   private ensureYtHost(h: YtHandle): void {
     if (document.getElementById(h.hostId)) return;
+    const stage = this.ensureYtStage();
     const host = document.createElement("div");
     host.id = h.hostId;
-    host.style.position = "absolute";
-    host.style.left = "-9999px";
-    host.style.top = "-9999px";
-    host.style.width = "300px";
-    host.style.height = "300px";
-    host.style.opacity = "0.01";
-    host.style.pointerEvents = "none";
-    document.body.appendChild(host);
+    const index = this.yt.indexOf(h);
+    stage.querySelector(`[data-yt-layer="${index}"]`)?.appendChild(host);
+  }
+
+  /**
+   * What the video stage should show: `show` while a YouTube video is the
+   * current source or part of a running transition; `layers[i]` is the
+   * opacity of player i (the incoming video fades in over the outgoing one).
+   */
+  ytVisual(): { show: boolean; layers: [number, number]; front: number } {
+    const m = this.mix;
+    if (m && (m.inKind === "yt" || m.outKind === "yt")) {
+      const layers: [number, number] = [0, 0];
+      if (m.outKind === "yt" && m.outYt >= 0) {
+        layers[m.outYt] = m.inKind === "yt" ? 1 : this.yt[m.outYt].fade;
+      }
+      if (m.inKind === "yt" && m.inYt >= 0) layers[m.inYt] = this.yt[m.inYt].fade;
+      const front = m.inKind === "yt" ? m.inYt : m.outYt;
+      return { show: true, layers, front };
+    }
+    const layers: [number, number] = [0, 0];
+    layers[this.ytIdx] = 1;
+    return { show: this.ytActive, layers, front: this.ytIdx };
   }
 
   private createYtPlayer(i: number): void {
@@ -274,8 +329,8 @@ class AudioEngine {
       playerVars.origin = "https://aurora-theta-rust.vercel.app";
     }
     h.player = new window.YT.Player(h.hostId, {
-      height: "300",
-      width: "300",
+      height: "100%",
+      width: "100%",
       playerVars,
       events: {
         onReady: () => {
