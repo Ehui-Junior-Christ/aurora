@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { usePlayer } from "@/store/player-store";
 import UnifiedSearch from "@/components/UnifiedSearch";
+import Trends from "@/components/Trends";
 import { idbGet } from "@/lib/db";
 import type { FsNode } from "@/lib/fs-scanner";
 import { introDelay } from "@/components/fx/Intro";
@@ -196,6 +197,10 @@ export default function LibraryGate() {
 
             <div data-gate className="mt-10 w-full">
               <UnifiedSearch />
+            </div>
+
+            <div data-gate className="mt-12 w-full max-w-3xl">
+              <Trends />
             </div>
 
             {error && (
