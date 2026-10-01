@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
+import { HalfFloatType, UnsignedByteType } from "three";
 import { usePlayer } from "@/store/player-store";
 import Blob from "./Blob";
 import Particles from "./Particles";
@@ -33,10 +34,31 @@ const BLOOM: Partial<Record<VisualMode, number>> = {
   borealis: 0.22,
 };
 
+/**
+ * Intel integrated GPUs (e.g. UHD 620) flicker with half-float render targets
+ * and the mipmap bloom chain; they get 8-bit targets and the Kawase blur.
+ */
+function useSafeBloom(): boolean {
+  const gl = useThree((state) => state.gl);
+  return useMemo(() => {
+    try {
+      const ctx = gl.getContext();
+      const info = ctx.getExtension("WEBGL_debug_renderer_info");
+      const renderer = String(
+        ctx.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : ctx.RENDERER) ?? ""
+      );
+      return /intel/i.test(renderer);
+    } catch {
+      return false;
+    }
+  }, [gl]);
+}
+
 function SceneContent() {
   const mode = usePlayer((s) => s.visualMode);
   const bloom = usePlayer((s) => s.bloom);
   const qualityLow = usePlayer((s) => s.qualityLow);
+  const safeBloom = useSafeBloom();
 
   return (
     <>
@@ -89,9 +111,12 @@ function SceneContent() {
         </>
       )}
       {bloom && !qualityLow && (
-        <EffectComposer multisampling={0}>
+        <EffectComposer
+          multisampling={0}
+          frameBufferType={safeBloom ? UnsignedByteType : HalfFloatType}
+        >
           <Bloom
-            mipmapBlur
+            mipmapBlur={!safeBloom}
             intensity={BLOOM[mode] ?? 1.2}
             // A small threshold keeps bloom on bright areas only: with 0, tiny
             // moving particles produced halos that shimmered frame to frame.
@@ -124,7 +149,9 @@ export default function Visualizer() {
         camera={{ fov: 42, position: [0, 0, 4.4] }}
         gl={{
           antialias: true,
-          alpha: true,
+          // Opaque: Backdrop already paints every pixel, and a transparent
+          // canvas let bloom's varying alpha blink against the page behind.
+          alpha: false,
           powerPreference: "high-performance",
           preserveDrawingBuffer: true,
         }}
