@@ -1,0 +1,52 @@
+name: Deploy InfinityFree
+
+# Every push to main rebuilds the static site and syncs it to
+# https://aurora-music.free.je over FTP. Can also be run by hand on any branch.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two uploads at once; the newest push wins.
+concurrency:
+  group: deploy-infinityfree
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_YOUTUBE_API_KEY: ${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}
+
+      - name: Assemble upload folder
+        run: |
+          mkdir dist-infinityfree
+          rsync -a --exclude download out/ dist-infinityfree/
+          cp deploy/infinityfree/.htaccess dist-infinityfree/
+          echo "Files: $(find dist-infinityfree -type f | wc -l)"
+
+      - name: Upload over FTP
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./dist-infinityfree/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          # Incremental sync: only changed files are sent, and files removed
+          # since the last deploy (old hashed bundles) are deleted remotely.
+          dangerous-clean-slate: false
