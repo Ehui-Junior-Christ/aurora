@@ -1,9 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
-import { usePlayer, MODE_KEYS, type VisualMode } from "@/store/player-store";
-import { engine } from "@/lib/audio-engine";
+import { useEffect, useState } from "react";
+import { usePlayer } from "@/store/player-store";
 import { idbGet, idbSet } from "@/lib/db";
 import { mergeDirectoryHandle, type FsNode } from "@/lib/fs-scanner";
 import Header from "@/components/Header";
@@ -11,13 +10,20 @@ import LibraryGate from "@/components/LibraryGate";
 import TrackTitle from "@/components/TrackTitle";
 import PlayerBar from "@/components/PlayerBar";
 import TrackList from "@/components/TrackList";
-import UnifiedSearch from "@/components/UnifiedSearch";
-import FloatingSearch from "@/components/FloatingSearch";
+import SearchPalette from "@/components/SearchPalette";
+import ShortcutsHelp from "@/components/ShortcutsHelp";
+import SettingsDialog from "@/components/SettingsDialog";
+import { useHotkeys } from "@/hooks/useHotkeys";
+import { useLaunchAction } from "@/hooks/useLaunchAction";
+import { setupMotion } from "@/lib/motion";
 import ModeSwitcher from "@/components/ModeSwitcher";
 import LyricsPanel from "@/components/LyricsPanel";
 import Onboarding from "@/components/Onboarding";
 import UpdateToast from "@/components/UpdateToast";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
+import FxRoot from "@/components/fx/FxRoot";
+import Intro from "@/components/fx/Intro";
+import VideoStage from "@/components/VideoStage";
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,
@@ -32,7 +38,7 @@ function MetaLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`meta-${current}`}
-      className={`fade-in-up mb-5 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40 transition-opacity duration-700 ${
+      className={`fade-in-up mb-5 font-mono text-micro uppercase tracking-[0.3em] text-ink-3 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -46,16 +52,16 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
   return (
     <div
       key={`artist-${track?.id ?? "none"}`}
-      className={`fade-in-up mt-7 flex flex-wrap items-baseline gap-x-5 gap-y-2 transition-opacity duration-700 ${
+      className={`fade-in-up mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-2 md:mt-7 transition-opacity duration-700 ${
         immersive ? "opacity-0" : "opacity-100"
       }`}
     >
-      <span className="font-display text-xl font-semibold tracking-wide md:text-2xl">
+      <span className="font-display text-title font-semibold tracking-wide">
         {track?.artist ?? "—"}
       </span>
-      <span className="text-sm text-white/45">{track?.album ?? ""}</span>
+      {track?.album ? <span className="text-body text-ink-2">{track.album}</span> : null}
       {track?.bpm ? (
-        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[10px] tracking-[0.2em] text-white/50">
+        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-micro tracking-[0.2em] text-ink-2">
           {track.bpm} BPM
         </span>
       ) : null}
@@ -63,12 +69,13 @@ function ArtistLine({ immersive }: { immersive: boolean }) {
   );
 }
 
-function SeedTag({ immersive }: { immersive: boolean }) {
+function SeedTag({ immersive, hidden }: { immersive: boolean; hidden: boolean }) {
   const seed = usePlayer((s) => s.tracks[s.current]?.seed ?? 0);
   return (
     <div
-      className={`absolute bottom-64 right-10 hidden text-[10px] uppercase tracking-[0.5em] text-white/30 transition-opacity duration-700 xl:block ${
-        immersive ? "opacity-0" : "opacity-100"
+      aria-hidden
+      className={`fixed bottom-[calc(var(--dock-h)+var(--space-8)+var(--safe-b))] right-(--gutter) hidden text-micro uppercase tracking-[0.5em] text-ink-3 transition-opacity duration-700 xl:block ${
+        immersive || hidden ? "opacity-0" : "opacity-100"
       }`}
       style={{ writingMode: "vertical-rl" }}
     >
@@ -77,15 +84,27 @@ function SeedTag({ immersive }: { immersive: boolean }) {
   );
 }
 
+function TrackAnnouncer() {
+  const title = usePlayer((s) => s.tracks[s.current]?.title ?? "");
+  const artist = usePlayer((s) => s.tracks[s.current]?.artist ?? "");
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {title ? `Lecture : ${title}${artist ? `, ${artist}` : ""}` : null}
+    </div>
+  );
+}
+
 export default function Home() {
   const hasTracks = usePlayer((s) => s.tracks.length > 0);
   const showHome = usePlayer((s) => s.showHome);
-  const setVisualMode = usePlayer((s) => s.setVisualMode);
-  const lyricsAvailable = usePlayer((s) => s.lyricsAvailable);
   const currentTrackId = usePlayer((s) => s.tracks[s.current]?.id ?? null);
   const [immersive, setImmersive] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const playerView = hasTracks && !showHome;
 
   const queueOpen = usePlayer((s) => s.queueOpen);
 
@@ -106,6 +125,8 @@ export default function Home() {
       return nextOpen;
     });
   };
+
+  useEffect(() => setupMotion(), []);
 
   useEffect(() => {
     void usePlayer.getState().restore();
@@ -154,35 +175,24 @@ export default function Home() {
     };
   }, [hasTracks]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const state = usePlayer.getState();
-      if (state.sleepAt !== null && Date.now() >= state.sleepAt) {
-        state.setSleep(0);
-        engine.pause();
-      }
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, []);
+  const helpOpen = usePlayer((s) => s.helpOpen);
+  useHotkeys({
+    onToggleLyrics: () => {
+      if (usePlayer.getState().lyricsAvailable) toggleLyrics();
+    },
+    onSearch: () => setSearchOpen((open) => !open),
+    onHelp: () => setShortcutsOpen(true),
+    enabled: !helpOpen && !shortcutsOpen && !settingsOpen,
+  });
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-        return;
-      const numericMode = Number(event.key);
-      if (numericMode >= 1 && numericMode <= MODE_KEYS.length) {
-        setVisualMode(MODE_KEYS[numericMode - 1]);
-      } else if (MODE_KEYS.includes(event.key as VisualMode)) {
-        setVisualMode(event.key as VisualMode);
-      } else if (event.key === "f" || event.key === "F") {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setVisualMode]);
+  useLaunchAction({
+    resume: () => {
+      const state = usePlayer.getState();
+      if (state.current >= 0 && state.tracks.length > 0 && !state.playing) state.toggle();
+    },
+    search: () => setSearchOpen(true),
+    shuffle: () => usePlayer.getState().playShuffledLibrary(),
+  });
 
   useEffect(() => {
     let startX = 0;
@@ -264,43 +274,43 @@ export default function Home() {
     <div suppressHydrationWarning className="relative min-h-dvh">
       <Visualizer />
 
-      <div className="relative z-10 flex min-h-dvh flex-col">
-        <Header immersive={immersive} />
+      <div className="relative flex min-h-dvh flex-col">
+        <Header
+          immersive={immersive}
+          onOpenSearch={playerView ? () => setSearchOpen(true) : undefined}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
         {hasTracks && !showHome ? (
           <>
             <main
-              className={`pointer-events-none relative flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
+              className={`pointer-events-none relative z-(--z-content) flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
                 immersive ? "translate-y-6" : ""
+              } pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)] ${
+                lyricsOpen
+                  ? "max-md:opacity-0 md:pr-[calc(min(380px,100vw-2rem)+var(--gutter)+1rem)]"
+                  : ""
               } ${
-                lyricsOpen 
-                  ? "opacity-0 md:opacity-100 pb-[55vh] md:pb-52 md:pr-[420px]" 
-                  : "opacity-100 pb-44 md:pb-52"
+                queueOpen && !immersive && !lyricsOpen
+                  ? "md:pr-[calc(min(380px,100vw-2rem)+var(--gutter)+1rem)]"
+                  : ""
               }`}
             >
               <MetaLine immersive={immersive} />
               <h2 className="sr-only">Lecture en cours</h2>
               <TrackTitle />
               <ArtistLine immersive={immersive} />
-              <SeedTag immersive={immersive} />
+              <SeedTag immersive={immersive} hidden={queueOpen || lyricsOpen} />
             </main>
             <PlayerBar
               immersive={immersive}
               lyricsOpen={lyricsOpen}
               onToggleLyrics={toggleLyrics}
             />
-            <div
-              className={`fixed left-4 top-20 z-20 hidden transition-all duration-500 lg:block ${
-                immersive
-                  ? "pointer-events-none -translate-y-4 opacity-0"
-                  : "opacity-100"
-              }`}
-            >
-              <FloatingSearch />
-            </div>
             <TrackList immersive={immersive} />
-            <ModeSwitcher lyricsOpen={lyricsOpen} />
-            {lyricsOpen && <LyricsPanel />}
-            <GlobalProgressBar />
+            <ModeSwitcher lyricsOpen={lyricsOpen} immersive={immersive} />
+            <LyricsPanel open={lyricsOpen} onClose={() => setLyricsOpen(false)} />
+            <GlobalProgressBar immersive={immersive} />
           </>
         ) : (
           <LibraryGate />
@@ -308,21 +318,28 @@ export default function Home() {
       </div>
 
       {dragOver && (
-        <div className="pointer-events-none fixed inset-0 z-[75] grid place-items-center bg-black/60 backdrop-blur-sm">
+        <div className="pointer-events-none fixed inset-0 z-(--z-overlay) grid place-items-center bg-black/60 backdrop-blur-sm">
           <div className="rounded-3xl border-2 border-dashed border-white/30 px-12 py-10 text-center">
             <p className="font-display text-2xl font-bold">
               Dépose ton dossier musique
             </p>
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-ink-2">
               Il sera mémorisé avec tes autres sources
             </p>
           </div>
         </div>
       )}
 
+      {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}
+      {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      <TrackAnnouncer />
+      <VideoStage />
       <Onboarding />
       <UpdateToast />
       <CustomCursor />
+      <FxRoot />
+      <Intro />
     </div>
   );
 }

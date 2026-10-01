@@ -1,19 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const syne = Syne({
-  subsets: ["latin"],
+// Self-hosted variable fonts (latin subset from Google Fonts): builds no longer
+// depend on fetching fonts.googleapis.com, which broke CI builds.
+const syne = localFont({
+  src: "./fonts/syne-latin.woff2",
   variable: "--font-syne",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  display: "swap",
 });
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
+const spaceGrotesk = localFont({
+  src: "./fonts/space-grotesk-latin.woff2",
   variable: "--font-space",
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "300 700",
+  display: "swap",
+});
+
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
+  variable: "--font-mono-face",
+  weight: "400 500",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -50,11 +61,18 @@ export default function RootLayout({
       lang="fr"
       translate="no"
       suppressHydrationWarning
-      className={`${syne.variable} ${spaceGrotesk.variable}`}
+      className={`${syne.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <link rel="preconnect" href="https://www.youtube.com" />
         <link rel="preconnect" href="https://www.googleapis.com" />
+        {/* Intro plays once per session: decided before first paint. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{document.documentElement.dataset.intro=sessionStorage.getItem("aurora:intro")?"skip":"play"}catch(e){document.documentElement.dataset.intro="skip"}',
+          }}
+        />
       </head>
       <body suppressHydrationWarning className="font-sans antialiased">
         <ServiceWorkerRegister />

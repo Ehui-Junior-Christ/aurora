@@ -17,10 +17,19 @@ function cleanOnlineTitle(value: string): string {
     .trim();
 }
 
+const LYRICS_TIMEOUT_MS = 8000;
+const MAX_LYRICS_LENGTH = 200_000;
+
 function pickBest(results: LrcLibResult[]): LyricsCue[] | null {
   const best =
-    results.find((r) => r.syncedLyrics && r.syncedLyrics.trim().length > 0) ??
-    null;
+    results.find(
+      (r) =>
+        r !== null &&
+        typeof r === "object" &&
+        typeof r.syncedLyrics === "string" &&
+        r.syncedLyrics.trim().length > 0 &&
+        r.syncedLyrics.length <= MAX_LYRICS_LENGTH
+    ) ?? null;
   if (!best?.syncedLyrics) return null;
   const cues = parseLrc(best.syncedLyrics);
   return cues.length > 0 ? cues : null;
@@ -33,12 +42,13 @@ async function queryLyrics(params: URLSearchParams): Promise<LyricsCue[] | null>
       headers: {
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(LYRICS_TIMEOUT_MS),
     }
   );
   if (!response.ok) return null;
-  const results = (await response.json()) as LrcLibResult[];
+  const results = (await response.json()) as unknown;
   if (!Array.isArray(results) || results.length === 0) return null;
-  return pickBest(results);
+  return pickBest(results as LrcLibResult[]);
 }
 
 export async function fetchRemoteLyrics(

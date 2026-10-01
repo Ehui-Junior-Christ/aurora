@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePlayer } from "@/store/player-store";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { usePlayer, sleepRemainingSeconds } from "@/store/player-store";
+import { useDismissable } from "@/hooks/useDismissable";
 
 const BANDS = [
   { key: "low", label: "Graves" },
@@ -22,7 +23,61 @@ const EQ_PRESETS: { name: string; values: { low: number; mid: number; high: numb
 
 const SLEEP_OPTIONS = [0, 15, 30, 45, 60];
 
-export default function EqPanel({ onClose }: { onClose: () => void }) {
+const MIX_LENGTHS = [
+  { value: "auto", label: "Auto" },
+  { value: "short", label: "Courte" },
+  { value: "long", label: "Longue" },
+] as const;
+
+const MIX_STYLES = [
+  { value: "auto", label: "Auto", hint: "Choisi à chaque transition" },
+  { value: "blend", label: "Blend", hint: "Fondu calé sur le tempo, échange des basses" },
+  { value: "filter", label: "Filtre", hint: "Passe-haut sur la sortante, passe-bas qui s'ouvre" },
+  { value: "echo", label: "Écho", hint: "La sortante part en écho, l'entrante tombe sur le temps" },
+  { value: "cut", label: "Cut", hint: "Bascule nette sur le drop" },
+  { value: "fade", label: "Fondu", hint: "Fondu à puissance constante" },
+] as const;
+
+function Pill({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-cursor="magnetic"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={`rounded-full border px-2.5 py-1 text-micro uppercase tracking-wider transition-colors ${
+        active
+          ? "border-[var(--c2)] bg-[var(--c2)]/10 text-[var(--c2)]"
+          : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function EqPanel({
+  onClose,
+  triggerRef,
+}: {
+  onClose: () => void;
+  triggerRef?: RefObject<HTMLElement | null>;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDismissable(panelRef, onClose, {
+    ignore: triggerRef ? [triggerRef] : [],
+  });
   const eq = usePlayer((s) => s.eq);
   const setEq = usePlayer((s) => s.setEq);
   const speed = usePlayer((s) => s.speed);
@@ -33,22 +88,29 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
   const setSkipSilence = usePlayer((s) => s.setSkipSilence);
   const normalize = usePlayer((s) => s.normalize);
   const setNormalize = usePlayer((s) => s.setNormalize);
-  const sleepAt = usePlayer((s) => s.sleepAt);
+  const mix = usePlayer((s) => s.mix);
+  const setMix = usePlayer((s) => s.setMix);
+  const trackMix = usePlayer((s) =>
+    s.trackMix && s.trackMix.id === s.tracks[s.current]?.id ? s.trackMix : null
+  );
   const setSleep = usePlayer((s) => s.setSleep);
-  const [now, setNow] = useState(Date.now());
+  const sleepMode = usePlayer((s) => s.sleepMode);
+  const setSleepEndOfTrack = usePlayer((s) => s.setSleepEndOfTrack);
+  const cancelSleep = usePlayer((s) => s.cancelSleep);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [custom, setCustom] = useState("");
   const [selectedSleep, setSelectedSleep] = useState<number | null>(null);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const tick = () => setRemaining(sleepRemainingSeconds(usePlayer.getState()));
+    tick();
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (sleepAt === null) setSelectedSleep(null);
-  }, [sleepAt]);
-
-  const sleepRemainingMin =
-    sleepAt !== null ? Math.max(0, Math.ceil((sleepAt - now) / 60000)) : 0;
+    if (sleepMode === "off") setSelectedSleep(null);
+  }, [sleepMode]);
 
   const pickSleep = (minutes: number) => {
     setSelectedSleep(minutes > 0 ? minutes : null);
@@ -56,9 +118,16 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="glass-strong bg-[#050508]/95 md:bg-transparent absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-40 mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
+    <div
+      ref={panelRef}
+      id="eq-panel"
+      role="dialog"
+      aria-label="Égaliseur et options audio"
+      data-panel
+      data-lenis-prevent
+      className="glass-solid absolute bottom-full left-0 right-0 md:left-auto md:right-0 z-(--z-popover) mb-3 max-h-[70vh] md:w-72 overflow-y-auto rounded-2xl p-4 shadow-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-white/50">
+        <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
           Égaliseur
         </span>
         <button
@@ -90,10 +159,11 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
               type="button"
               data-cursor="magnetic"
               onClick={() => setEq(preset.values)}
-              className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider transition-colors ${
+              aria-pressed={active}
+              className={`rounded-full border px-2.5 py-1 text-micro uppercase tracking-wider transition-colors ${
                 active
                   ? "border-[var(--c2)] bg-[var(--c2)]/10 text-[var(--c2)]"
-                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+                  : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
               }`}
             >
               {preset.name}
@@ -104,7 +174,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
 
       {BANDS.map((band) => (
         <div key={band.key} className="mb-3">
-          <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+          <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
             <span>{band.label}</span>
             <span className="tabular-nums text-white/70">
               {eq[band.key] > 0 ? "+" : ""}
@@ -130,7 +200,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
       <div className="my-4 h-px bg-white/10" />
 
       <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
+        <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
           <span>Vitesse</span>
           <span className="tabular-nums text-white/70">{speed.toFixed(2)}×</span>
         </div>
@@ -147,9 +217,9 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/45">
-          <span>Crossfade</span>
+      <div className={`mb-3 ${mix.enabled ? "opacity-40" : ""}`}>
+        <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
+          <span>{mix.enabled ? "Crossfade (remplacé par Aurora Mix)" : "Crossfade"}</span>
           <span className="tabular-nums text-white/70">{crossfade} s</span>
         </div>
         <input
@@ -159,6 +229,7 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
           step={1}
           value={crossfade}
           onChange={(event) => setCrossfade(Number(event.target.value))}
+          disabled={mix.enabled}
           aria-label="Durée du crossfade en secondes"
           className="w-full"
           style={{ accentColor: "var(--c2)" }}
@@ -187,37 +258,180 @@ export default function EqPanel({ onClose }: { onClose: () => void }) {
         />
       </label>
 
-      <div className="mb-1 text-[10px] uppercase tracking-[0.2em] text-white/45">
-        Minuterie sommeil
+      <div className="my-4 h-px bg-white/10" />
+
+      <section aria-label="Aurora Mix" className="mb-4">
+        <label className="mb-2 flex cursor-pointer items-center justify-between">
+          <span className="font-mono text-micro uppercase tracking-[0.35em] text-ink-2">
+            Aurora Mix
+          </span>
+          <span className="flex items-center gap-2">
+            {trackMix && (
+              <span
+                className="font-mono text-micro tabular-nums text-white/50"
+                title={`${trackMix.bpm.toFixed(1)} BPM · ${trackMix.keyName}`}
+              >
+                {Math.round(trackMix.bpm)} BPM{trackMix.camelot ? ` · ${trackMix.camelot}` : ""}
+              </span>
+            )}
+            <input
+              type="checkbox"
+              role="switch"
+              checked={mix.enabled}
+              onChange={(event) => setMix({ enabled: event.target.checked })}
+              aria-label="Activer Aurora Mix (transitions DJ automatiques)"
+              className="size-3.5"
+              style={{ accentColor: "var(--c2)" }}
+            />
+          </span>
+        </label>
+        <p className="mb-3 text-[11px] leading-snug text-white/45">
+          Transitions calées sur le tempo et les phrases, basses échangées sur le
+          temps fort, tonalités compatibles.
+        </p>
+        {mix.enabled && (
+          <>
+            <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">Durée</div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {MIX_LENGTHS.map((l) => (
+                <Pill key={l.value} active={mix.length === l.value} onClick={() => setMix({ length: l.value })}>
+                  {l.label}
+                </Pill>
+              ))}
+            </div>
+            <div className="mb-1 text-micro uppercase tracking-[0.2em] text-ink-2">Style</div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {MIX_STYLES.map((st) => (
+                <Pill
+                  key={st.value}
+                  active={mix.style === st.value}
+                  onClick={() => setMix({ style: st.value })}
+                  title={st.hint}
+                >
+                  {st.label}
+                </Pill>
+              ))}
+            </div>
+            <label className="mb-2 flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Synchro du tempo</span>
+              <input
+                type="checkbox"
+                checked={mix.tempoSync}
+                onChange={(event) => setMix({ tempoSync: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+            <label className="mb-2 flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Priorité harmonique</span>
+              <input
+                type="checkbox"
+                checked={mix.harmonic}
+                onChange={(event) => setMix({ harmonic: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between text-[11px] text-white/60">
+              <span>Mix harmonique (en lecture aléatoire)</span>
+              <input
+                type="checkbox"
+                checked={mix.order}
+                onChange={(event) => setMix({ order: event.target.checked })}
+                className="size-3.5"
+                style={{ accentColor: "var(--c2)" }}
+              />
+            </label>
+          </>
+        )}
+      </section>
+
+      <div className="mb-1.5 flex items-center justify-between text-micro uppercase tracking-[0.2em] text-ink-2">
+        <span>Minuterie sommeil</span>
+        {sleepMode !== "off" && (
+          <span className="tabular-nums normal-case tracking-normal text-[var(--c2)]" aria-live="polite">
+            {sleepMode === "track"
+              ? "fin de la piste"
+              : remaining !== null
+                ? `${Math.floor(remaining / 60)}:${String(Math.floor(remaining % 60)).padStart(2, "0")}`
+                : ""}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {SLEEP_OPTIONS.map((minutes) => {
-          const active =
-            minutes === 0
-              ? sleepAt === null
-              : selectedSleep === minutes && sleepAt !== null;
+        {SLEEP_OPTIONS.filter((m) => m > 0).map((minutes) => {
+          const active = sleepMode === "time" && selectedSleep === minutes;
           return (
             <button
               key={minutes}
               type="button"
               data-cursor="magnetic"
               onClick={() => pickSleep(minutes)}
-              className={`rounded-full border px-2.5 py-1 text-[10px] transition-colors ${
+              aria-pressed={active}
+              className={`min-h-8 rounded-full border px-2.5 text-micro transition-colors ${
                 active
                   ? "border-[var(--c2)] text-[var(--c2)]"
-                  : "border-white/10 text-white/50 hover:border-white/30 hover:text-white"
+                  : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
               }`}
             >
-              {minutes === 0 ? "Off" : `${minutes} min`}
+              {minutes} min
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedSleep(null);
+            setSleepEndOfTrack();
+          }}
+          aria-pressed={sleepMode === "track"}
+          className={`min-h-8 rounded-full border px-2.5 text-micro transition-colors ${
+            sleepMode === "track"
+              ? "border-[var(--c2)] text-[var(--c2)]"
+              : "border-white/10 text-ink-2 hover:border-white/30 hover:text-white"
+          }`}
+        >
+          Fin de la piste
+        </button>
       </div>
-      {sleepAt !== null && sleepRemainingMin > 0 && (
-        <p className="mt-2 text-[10px] text-white/40">
-          Pause dans {sleepRemainingMin} min
-        </p>
-      )}
+      <div className="mt-2 flex items-center gap-2">
+        <label className="flex items-center gap-1.5 text-micro text-ink-2">
+          <input
+            type="number"
+            min={1}
+            max={600}
+            value={custom}
+            onChange={(event) => setCustom(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && Number(custom) > 0) pickSleep(Number(custom));
+            }}
+            aria-label="Durée personnalisée en minutes"
+            placeholder="90"
+            className="h-8 w-16 rounded-lg border border-white/10 bg-white/5 px-2 text-base tabular-nums text-white outline-none focus:border-white/30 md:text-xs"
+          />
+          min
+        </label>
+        <button
+          type="button"
+          disabled={!(Number(custom) > 0)}
+          onClick={() => pickSleep(Number(custom))}
+          className="min-h-8 rounded-full border border-white/10 px-2.5 text-micro text-ink-2 transition-colors hover:border-white/30 hover:text-white disabled:opacity-35"
+        >
+          Régler
+        </button>
+        {sleepMode !== "off" && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSleep(null);
+              cancelSleep();
+            }}
+            className="ml-auto min-h-8 rounded-full px-2.5 text-micro uppercase tracking-[0.14em] text-ink-2 transition-colors hover:text-red-300"
+          >
+            Annuler
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { usePlayer } from "@/store/player-store";
 import UnifiedSearch from "@/components/UnifiedSearch";
+import Trends from "@/components/Trends";
+import { idbGet } from "@/lib/db";
+import type { FsNode } from "@/lib/fs-scanner";
+import { introDelay } from "@/components/fx/Intro";
+import { prefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const FORMATS = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"];
 
@@ -17,25 +22,83 @@ export default function LibraryGate() {
   const reconnect = usePlayer((s) => s.reconnect);
   const setSupported = usePlayer((s) => s.setSupported);
 
+  const retryScan = async () => {
+    const dirs = await idbGet<FsNode[]>("handles", "musicDirs");
+    const state = usePlayer.getState();
+    if (dirs && dirs.length > 0) await state.loadAllSources(dirs);
+    else await state.openFolder();
+  };
+
   useEffect(() => {
     setSupported(
       typeof window !== "undefined" && "showDirectoryPicker" in window
     );
   }, [setSupported]);
 
+  // Scroll-driven entrance: each [data-gate] block rises in when it enters
+  // the viewport (the first batch waits for the intro to lift).
   useEffect(() => {
-    if (scanning) return;
-    const ctx = gsap.context(() => {
-      gsap.from("[data-gate]", {
-        y: 44,
-        opacity: 0,
-        stagger: 0.09,
-        duration: 0.95,
-        ease: "power3.out",
-      });
-    });
-    return () => ctx.revert();
-  }, [scanning]);
+    if (scanning || prefersReducedMotion()) return;
+    const items = gsap.utils.toArray<HTMLElement>("[data-gate]");
+    if (items.length === 0) return;
+    gsap.set(items, { y: 44, opacity: 0 });
+    let delay = introDelay();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entering = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => entry.target as HTMLElement);
+        if (entering.length === 0) return;
+        entering.forEach((el) => observer.unobserve(el));
+        gsap.to(entering, {
+          y: 0,
+          opacity: 1,
+          stagger: 0.09,
+          duration: 0.95,
+          ease: "power3.out",
+          delay,
+          clearProps: "transform,opacity",
+        });
+        delay = 0;
+      },
+      { rootMargin: "0px 0px -6% 0px" }
+    );
+    items.forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      gsap.killTweensOf(items);
+      gsap.set(items, { clearProps: "transform,opacity" });
+    };
+  }, [scanning, needsPermission]);
+
+  // Hero parallax: the headline lifts a little faster than the page (so it
+  // never drifts into the copy below) and dims as it leaves. Reads the
+  // untransformed wrapper, writes the inner one.
+  const heroRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const outer = heroRef.current;
+    const inner = outer?.firstElementChild as HTMLElement | null;
+    if (!outer || !inner || scanning || prefersReducedMotion()) return;
+    const start = outer.getBoundingClientRect().top + window.scrollY;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const scrolled = Math.max(0, start - outer.getBoundingClientRect().top);
+      const progress = Math.min(1, scrolled / window.innerHeight);
+      inner.style.transform = `translate3d(0, ${(-scrolled * 0.18).toFixed(1)}px, 0)`;
+      inner.style.opacity = String(1 - progress * 0.6);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      inner.style.transform = "";
+      inner.style.opacity = "";
+    };
+  }, [scanning, needsPermission]);
 
   if (scanning) {
     const pct =
@@ -43,12 +106,12 @@ export default function LibraryGate() {
         ? Math.round((progress.done / progress.total) * 100)
         : 0;
     return (
-      <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-6 py-16">
+      <main className="relative z-(--z-content) flex flex-1 flex-col overflow-y-auto px-6 py-16">
         <div className="m-auto flex w-full max-w-md flex-col items-center gap-8 text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-white/40">
+          <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2">
             Analyse de la bibliothèque
           </p>
-          <div className="font-display text-7xl font-extrabold tabular-nums md:text-8xl">
+          <div className="font-display text-[clamp(3rem,15vw,6rem)] font-extrabold leading-none tabular-nums">
             <span className="text-gradient">{progress.done}</span>
             <span className="text-white/25"> / {progress.total}</span>
           </div>
@@ -63,7 +126,7 @@ export default function LibraryGate() {
               }}
             />
           </div>
-          <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+          <p className="text-xs uppercase tracking-[0.3em] text-ink-2">
             tags · pochettes · extraction de palette
           </p>
         </div>
@@ -72,29 +135,31 @@ export default function LibraryGate() {
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-6 md:py-20">
+    <main className="relative z-(--z-content) flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-6 md:py-20">
       <div className="m-auto flex w-full max-w-3xl flex-col items-center text-center">
         {needsPermission ? (
           <>
             <p
               data-gate
-              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40"
+              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2"
             >
               bibliothèque retrouvée
             </p>
             <h1
               data-gate
-              className="font-display text-[clamp(2rem,6vw,4.5rem)] font-extrabold uppercase leading-[0.95] tracking-tight"
+              className="font-display text-[clamp(2rem,7vw,4.5rem)] font-extrabold uppercase leading-[0.95] tracking-tight"
             >
               Bon retour.
             </h1>
-            <p data-gate className="mt-6 max-w-md text-sm leading-relaxed text-white/50">
+            <p data-gate className="mt-6 max-w-md text-sm leading-relaxed text-ink-2">
               Ton dossier « {pendingDirName} » est mémorisé. Une simple
               autorisation du navigateur suffit pour recharger ta bibliothèque.
             </p>
             <button
               data-gate
               data-cursor="magnetic"
+              data-magnetic
+              data-ripple
               type="button"
               onClick={() => void reconnect()}
               className="mt-10 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.07] px-9 py-4 font-display text-sm font-bold uppercase tracking-[0.22em] backdrop-blur-xl transition-all duration-300 hover:border-white/40 hover:bg-white/[0.12]"
@@ -106,22 +171,26 @@ export default function LibraryGate() {
           <>
             <p
               data-gate
-              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-white/40"
+              className="mb-6 font-mono text-[11px] uppercase tracking-[0.45em] text-ink-2"
             >
               aurora // lecteur génératif hybride
             </p>
+            <div ref={heroRef} className="w-full">
+            <div>
             <h1
               data-gate
-              className="font-display max-w-5xl text-4xl md:text-6xl lg:text-[7.5rem] font-extrabold uppercase leading-[0.92] tracking-tight break-words hyphens-auto"
+              className="mx-auto font-display max-w-5xl text-[clamp(1.4rem,6.2vw,3.4rem)] font-extrabold uppercase leading-[0.92] tracking-tight [text-wrap:balance]"
               lang="fr"
             >
               Chaque piste
               <br />
               <span className="text-gradient">respire différemment.</span>
             </h1>
+            </div>
+            </div>
             <p
               data-gate
-              className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-white/50"
+              className="mt-6 max-w-md text-xs md:text-sm leading-relaxed text-ink-2"
             >
               Cherche le titre ou l&apos;artiste de ton choix, et AURORA se charge du reste. Des visuels WebGL génératifs accompagnent chaque musique en temps réel.
             </p>
@@ -130,10 +199,27 @@ export default function LibraryGate() {
               <UnifiedSearch />
             </div>
 
+            <div data-gate className="mt-12 w-full max-w-3xl">
+              <Trends />
+            </div>
+
             {error && (
-              <p className="mt-5 font-mono text-xs uppercase tracking-[0.2em] text-red-400/90">
-                erreur · {error}
-              </p>
+              <div
+                role="alert"
+                className="mt-6 flex w-full max-w-md items-start gap-3 rounded-(--radius-card) border border-red-400/25 bg-red-500/[0.08] p-4 text-left"
+              >
+                <span aria-hidden className="mt-1.5 block size-2 shrink-0 rounded-full bg-red-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-red-100/90">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => void retryScan()}
+                    className="btn-icon mt-3 inline-flex min-h-9 items-center rounded-full border border-white/20 px-4 text-micro font-bold uppercase tracking-[0.18em] text-white hover:bg-white/10"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              </div>
             )}
             {!supported && (
               <p className="mt-5 max-w-sm text-xs leading-relaxed text-amber-200/80">
@@ -146,7 +232,7 @@ export default function LibraryGate() {
               {FORMATS.map((format) => (
                 <li
                   key={format}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-mono text-[10px] tracking-[0.25em] text-white/40"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 font-mono text-micro tracking-[0.25em] text-ink-2"
                 >
                   {format}
                 </li>
@@ -154,13 +240,12 @@ export default function LibraryGate() {
             </ul>
 
             <div data-gate className="mt-16 flex flex-col items-center gap-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
+              <p className="font-mono text-micro uppercase tracking-[0.2em] text-ink-3">
                 Obtenir l&apos;application
               </p>
               <div className="flex flex-col md:flex-row flex-wrap justify-center gap-4 w-full md:w-auto">
                 <a
-                  href="/download/aurora-mobile.apk"
-                  download="aurora-mobile.apk"
+                  href="https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/aurora-mobile.apk"
                   className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -169,8 +254,7 @@ export default function LibraryGate() {
                   Mobile (.apk)
                 </a>
                 <a
-                  href="/download/AURORA.exe"
-                  download="AURORA.exe"
+                  href="https://github.com/Ehui-Junior-Christ/aurora/releases/latest/download/AURORA.exe"
                   className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-3 font-display text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white/10"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

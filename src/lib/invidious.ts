@@ -49,12 +49,22 @@ function timeoutSignal(signal?: AbortSignal): {
   return { signal: controller.signal, cleanup };
 }
 
+/** Strips any number of legacy `yt:` / `online_` prefixes from an id. */
+export function toVideoId(id: string): string {
+  return id.replace(/^(?:yt:|online_)+/, "");
+}
+
 export async function searchOnlineMusic(
   query: string,
   apiKey: string
 ): Promise<OnlineMusicResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
+  if (!apiKey.trim()) {
+    throw new Error(
+      "Clé API YouTube manquante. Ajoutez-la dans les réglages ou via NEXT_PUBLIC_YOUTUBE_API_KEY."
+    );
+  }
 
   const params = new URLSearchParams({
     part: "snippet",
@@ -62,6 +72,10 @@ export async function searchOnlineMusic(
     maxResults: "20",
     q: trimmed,
     videoCategoryId: "10", // Music
+    // Only return videos that can actually be played through the embedded
+    // IFrame player (many official music videos block embedding -> error 150).
+    videoEmbeddable: "true",
+    videoSyndicated: "true",
     key: apiKey,
   });
 
@@ -75,7 +89,30 @@ export async function searchOnlineMusic(
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP_${response.status}`);
+      let reason = "";
+      try {
+        const body = (await response.json()) as { error?: { errors?: { reason?: string }[] } };
+        reason = body.error?.errors?.[0]?.reason ?? "";
+      } catch {
+        /* non-JSON error page */
+      }
+      if (response.status === 429 || /quota|dailyLimit|rateLimit/i.test(reason)) {
+        throw new Error(
+          "Quota YouTube du jour épuisé. La recherche du catalogue et les Tendances restent disponibles ; réessaie après 9 h (heure de Paris)."
+        );
+      }
+      if (response.status === 403) {
+        throw new Error(`Clé API YouTube refusée (403${reason ? ` · ${reason}` : ""}).`);
+      }
+      if (response.status === 429) {
+        throw new Error(
+          "Quota YouTube du jour épuisé. Réessaie plus tard ou ajoute ta propre clé API dans les réglages."
+        );
+      }
+      if (response.status === 400) {
+        throw new Error("Clé API YouTube invalide (400).");
+      }
+      throw new Error(`Recherche indisponible (HTTP ${response.status}).`);
     }
 
     const json = (await response.json()) as YouTubeSearchResponse;
@@ -95,10 +132,14 @@ export async function searchOnlineMusic(
         const title = snippet.title
           .replace(/&amp;/g, "&")
           .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">");
 
         return {
-          id: `yt:${item.id.videoId}`, // Prefix with yt: so engine knows to use IFrame
+          // Raw video id: onlineResultToTrack() adds the `yt:` prefix. Prefixing
+          // here too produced `yt:yt:<id>` which the IFrame player rejected.
+          id: item.id.videoId as string,
           title,
           artist: snippet.channelTitle,
           thumbnail,
@@ -106,8 +147,8 @@ export async function searchOnlineMusic(
           isOnline: true as const,
         };
       });
-  } catch (err: any) {
-    if (err.name === "AbortError") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new Error("La recherche a expiré. Réessayez.");
     }
     throw err;
@@ -120,14 +161,15 @@ export async function getAudioStreamUrl(trackId: string): Promise<string> {
   // With the YouTube iframe player, we don't need a stream URL, we just pass the ID.
   // But to satisfy types if needed, return empty or throw.
   // We will intercept the playback in audio-engine.ts instead.
-  return `yt:${trackId}`;
+  return `yt:${toVideoId(trackId)}`;
 }
 
 export function onlineResultToTrack(result: OnlineMusicResult): Track {
-  const seed = fnv1a(`${result.id}|${result.title}|${result.artist}`);
+  const videoId = toVideoId(result.id);
+  const seed = fnv1a(`${videoId}|${result.title}|${result.artist}`);
   return {
-    id: `yt:${result.id}`, // Prefix with yt: so engine knows to use IFrame
-    streamUrl: `yt:${result.id}`,
+    id: `yt:${videoId}`, // Prefix with yt: so engine knows to use IFrame
+    streamUrl: `yt:${videoId}`,
     isOnline: true,
     title: result.title,
     artist: result.artist,

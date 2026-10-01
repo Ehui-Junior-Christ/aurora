@@ -1,8 +1,66 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ */
+/*  Design tokens                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Registered so the cover-derived palette crossfades instead of snapping. */
+@property --c1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6d4dff;
+}
+@property --c2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #22e4ff;
+}
+@property --c3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ff4ecd;
+}
+
+/* Glass spotlight intensity (hooks/useGlassSpotlight), eased on enter/leave. */
+@property --spot-o {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
 @theme inline {
   --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-solid: var(--surface-solid);
+}
+
+@theme {
+  /* Fluid type scale — nothing informative goes below --text-micro. */
+  --text-micro: 0.6875rem;
+  --text-caption: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem);
+  --text-body: clamp(0.875rem, 0.84rem + 0.16vw, 0.9375rem);
+  --text-lead: clamp(1rem, 0.95rem + 0.28vw, 1.125rem);
+  --text-title: clamp(1.25rem, 1.1rem + 0.6vw, 1.625rem);
+  --text-display: clamp(1.75rem, 0.9rem + 3.4vw, 4.25rem);
+  --text-hero: clamp(2.8rem, 11vw, 10rem);
+
+  --radius-chip: 12px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-panel: 24px;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root {
@@ -10,6 +68,69 @@
   --c2: #22e4ff;
   --c3: #ff4ecd;
   --bg: #050508;
+
+  /* Ink: ink-2 keeps >= 4.5:1 on the dark glass surfaces. */
+  --ink-1: #f5f5f7;
+  --ink-2: rgba(245, 245, 247, 0.66);
+  --ink-3: rgba(245, 245, 247, 0.44);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.28);
+
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(12, 12, 20, 0.55);
+  --surface-solid: rgba(8, 8, 13, 0.975);
+  /* Glass filters go through custom properties: with literal values the
+     CSS minifier merged the two declarations and kept only the -webkit-
+     one, so Chromium rendered glass without blur. Values stay modest (GPU
+     cost over the WebGL canvas); quality-low drops them entirely. */
+  --blur-1: 16px;
+  --blur-2: 20px;
+  --glass-filter-1: blur(var(--blur-1)) saturate(140%);
+  --glass-filter-2: blur(var(--blur-2)) saturate(150%);
+  --shadow-dock: 0 28px 90px -24px rgba(0, 0, 0, 0.95);
+  --shadow-pop: 0 24px 64px -16px rgba(0, 0, 0, 0.85);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --gutter: clamp(1.25rem, 4vw, 3rem);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  /* Real value is written by a ResizeObserver on the player dock
+     (useDockHeight); it includes the dock's bottom gap. */
+  --dock-gap: 0.75rem;
+  --dock-h: calc(4.5rem + var(--dock-gap));
+
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 500ms;
+  --dur-5: 800ms;
+
+  --z-canvas: 0;
+  --z-content: 10;
+  --z-panel: 30;
+  --z-grain: 35;
+  --z-dock: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-overlay: 80;
+  --z-cursor: 100;
+
+  transition:
+    --c1 1.1s var(--ease-in-out-quart),
+    --c2 1.1s var(--ease-in-out-quart),
+    --c3 1.1s var(--ease-in-out-quart);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --dock-gap: 1.5rem;
+    --dock-h: calc(5.5rem + var(--dock-gap));
+  }
 }
 
 html {
@@ -25,7 +146,7 @@ body::before {
   content: "";
   position: fixed;
   inset: -20%;
-  z-index: 0;
+  z-index: var(--z-canvas);
   pointer-events: none;
   background:
     radial-gradient(
@@ -49,7 +170,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-grain);
   pointer-events: none;
   opacity: 0.055;
   mix-blend-mode: overlay;
@@ -57,17 +178,30 @@ body::after {
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--surface-1);
+  -webkit-backdrop-filter: var(--glass-filter-1);
+  backdrop-filter: var(--glass-filter-1);
+  border: 1px solid var(--line);
 }
 
 .glass-strong {
-  background: rgba(12, 12, 20, 0.55);
-  backdrop-filter: blur(26px) saturate(160%);
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface-2);
+  -webkit-backdrop-filter: var(--glass-filter-2);
+  backdrop-filter: var(--glass-filter-2);
+  border: 1px solid var(--line-2);
+}
+
+/* Opaque fallback for sheets that sit over busy WebGL on small screens.
+   At 97.5% opacity a backdrop blur is invisible, so none is paid for. */
+.glass-solid {
+  background: var(--surface-solid);
+  border: 1px solid var(--line-2);
+}
+
+/* Adaptive quality: when the GPU struggles, glass keeps its tint only. */
+:root[data-quality="low"] {
+  --glass-filter-1: none;
+  --glass-filter-2: none;
 }
 
 .text-gradient {
@@ -182,17 +316,640 @@ a {
 
 @media (prefers-reduced-motion: reduce) {
   .eq i,
-  .fade-in-up {
+  .fade-in-up,
+  .morph-flash {
+    animation: none;
+  }
+
+  :root {
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--c2);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.hero-title {
+  font-size: var(--text-hero);
+}
+
+.hero-title-long {
+  font-size: var(--text-display);
+}
+
+@media (max-height: 560px) {
+  .hero-title,
+  .hero-title-long {
+    font-size: clamp(1.6rem, 9vh, 4rem);
+  }
+}
+
+/* Popover entrance (menus, palettes). */
+@utility menu-in {
+  animation: menu-in var(--dur-3) var(--ease-out-expo) both;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tactile press feedback for icon buttons. */
+.btn-icon {
+  transition-property: color, background-color, border-color, box-shadow,
+    opacity, transform;
+  transition-duration: var(--dur-2);
+  transition-timing-function: var(--ease-out-expo);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* YouTube players (audio-engine stage, positioned by VideoStage). */
+#aurora-yt-stage iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+#aurora-yt-stage [data-yt-layer] {
+  transition: opacity 0.25s linear;
+}
+
+/* Loading placeholders. */
+.skeleton {
+  /* Shimmer tinted by the current cover palette. */
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.05) 30%,
+    color-mix(in srgb, var(--c2) 16%, rgba(255, 255, 255, 0.1)) 45%,
+    color-mix(in srgb, var(--c3) 14%, rgba(255, 255, 255, 0.1)) 55%,
+    rgba(255, 255, 255, 0.05) 70%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Bottom sheets and fullscreen palettes on small screens. */
+@utility sheet-in {
+  animation: sheet-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility backdrop-in {
+  animation: backdrop-in var(--dur-3) ease-out both;
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Text fields already show a border change; keep their ring subtle. */
+input[type="search"]:focus-visible,
+input[type="text"]:focus-visible,
+input:not([type]):focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--c2) 55%, transparent);
+  outline-offset: 0;
+}
+
+/* List entrance: first rows only, delay set inline (40ms steps). */
+@utility stagger-in {
+  animation: stagger-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Magnetic hero buttons: offsets tweened by lib/motion.ts. */
+[data-magnetic] {
+  translate: var(--mx, 0px) var(--my, 0px);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Intro (first load of a session, ~1.15s, never blocks input)        */
+/* ------------------------------------------------------------------ */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-cursor) - 1);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1.25rem;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, var(--c1) 14%, transparent), transparent 70%),
+    var(--bg);
+  animation: intro-out 0.34s var(--ease-in-out-quart) 0.82s both;
+}
+
+:root[data-intro="skip"] .intro,
+:root[data-intro="done"] .intro {
+  display: none;
+}
+
+.intro-word {
+  display: flex;
+  font-size: clamp(2.4rem, 11vw, 7rem);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  /* Letter-spacing trails the last glyph: re-centre optically. */
+  margin-right: -0.28em;
+  line-height: 1;
+  animation: intro-word-out 0.34s var(--ease-in-out-quart) 0.82s both;
+}
+
+.intro-mask {
+  display: inline-block;
+  overflow: hidden;
+  padding-block: 0.08em;
+}
+
+.intro-letter {
+  display: inline-block;
+  color: transparent;
+  background: linear-gradient(
+      90deg,
+      #f5f5f7 0 38%,
+      var(--c1) 44%,
+      var(--c2) 50%,
+      var(--c3) 56%,
+      #f5f5f7 62% 100%
+    )
+    no-repeat;
+  background-size: 400% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation:
+    intro-letter-in 0.62s var(--ease-out-expo) calc(var(--i) * 45ms) both,
+    intro-sweep 0.6s ease-in-out calc(0.22s + var(--i) * 40ms) both;
+}
+
+.intro-line {
+  display: block;
+  width: min(14rem, 50vw);
+  height: 1px;
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c2) 60%, transparent);
+  animation: intro-line 0.7s var(--ease-in-out-quart) 0.1s both;
+}
+
+@keyframes intro-letter-in {
+  from {
+    transform: translateY(110%);
+  }
+}
+
+@keyframes intro-sweep {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes intro-line {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes intro-word-out {
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: blur(6px);
+  }
+}
+
+@keyframes intro-out {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 100% 0);
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Track change: cover art wipe (dock + "En lecture" sheet)           */
+/* ------------------------------------------------------------------ */
+
+.cover-in {
+  animation: cover-in 0.7s var(--ease-out-expo) both;
+}
+
+.cover-out {
+  animation: cover-out 0.7s var(--ease-out-expo) both;
+}
+
+@keyframes cover-in {
+  from {
+    clip-path: inset(0 0 0 100%);
+    transform: scale(1.14);
+    opacity: 0.6;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes cover-out {
+  to {
+    transform: scale(0.94);
+    opacity: 0.35;
+  }
+}
+
+/* Dock title/artist swap on track change. */
+.meta-swap {
+  animation: meta-swap 0.55s var(--ease-out-expo) both;
+}
+
+@keyframes meta-swap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(4px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Beat accents: --beat (0..1) is written by hooks/useBeatPulse       */
+/* ------------------------------------------------------------------ */
+
+.beat-halo {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 22px 2px color-mix(in srgb, var(--c2) 70%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--c2) 45%, transparent);
+  opacity: calc(var(--beat, 0) * 0.85);
+  transform: scale(calc(1 + var(--beat, 0) * 0.08));
+}
+
+.beat-line {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--c2) 30%, var(--c3) 70%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c2) 70%, transparent);
+  opacity: calc(var(--beat, 0) * 0.7);
+}
+
+.beat-dot {
+  transform: scale(calc(1 + var(--beat, 0) * 0.3));
+}
+
+:root[data-quality="low"] .beat-halo,
+:root[data-quality="low"] .beat-line {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Kinetic marquee (fx/Marquee): scrolls only when the text overflows */
+/* ------------------------------------------------------------------ */
+
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-track {
+  display: inline-flex;
+}
+
+.marquee[data-overflow] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+}
+
+.marquee[data-overflow] .marquee-item {
+  padding-right: 2.5rem;
+}
+
+.marquee[data-overflow] .marquee-track {
+  animation: marquee var(--marquee-dur, 12s) linear infinite;
+}
+
+@keyframes marquee {
+  0%,
+  14% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee[data-overflow] .marquee-track {
     animation: none;
   }
 }
 
-.hero-title {
-  font-size: clamp(2.8rem, 11vw, 10rem);
+/* ------------------------------------------------------------------ */
+/*  Glass spotlight: light that follows the pointer on glass surfaces  */
+/* ------------------------------------------------------------------ */
+
+.glass,
+.glass-strong,
+.glass-solid {
+  background-image: radial-gradient(
+    380px circle at var(--spot-x, 50%) var(--spot-y, -400px),
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--c2) 35%, white) calc(var(--spot-o) * 7%),
+      transparent
+    ),
+    transparent 70%
+  );
 }
 
-@media (max-height: 560px) {
-  .hero-title {
-    font-size: clamp(1.6rem, 9vh, 4rem);
+/* Layered so component transition utilities (panels) keep priority. */
+@layer components {
+  .glass,
+  .glass-strong,
+  .glass-solid {
+    transition: --spot-o 0.45s ease;
+  }
+}
+
+:root[data-quality="low"] :is(.glass, .glass-strong, .glass-solid) {
+  background-image: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Press ripple ([data-ripple]) and card tilt ([data-tilt])           */
+/* ------------------------------------------------------------------ */
+
+.ripple-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentColor 0%, transparent 62%);
+  opacity: 0.28;
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple 0.62s var(--ease-out-expo) forwards;
+}
+
+@keyframes ripple {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-tilt] {
+    perspective: 700px;
+  }
+
+  [data-tilt] .tilt-target {
+    transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: transform 0.6s var(--ease-out-expo);
+  }
+
+  [data-tilt][data-tilting] .tilt-target {
+    transition-duration: 0.15s;
+  }
+
+  [data-tilt] .tilt-target::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at var(--glare-x, 50%) var(--glare-y, 50%),
+      rgba(255, 255, 255, 0.22),
+      transparent 60%
+    );
+    mix-blend-mode: soft-light;
+    opacity: var(--tilt-o, 0);
+    transition: opacity 0.4s ease;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Panel transitions                                                  */
+/* ------------------------------------------------------------------ */
+
+/* Command palette (desktop): clip-path unveil from the top + settle. */
+@utility palette-in {
+  animation: palette-in var(--dur-4) var(--ease-out-expo) both;
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.975);
+    clip-path: inset(0 0 92% 0 round var(--radius-panel));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0 round var(--radius-panel));
+  }
+}
+
+/* Library tab switch. */
+.tab-in {
+  animation: tab-in var(--dur-3) var(--ease-out-expo) both;
+}
+
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Micro-interactions                                                 */
+/* ------------------------------------------------------------------ */
+
+/* Play <-> pause glyph morph. */
+.pp-glyph path {
+  transition: d var(--dur-3) var(--ease-out-expo);
+}
+
+/* Toggle pop (set on click by hooks/usePressFx). */
+[data-pop] > svg {
+  animation: toggle-pop 0.42s var(--ease-spring);
+}
+
+@keyframes toggle-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.78) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-pop {
+  animation: badge-pop 0.4s var(--ease-spring) both;
+}
+
+@keyframes badge-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+/* Favourite burst: heart bounce, ring and six sparks. */
+[data-burst] > svg {
+  animation: heart-pop 0.5s var(--ease-spring);
+}
+
+[data-burst]::before,
+[data-burst]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+[data-burst]::before {
+  width: 26px;
+  height: 26px;
+  border: 2px solid currentColor;
+  animation: burst-ring 0.55s var(--ease-out-expo) forwards;
+}
+
+[data-burst]::after {
+  width: 36px;
+  height: 36px;
+  background:
+    radial-gradient(circle at 50% 4%, currentColor 1.6px, transparent 2.2px),
+    radial-gradient(circle at 89% 27%, currentColor 1.6px, transparent 2.2px),
+    radial-gradient(circle at 89% 73%, currentColor 1.6px, transparent 2.2px),
+    radial-gradient(circle at 50% 96%, currentColor 1.6px, transparent 2.2px),
+    radial-gradient(circle at 11% 73%, currentColor 1.6px, transparent 2.2px),
+    radial-gradient(circle at 11% 27%, currentColor 1.6px, transparent 2.2px);
+  animation: burst-sparks 0.6s var(--ease-out-expo) forwards;
+}
+
+@keyframes heart-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes burst-ring {
+  from {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.3);
+    opacity: 0;
+    border-width: 0;
+  }
+}
+
+@keyframes burst-sparks {
+  from {
+    transform: scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.25) rotate(20deg);
+    opacity: 0;
+  }
+}
+
+/* Toasts slide up with a soft spring. */
+.toast-in {
+  animation: toast-in 0.62s var(--ease-spring) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(100% + 1rem)) scale(0.96);
+  }
+  60% {
+    opacity: 1;
   }
 }

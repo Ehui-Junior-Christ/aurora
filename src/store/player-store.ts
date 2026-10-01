@@ -7,30 +7,160 @@ import {
   baseName,
   isNativeAndroid,
   AudioScanner,
+  relativePathOf,
   type FsNode,
 } from "@/lib/fs-scanner";
 import { Capacitor } from "@capacitor/core";
-import { parseTrack } from "@/lib/metadata";
+import { buildTracks, patchCachedTags } from "@/lib/library-cache";
+import {
+  applyTrackEdit,
+  getTrackEdit,
+  getTrackEdits,
+  mergeEdit,
+  saveTrackEdit,
+  type TrackEditPatch,
+} from "@/lib/track-overlay";
+import { formatLrc, lrcFileName, shiftCues } from "@/lib/lrc-sync";
+import { extractPalette } from "@/lib/palette";
 import { detectBpm } from "@/lib/bpm";
 import { getCachedAnalysis, normalizationGain } from "@/lib/analysis";
+import {
+  attachDirector,
+  directorOwnsEnd,
+  directorTick,
+  harmonicPick,
+  resetDirector,
+  trackMixInfo,
+} from "@/lib/mix/director";
+import {
+  DEFAULT_MIX_SETTINGS,
+  type MixSettings,
+  type MixTransitionInfo,
+  type TrackMixInfo,
+} from "@/lib/mix/types";
+export { getBeatClock, getMixProgress, type BeatClock } from "@/lib/mix/clock";
+export type { MixSettings, MixTransitionInfo, TrackMixInfo };
 import { parseLrc, type LyricsCue } from "@/lib/lyrics";
 import { fetchRemoteLyrics } from "@/lib/lyrics-fetcher";
 import {
-  getAudioStreamUrl,
   onlineResultToTrack,
   searchOnlineMusic,
+  toVideoId,
   type OnlineMusicResult,
 } from "@/lib/invidious";
+import { fnv1a } from "@/lib/hash";
+import { isOnlineTrackId } from "@/lib/catalog";
+import { resolveCached, resolveYouTube, YtResolveError } from "@/lib/yt-resolve";
+import { replayGainMultiplier } from "@/lib/replaygain";
 import { idbGet, idbSet, idbDelete, idbGetAll } from "@/lib/db";
+import {
+  installMediaSessionHandlers,
+  setMediaMetadata,
+  setMediaPlaybackState,
+  updateMediaPosition,
+} from "@/lib/media-session";
 import type { PaletteColor, ScanProgress, Track } from "@/lib/types";
+import {
+  createBackup,
+  matchTrackIds,
+  parseBackup,
+  restoreTrackMeta,
+  serializableTrack,
+} from "@/lib/backup";
+import { exportM3u, matchM3u, parseM3u } from "@/lib/m3u";
+import {
+  BUILTIN_SMART_PLAYLISTS,
+  resolveSmartPlaylist,
+  sanitizeSmartPlaylists,
+  type SmartPlaylist,
+  type SmartRule,
+} from "@/lib/smart-playlists";
+import {
+  fromStoredQueue,
+  makeQueueItem,
+  moveItem,
+  shuffled,
+  toStoredQueue,
+  type QueueItem,
+} from "@/lib/queue";
+import {
+  emptyStats,
+  mergeStats,
+  migrateStats,
+  remapStatsIds,
+  recordListen,
+  recordPlay,
+  type ListeningStats,
+} from "@/lib/stats";
 
 let wired = false;
+let searchSeq = 0; // ignores out-of-order online search responses
+let ytErrorStreak = 0; // consecutive YouTube failures (avoid infinite skip loops)
+let playbackErrorTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ytErrorMessage(code: number): string {
+  switch (code) {
+    case -1:
+      return "Lecteur YouTube injoignable (connexion ou bloqueur de contenu).";
+    case 2:
+      return "Identifiant de vidéo invalide.";
+    case 5:
+      return "Cette vidéo ne peut pas être lue dans le navigateur.";
+    case 100:
+      return "Vidéo introuvable ou supprimée.";
+    case 101:
+    case 150:
+      return "L'auteur interdit la lecture de cette vidéo hors de YouTube.";
+    case 153:
+      return "Lecture YouTube refusée (en-tête Referer manquant).";
+    default:
+      return `Lecture en ligne impossible (code ${code}).`;
+  }
+}
+
+const NATIVE_PALETTE: PaletteColor[] = [
+  { hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)" },
+  { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)" },
+  { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)" },
+];
+
+function nativeToTracks(
+  list: Array<{ id: string; title: string; artist: string; album: string; duration: number; path: string }>
+): Track[] {
+  return list.map((t) => ({
+    id: t.id,
+    title: t.title,
+    artist: t.artist,
+    album: t.album,
+    // play() reads `streamUrl`; the previous `url` field was never used, so
+    // native Android tracks could not be played at all.
+    streamUrl: Capacitor.convertFileSrc(t.path),
+    isOnline: false,
+    durationText:
+      t.duration > 0
+        ? `${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration % 60)).padStart(2, "0")}`
+        : undefined,
+    palette: NATIVE_PALETTE,
+    // Must be an integer: it indexes MODE_KEYS / palettes (Math.random()
+    // produced an `undefined` visual mode).
+    seed: fnv1a(`${t.id}|${t.path}`),
+  }));
+}
 let pendingHandles: FsNode[] = [];
 let lyricsFiles = new Map<string, File>();
-const playHistory: number[] = [];
+/** Recently played track ids (for prev() in shuffle / queue playback). */
+const playHistory: string[] = [];
+/** Upcoming library ids in shuffle mode (each track once per cycle). */
+let shuffleBag: string[] = [];
+/** True when the current track was taken from the queue. */
+let currentFromQueue = false;
 let lastActionTime = 0; // Pour l'anti-spam (idempotence)
 
 export type RepeatMode = "off" | "all" | "one";
+/** "time": stop at `sleepAt`; "track": stop at the end of the current track. */
+export type SleepMode = "off" | "time" | "track";
+/** Volume fade duration before the sleep timer stops playback. */
+export const SLEEP_FADE_MS = 30000;
 export type VisualMode =
   | "organism"
   | "tunnel"
@@ -38,7 +168,15 @@ export type VisualMode =
   | "particles"
   | "galaxy"
   | "nebula"
-  | "waves";
+  | "waves"
+  | "borealis"
+  | "prism"
+  | "liquid"
+  | "spectrum"
+  | "vinyl"
+  | "warp"
+  | "mosaic"
+  | "constellation";
 
 export const MODE_KEYS: VisualMode[] = [
   "organism",
@@ -48,6 +186,14 @@ export const MODE_KEYS: VisualMode[] = [
   "galaxy",
   "nebula",
   "waves",
+  "borealis",
+  "prism",
+  "liquid",
+  "spectrum",
+  "vinyl",
+  "warp",
+  "mosaic",
+  "constellation",
 ];
 
 interface EqSettings {
@@ -60,11 +206,46 @@ export interface Playlist {
   id: string;
   name: string;
   trackIds: string[];
+  /** Metadata snapshots of online entries (resolvable without the library). */
+  online?: Track[];
 }
 
-export interface ListeningStats {
-  plays: Record<string, number>;
-  seconds: number;
+export interface BackupImportReport {
+  playlists: number;
+  tracksMatched: number;
+  tracksTotal: number;
+  metaEntries: number;
+}
+
+/** Preferences included in backups (the YouTube API key never is). */
+const BACKUP_PREF_KEYS = [
+  "volume",
+  "repeat",
+  "shuffle",
+  "autoMode",
+  "eq",
+  "visualMode",
+  "bloom",
+  "crossfade",
+  "speed",
+  "skipSilence",
+  "normalize",
+  "mix",
+] as const;
+
+export type { ListeningStats };
+
+export type { QueueItem, SmartPlaylist, SmartRule, TrackEditPatch };
+
+export interface PlayOptions {
+  autoplay?: boolean;
+  startAt?: number;
+  countPlay?: boolean;
+}
+
+export interface AbLoop {
+  a: number | null;
+  b: number | null;
 }
 
 export interface VisualPreset {
@@ -75,6 +256,10 @@ export interface VisualPreset {
 
 const DEFAULT_PRESET: VisualPreset = { freq: 1, speed: 1, amp: 1 };
 
+// SECURITY: never hardcode the key; it comes from the build env only
+// (NEXT_PUBLIC_YOUTUBE_API_KEY) or from a key the user enters in settings.
+const DEFAULT_YOUTUBE_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY ?? "";
+
 interface PlayerState {
   tracks: Track[];
   sources: string[];
@@ -82,6 +267,10 @@ interface PlayerState {
   playing: boolean;
   duration: number;
   volume: number;
+  /** Mute keeps `volume` intact so unmuting restores it. */
+  muted: boolean;
+  /** A-B repeat points in seconds (both set = active loop). */
+  abLoop: AbLoop;
   queueOpen: boolean;
   supported: boolean;
   scanning: boolean;
@@ -104,7 +293,18 @@ interface PlayerState {
   speed: number;
   skipSilence: boolean;
   normalize: boolean;
+  /** Aurora Mix settings (DJ transitions). */
+  mix: MixSettings;
+  /**
+   * Running Aurora Mix transition (null when none), refreshed ~10x/s:
+   * style, progress 0..1, incoming title... For per-frame visuals use
+   * getMixProgress() / getBeatClock(trackId) (exported above).
+   */
+  mixTransition: MixTransitionInfo | null;
+  /** BPM + Camelot key of the current local track, once analysed. */
+  trackMix: TrackMixInfo | null;
   sleepAt: number | null;
+  sleepMode: SleepMode;
   ambient: boolean;
   lyrics: LyricsCue[];
   lyricsAvailable: boolean;
@@ -114,28 +314,103 @@ interface PlayerState {
   onlineResults: OnlineMusicResult[];
   onlineSearching: boolean;
   onlineError: string | null;
+  playbackError: string | null;
+  /** Id of the catalog track whose YouTube video is being looked up. */
+  resolvingId: string | null;
   youtubeApiKey: string;
   showHome: boolean;
   history: Track[];
   savedOnlineTracks: Track[];
+  /** Upcoming tracks, consulted by next() before the library order. */
+  queue: QueueItem[];
+  /** User-defined smart playlists (built-ins: BUILTIN_SMART_PLAYLISTS). */
+  smartPlaylists: SmartPlaylist[];
+  createSmartPlaylist(
+    name: string,
+    rules: SmartRule[],
+    options?: { match?: "all" | "any"; limit?: number }
+  ): SmartPlaylist | null;
+  updateSmartPlaylist(id: string, patch: Partial<Omit<SmartPlaylist, "id" | "builtin">>): void;
+  deleteSmartPlaylist(id: string): void;
+  /** Resolves a smart playlist (built-in or user) against the live library. */
+  resolveSmart(id: string): Track[];
+  playSmartPlaylist(id: string, options?: { shuffle?: boolean }): void;
+  /** Plays a regular playlist through the queue. */
+  playPlaylist(id: string, options?: { shuffle?: boolean }): void;
+  /** Whole library in random order (PWA "shuffle" shortcut). */
+  playShuffledLibrary(): void;
+  /**
+   * Overrides title/artist/album/cover of a track (stored in IndexedDB, the
+   * file is never modified). Empty strings / `cover: null` remove overrides.
+   */
+  editTrack(trackId: string, patch: TrackEditPatch): Promise<void>;
+  /** Removes every override of a track. */
+  resetTrackEdit(trackId: string): Promise<void>;
+  /** Saves user lyrics (cues or LRC text); they take precedence everywhere. */
+  setUserLyrics(trackId: string, lyrics: LyricsCue[] | string): Promise<void>;
+  clearUserLyrics(trackId: string): Promise<void>;
+  /**
+   * LRC text of the current lyrics of `trackId` (default: current track),
+   * with the lyrics offset applied. `fileName` is a suggested download name.
+   */
+  exportLrc(trackId?: string): { text: string; fileName: string } | null;
+  /** Full JSON backup (playlists, favourites, stats, prefs, per-track data). */
+  exportBackup(): Promise<string>;
+  /**
+   * Restores a backup. "merge" (default) unions playlists/favourites and adds
+   * stats; "replace" overwrites stats and preferences.
+   */
+  importBackup(text: string, mode?: "merge" | "replace"): Promise<BackupImportReport>;
+  /** Extended M3U8 text of a playlist (null if unknown). */
+  exportPlaylistM3u(playlistId: string): string | null;
+  /** Creates a playlist from M3U/M3U8 text; returns match counts. */
+  importM3u(text: string, name?: string): Promise<{ playlistId: string; matched: number; total: number }>;
+  /** Insert at the head of the queue (plays right after the current one). */
+  playNext(track: Track | Track[]): void;
+  /** Append to the end of the queue. */
+  addToQueue(track: Track | Track[]): void;
+  removeFromQueue(qid: string): void;
+  /** Reorders the queue only (the library order is never touched). */
+  reorderQueue(from: number, to: number): void;
+  clearQueue(): void;
+  /** Plays queue item `qid` now, dropping the items before it. */
+  playFromQueue(qid: string): void;
+  /**
+   * Plays `list[start]` and replaces the queue with the rest of the list
+   * (playlist / smart playlist / album playback). `shuffle` shuffles the rest.
+   */
+  playCollection(list: Track[], start?: number, options?: { shuffle?: boolean }): void;
   addToHistory(track: Track): void;
   saveOnlineTrack(track: Track): void;
   removeOnlineTrack(trackId: string): void;
   setYoutubeApiKey(key: string): void;
+  setPlaybackError(message: string | null): void;
   searchOnline(query: string): Promise<void>;
   playOnlineResult(result: OnlineMusicResult): Promise<void>;
+  /** Plays an online Track (YouTube or catalog): history + library insert. */
+  playOnlineTrack(track: Track): void;
   removeSource(source: string): void;
   setSupported(value: boolean): void;
   restore(): Promise<void>;
   reconnect(): Promise<void>;
   openFolder(): Promise<void>;
   loadAllSources(dirs: FsNode[]): Promise<void>;
-  play(index: number): void;
+  /**
+   * Plays the library track at `index`. `options.autoplay: false` prepares it
+   * paused (used by session resume); `countPlay: false` skips play counting.
+   */
+  play(index: number, options?: PlayOptions): void;
   toggle(): void;
   next(auto?: boolean): void;
   prev(): void;
   seek(time: number): void;
+  /** Relative seek in seconds (clamped to the track bounds). */
+  seekBy(delta: number): void;
   setVolume(value: number): void;
+  toggleMute(): void;
+  /** Cycles A-B repeat: set A → set B → clear. */
+  cycleAbLoop(): void;
+  clearAbLoop(): void;
   setQueueOpen(value: boolean): void;
   toggleShuffle(): void;
   cycleRepeat(): void;
@@ -152,17 +427,37 @@ interface PlayerState {
   refreshApp(): void;
   createPlaylist(name: string): Promise<void>;
   deletePlaylist(id: string): Promise<void>;
-  addToPlaylist(playlistId: string, trackId: string): Promise<void>;
+  /** `track` lets online entries (search results) carry their metadata. */
+  addToPlaylist(playlistId: string, trackId: string, track?: Track): Promise<void>;
   removeFromPlaylist(playlistId: string, trackId: string): Promise<void>;
   resetStats(): void;
   setCrossfade(seconds: number): void;
   setSpeed(value: number): void;
   setSkipSilence(value: boolean): void;
   setNormalize(value: boolean): void;
+  setMix(patch: Partial<MixSettings>): void;
+  /** Stop after `minutes` (any custom value); 0 or less cancels. */
   setSleep(minutes: number): void;
+  /** Stop when the current track ends (with a fade over its last 30 s). */
+  setSleepEndOfTrack(): void;
+  cancelSleep(): void;
   setAmbient(value: boolean): void;
   setVisualPreset(preset: VisualPreset): void;
   resetVisualPreset(): void;
+}
+
+function sanitizeMix(input: Partial<MixSettings>): MixSettings {
+  const d = DEFAULT_MIX_SETTINGS;
+  const lengths: MixSettings["length"][] = ["auto", "short", "long"];
+  const styles: MixSettings["style"][] = ["auto", "blend", "filter", "echo", "fade", "cut"];
+  return {
+    enabled: typeof input.enabled === "boolean" ? input.enabled : d.enabled,
+    length: lengths.find((l) => l === input.length) ?? d.length,
+    tempoSync: typeof input.tempoSync === "boolean" ? input.tempoSync : d.tempoSync,
+    harmonic: typeof input.harmonic === "boolean" ? input.harmonic : d.harmonic,
+    order: typeof input.order === "boolean" ? input.order : d.order,
+    style: styles.find((st) => st === input.style) ?? d.style,
+  };
 }
 
 function savePref(key: string, value: unknown): void {
@@ -179,24 +474,802 @@ function applyPalette(palette: PaletteColor[]): void {
 }
 
 function syncMediaSession(track: Track | null): void {
-  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-  const session = navigator.mediaSession;
-  if (!track) {
-    session.metadata = null;
+  installMediaSessionHandlers(() => {
+    const state = usePlayer.getState();
+    return {
+      play: () => {
+        if (engine.paused) state.toggle();
+      },
+      pause: () => {
+        if (!engine.paused) state.toggle();
+      },
+      previous: () => state.prev(),
+      next: () => state.next(),
+      seekTo: (time) => state.seek(time),
+      seekBy: (delta) => state.seekBy(delta),
+      stop: () => engine.pause(),
+    };
+  });
+  setMediaMetadata(track);
+  if (track) setMediaPlaybackState(!engine.paused);
+}
+
+function pushMediaPosition(force = false): void {
+  const state = usePlayer.getState();
+  if (state.current < 0) return;
+  updateMediaPosition(
+    engine.currentTime,
+    engine.duration,
+    state.speed,
+    engine.paused,
+    force
+  );
+}
+
+let lastCrossfadeId: string | null = null;
+
+/** Silence bounds of the current local track (from analyzeTrack). */
+let silence: {
+  id: string;
+  start: number;
+  end: number;
+  endFired: boolean;
+} | null = null;
+
+function loadSilenceBounds(track: Track): void {
+  silence = null;
+  if (!track.file || track.isOnline) return;
+  void getCachedAnalysis(track.id, track.file).then((analysis) => {
+    const state = usePlayer.getState();
+    if (!analysis || state.tracks[state.current]?.id !== track.id) return;
+    if (analysis.start === undefined || analysis.end === undefined) return;
+    silence = {
+      id: track.id,
+      start: analysis.start,
+      end: analysis.end,
+      endFired: false,
+    };
+    if (state.skipSilence && analysis.start > 0.5 && engine.currentTime < analysis.start - 0.3) {
+      engine.seek(analysis.start);
+    }
+  });
+}
+
+/** Effective end of the current track (trailing silence trimmed if enabled). */
+function effectiveEnd(trackId: string, duration: number): number {
+  const state = usePlayer.getState();
+  if (
+    state.skipSilence &&
+    silence &&
+    silence.id === trackId &&
+    silence.end < duration - 1
+  ) {
+    return silence.end;
+  }
+  return duration;
+}
+
+// ---- Session resume -------------------------------------------------------
+
+interface SavedPosition {
+  id: string;
+  t: number;
+}
+
+let lastSavedPosition: SavedPosition | null = null;
+let lastPositionSaveAt = 0;
+const POSITION_SAVE_MS = 5000;
+
+/** Persists the current track + position (throttled unless forced). */
+function savePlaybackPosition(force = false): void {
+  const state = usePlayer.getState();
+  const track = state.tracks[state.current];
+  if (!track) return;
+  const now = Date.now();
+  if (!force && now - lastPositionSaveAt < POSITION_SAVE_MS) return;
+  const t = Math.floor(engine.currentTime * 10) / 10;
+  if (!Number.isFinite(t)) return;
+  if (
+    lastSavedPosition &&
+    lastSavedPosition.id === track.id &&
+    Math.abs(lastSavedPosition.t - t) < 1
+  ) {
     return;
   }
-  session.metadata = new MediaMetadata({
+  lastPositionSaveAt = now;
+  lastSavedPosition = { id: track.id, t };
+  savePref("lastPosition", lastSavedPosition);
+}
+
+let resumeListenersInstalled = false;
+function installResumeListeners(): void {
+  if (resumeListenersInstalled || typeof window === "undefined") return;
+  resumeListenersInstalled = true;
+  const flush = () => {
+    savePlaybackPosition(true);
+    flushListening(true);
+  };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+}
+
+/**
+ * Re-selects the last played track (paused, at the saved position). Online
+ * tracks are looked up in history/favourites (metadata only, never audio).
+ */
+async function resumeLastSession(): Promise<void> {
+  const [lastId, position, storedQueue] = await Promise.all([
+    idbGet<string>("prefs", "lastTrackId"),
+    idbGet<SavedPosition>("prefs", "lastPosition"),
+    idbGet<unknown>("prefs", "queue"),
+  ]);
+  if (usePlayer.getState().queue.length === 0 && storedQueue) {
+    usePlayer.setState({
+      queue: fromStoredQueue(storedQueue, usePlayer.getState().tracks),
+    });
+  }
+  if (!lastId) return;
+  const state = usePlayer.getState();
+  if (state.current >= 0) return; // the user already picked something
+  let index = state.tracks.findIndex((t) => t.id === lastId);
+  if (index < 0 && isOnlineTrackId(lastId)) {
+    const online =
+      state.history.find((t) => t.id === lastId) ??
+      state.savedOnlineTracks.find((t) => t.id === lastId);
+    if (!online) return;
+    const tracks = [...state.tracks, online];
+    usePlayer.setState({ tracks });
+    index = tracks.length - 1;
+  }
+  if (index < 0) return;
+  const startAt =
+    position && position.id === lastId && position.t > 2 ? position.t : 0;
+  usePlayer
+    .getState()
+    .play(index, { autoplay: false, startAt, countPlay: false });
+}
+
+// ---- Lyrics -------------------------------------------------------------------
+
+/**
+ * Loads lyrics for `track`: user lyrics (edited / tap-synced) → sibling .lrc
+ * file → cached remote lyrics → remote fetch.
+ */
+function loadLyrics(track: Track): void {
+  const isCurrent = () => {
+    const state = usePlayer.getState();
+    return state.tracks[state.current]?.id === track.id;
+  };
+  const applyCues = (cues: LyricsCue[]) => {
+    if (!isCurrent()) return;
+    usePlayer.setState({ lyrics: cues, lyricsAvailable: cues.length > 0 });
+  };
+  void (async () => {
+    try {
+      const user = await idbGet<LyricsCue[]>("meta", `lyricsUser:${track.id}`);
+      if (Array.isArray(user) && user.length > 0) {
+        applyCues(user);
+        return;
+      }
+      const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
+      if (lrcFile) {
+        applyCues(parseLrc(await lrcFile.text()));
+        return;
+      }
+      const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
+      if (cached && cached.length > 0) {
+        applyCues(cached);
+        return;
+      }
+      const remote = await fetchRemoteLyrics(track.artist, track.title);
+      if (remote && remote.length > 0) {
+        void idbSet("meta", `lyrics:${track.id}`, remote);
+        applyCues(remote);
+      }
+    } catch {
+      // lyrics are optional; never surface an unhandled rejection
+    }
+  })();
+}
+
+// ---- Tag overrides -----------------------------------------------------------
+
+/** Parsed (unedited) tracks, by id, for tracks that carry an override. */
+const originalTracks = new Map<string, Track>();
+
+/** Applies stored overrides to freshly scanned tracks. */
+async function applyStoredEdits(tracks: Track[]): Promise<Track[]> {
+  originalTracks.clear();
+  const edits = await getTrackEdits(tracks.map((t) => t.id));
+  if (edits.size === 0) return tracks;
+  return tracks.map((t) => {
+    const edit = edits.get(t.id);
+    if (!edit) return t;
+    originalTracks.set(t.id, t);
+    return applyTrackEdit(t, edit);
+  });
+}
+
+/** Rebuilds a track from its original in the library and the queue. */
+function replaceTrackEverywhere(id: string, build: (original: Track) => Track): void {
+  const state = usePlayer.getState();
+  const index = state.tracks.findIndex((t) => t.id === id);
+  if (index < 0) return;
+  const original = originalTracks.get(id) ?? state.tracks[index];
+  originalTracks.set(id, original);
+  const updated = build(original);
+  const tracks = [...state.tracks];
+  tracks[index] = updated;
+  const queue = state.queue.map((item) =>
+    item.track.id === id ? { ...item, track: updated } : item
+  );
+  usePlayer.setState({ tracks, queue });
+  if (index === state.current) {
+    applyPalette(updated.palette);
+    setMediaMetadata(updated);
+    if (typeof document !== "undefined") {
+      document.title = `${updated.title} · ${updated.artist} — AURORA`;
+    }
+  }
+}
+
+// ---- Library cache helpers ---------------------------------------------------
+
+/** Stores the real duration of the current local track (sort by duration). */
+function rememberDuration(duration: number): void {
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  const state = usePlayer.getState();
+  const track = state.tracks[state.current];
+  if (!track || track.isOnline) return;
+  const rounded = Math.round(duration * 10) / 10;
+  if (track.durationSec === rounded) return;
+  const tracks = [...state.tracks];
+  tracks[state.current] = { ...track, durationSec: rounded };
+  usePlayer.setState({ tracks });
+  if (track.file) void patchCachedTags(track.id, { durationSec: rounded });
+}
+
+// ---- Queue ------------------------------------------------------------------
+
+/** Playlist entries as Track objects (library first, then online snapshots). */
+export function resolvePlaylistTracks(playlist: Playlist): Track[] {
+  const { tracks, savedOnlineTracks, history } = usePlayer.getState();
+  const byId = new Map<string, Track>();
+  for (const t of [...(playlist.online ?? []), ...history, ...savedOnlineTracks, ...tracks]) {
+    byId.set(t.id, t);
+  }
+  return playlist.trackIds
+    .map((trackId) => byId.get(trackId))
+    .filter((t): t is Track => !!t);
+}
+
+function setQueue(queue: QueueItem[]): void {
+  usePlayer.setState({ queue });
+  savePref("queue", toStoredQueue(queue));
+}
+
+/**
+ * Index of `track` in the library, inserting it after the current track when
+ * absent (online / removed tracks), as playOnlineResult always did.
+ */
+function ensureTrackIndex(track: Track): number {
+  const { tracks, current } = usePlayer.getState();
+  const existing = tracks.findIndex((t) => t.id === track.id);
+  if (existing >= 0) return existing;
+  const insertAt = current >= 0 ? current + 1 : tracks.length;
+  const next = [...tracks];
+  next.splice(insertAt, 0, track);
+  usePlayer.setState({ tracks: next });
+  return insertAt;
+}
+
+function playTrackObject(track: Track, fromQueue: boolean): void {
+  const index = ensureTrackIndex(track);
+  usePlayer.getState().play(index);
+  currentFromQueue = fromQueue;
+}
+
+// ---- Catalog tracks: YouTube resolution at play time ------------------------
+
+/** Catalog track whose YouTube video is not known yet. */
+function needsResolve(track: Track | undefined): boolean {
+  return !!track && track.isOnline && !track.file && !track.streamUrl && !!track.catalog;
+}
+
+function resolveTarget(track: Track) {
+  return {
     title: track.title,
     artist: track.artist,
-    album: track.album,
-    artwork: track.coverUrl
-      ? [{ src: track.coverUrl, sizes: "512x512", type: "image/jpeg" }]
-      : [],
+    durationMs:
+      track.catalog?.durationMs ?? (track.durationSec ? track.durationSec * 1000 : undefined),
+  };
+}
+
+/**
+ * Applies `patch` to an online track wherever a copy lives (library, queue,
+ * history, favourites, playlist snapshots) and persists the changed lists.
+ */
+function patchOnlineTrack(id: string, patch: Partial<Track>): void {
+  const state = usePlayer.getState();
+  const update = (t: Track): Track => (t.id === id ? { ...t, ...patch } : t);
+  const touched = (list: readonly Track[]) => list.some((t) => t.id === id);
+  const next: Partial<PlayerState> = {};
+  if (touched(state.tracks)) next.tracks = state.tracks.map(update);
+  if (state.queue.some((item) => item.track.id === id)) {
+    next.queue = state.queue.map((item) =>
+      item.track.id === id ? { ...item, track: update(item.track) } : item
+    );
+    savePref("queue", toStoredQueue(next.queue));
+  }
+  if (touched(state.history)) {
+    next.history = state.history.map(update);
+    savePref("history", next.history);
+  }
+  if (touched(state.savedOnlineTracks)) {
+    next.savedOnlineTracks = state.savedOnlineTracks.map(update);
+    savePref("savedOnlineTracks", next.savedOnlineTracks);
+  }
+  if (state.playlists.some((p) => p.online && touched(p.online))) {
+    next.playlists = state.playlists.map((p) => {
+      if (!p.online || !touched(p.online)) return p;
+      const updated = { ...p, online: p.online.map(update) };
+      void idbSet("playlists", updated.id, updated);
+      return updated;
+    });
+  }
+  usePlayer.setState(next);
+}
+
+let resolveToken = 0;
+
+/**
+ * Selects a catalog track and looks up its YouTube video (trends map → cache
+ * → YouTube search), then plays it. A paused selection (session resume)
+ * never spends quota: the lookup waits for the user to press play.
+ */
+function startResolve(index: number, track: Track, options: PlayOptions): void {
+  const set = usePlayer.setState;
+  const get = usePlayer.getState;
+  const token = ++resolveToken;
+  const autoplay = options.autoplay ?? true;
+  wireEngine();
+  flushListening(true);
+  resetDirector();
+  engine.pause();
+  applyPalette(track.palette);
+  syncMediaSession(track);
+  if (typeof document !== "undefined") {
+    document.title = `${track.title} · ${track.artist} — AURORA`;
+  }
+  savePref("lastTrackId", track.id);
+  set({
+    current: index,
+    playing: false,
+    duration: track.durationSec ?? 0,
+    resolvingId: autoplay ? track.id : null,
+    lyricsOffset: 0,
+    abLoop: { a: null, b: null },
+    trackMix: null,
   });
-  session.setActionHandler("play", () => usePlayer.getState().toggle());
-  session.setActionHandler("pause", () => usePlayer.getState().toggle());
-  session.setActionHandler("previoustrack", () => usePlayer.getState().prev());
-  session.setActionHandler("nexttrack", () => usePlayer.getState().next());
+  if (!autoplay) return;
+  void resolveYouTube(resolveTarget(track), get().youtubeApiKey).then(
+    (found) => {
+      if (token !== resolveToken) return;
+      patchOnlineTrack(track.id, { streamUrl: `yt:${found.videoId}` });
+      set({ resolvingId: null });
+      const state = get();
+      if (state.tracks[state.current]?.id === track.id) state.play(state.current, options);
+    },
+    (error: unknown) => {
+      if (token !== resolveToken) return;
+      set({ resolvingId: null, playing: false });
+      get().setPlaybackError(
+        error instanceof Error && error.message ? error.message : "Lecture en ligne impossible."
+      );
+      // Nothing matched this song: move on (bounded); quota/key errors would
+      // fail the same way for every track, so playback stops there.
+      if (error instanceof YtResolveError && error.code === "notfound") {
+        ytErrorStreak++;
+        if (ytErrorStreak < 3 && get().tracks.length > 1) get().next(true);
+      }
+    }
+  );
+}
+
+const STREAM_PREFETCH_S = 40;
+let lastStreamPrefetch = 0;
+const prefetchedStreams = new Set<string>();
+
+/**
+ * Near the end of a track, resolves the next catalog track only when that is
+ * free (Tendances map or cache): quota is never spent speculatively, a cache
+ * miss is resolved when the track actually starts. Done ~40 s ahead so that
+ * Aurora Mix can still plan a YouTube → YouTube transition.
+ */
+function prefetchUpcomingStream(): void {
+  const now = Date.now();
+  if (now - lastStreamPrefetch < 1000) return;
+  lastStreamPrefetch = now;
+  const dur = engine.duration;
+  if (!Number.isFinite(dur) || dur <= 0 || dur - engine.currentTime > STREAM_PREFETCH_S) return;
+  const plan = planNext(true);
+  const state = usePlayer.getState();
+  const next =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? state.tracks[plan.index]
+        : undefined;
+  if (!next || !needsResolve(next) || prefetchedStreams.has(next.id)) return;
+  prefetchedStreams.add(next.id);
+  void resolveCached(resolveTarget(next))
+    .then((found) => {
+      if (found) patchOnlineTrack(next.id, { streamUrl: `yt:${found.videoId}` });
+    })
+    .catch(() => void 0);
+}
+
+type NextPlan =
+  | { kind: "queue"; item: QueueItem }
+  | { kind: "library"; index: number; fromBag: boolean }
+  | { kind: "stop" };
+
+/**
+ * Decides what next() would play, without side effects (the shuffle bag is
+ * only refilled), so gapless preloading and next() always agree.
+ */
+function planNext(auto: boolean): NextPlan {
+  const { queue, tracks, current, shuffle, repeat } = usePlayer.getState();
+  if (queue.length > 0) return { kind: "queue", item: queue[0] };
+  if (tracks.length === 0) return { kind: "stop" };
+  const currentId = tracks[current]?.id;
+  if (shuffle && tracks.length > 1) {
+    const ids = new Set(tracks.map((t) => t.id));
+    shuffleBag = shuffleBag.filter((id) => ids.has(id) && id !== currentId);
+    if (shuffleBag.length === 0) {
+      shuffleBag = shuffled(
+        tracks.map((t) => t.id).filter((id) => id !== currentId)
+      );
+    }
+    const { mix } = usePlayer.getState();
+    const playingNow = tracks[current];
+    if (playingNow && mix.enabled && mix.order) {
+      // "Mix harmonique": bring the best key/BPM/energy match among the next
+      // candidates to the front (library order untouched, queue first).
+      const byId = new Map(tracks.map((t) => [t.id, t]));
+      const head = shuffleBag
+        .slice(0, 16)
+        .map((id) => byId.get(id))
+        .filter((t): t is Track => !!t);
+      const pick = harmonicPick(playingNow, head);
+      const at = pick ? shuffleBag.indexOf(pick) : -1;
+      if (pick && at > 0) {
+        shuffleBag.splice(at, 1);
+        shuffleBag.unshift(pick);
+      }
+    }
+    const index = tracks.findIndex((t) => t.id === shuffleBag[0]);
+    if (index >= 0) return { kind: "library", index, fromBag: true };
+  }
+  if (auto && repeat === "off" && current >= tracks.length - 1) {
+    return { kind: "stop" };
+  }
+  return { kind: "library", index: (current + 1) % tracks.length, fromBag: false };
+}
+
+function commitNext(plan: NextPlan): void {
+  if (plan.kind === "queue") {
+    setQueue(usePlayer.getState().queue.slice(1));
+    playTrackObject(plan.item.track, true);
+  } else if (plan.kind === "library") {
+    if (plan.fromBag) shuffleBag.shift();
+    usePlayer.getState().play(plan.index);
+    currentFromQueue = false;
+  }
+}
+
+// ---- Listening time accounting --------------------------------------------
+
+let pendingListen: { track: Track; seconds: number } | null = null;
+let lastListenTick = 0;
+let lastListenFlush = 0;
+const LISTEN_FLUSH_MS = 15000;
+
+/** Counts real listened time (wall clock while playing), not positions. */
+function accumulateListening(track: Track | undefined, playing: boolean): void {
+  const now = Date.now();
+  const delta = lastListenTick ? Math.min(1000, now - lastListenTick) : 0;
+  lastListenTick = now;
+  if (!playing || !track || delta <= 0) return;
+  if (pendingListen && pendingListen.track.id !== track.id) flushListening(true);
+  if (!pendingListen) pendingListen = { track, seconds: 0 };
+  pendingListen.seconds += delta / 1000;
+  if (now - lastListenFlush > LISTEN_FLUSH_MS) flushListening(true);
+}
+
+function flushListening(force = false): void {
+  if (!pendingListen || pendingListen.seconds <= 0) return;
+  if (!force && Date.now() - lastListenFlush < LISTEN_FLUSH_MS) return;
+  lastListenFlush = Date.now();
+  const { track, seconds } = pendingListen;
+  pendingListen = null;
+  const stats = recordListen(usePlayer.getState().stats, track, seconds);
+  usePlayer.setState({ stats });
+  savePref("stats", stats);
+}
+
+let sleepFading = false;
+
+function restoreSleepVolume(): void {
+  if (!sleepFading) return;
+  sleepFading = false;
+  const state = usePlayer.getState();
+  engine.volume = state.muted ? 0 : state.volume;
+}
+
+function applySleepFade(remainingMs: number): void {
+  const state = usePlayer.getState();
+  if (remainingMs >= SLEEP_FADE_MS) {
+    restoreSleepVolume();
+    return;
+  }
+  sleepFading = true;
+  const factor = Math.max(0, Math.min(1, remainingMs / SLEEP_FADE_MS));
+  // Equal-power curve sounds more natural than a linear ramp.
+  engine.volume = state.muted ? 0 : state.volume * Math.sin((factor * Math.PI) / 2);
+}
+
+/** Pauses playback for the sleep timer and resets it. */
+function sleepStop(): void {
+  engine.pause();
+  usePlayer.setState({ playing: false, sleepAt: null, sleepMode: "off" });
+  restoreSleepVolume();
+}
+
+/** Seconds left before the sleep timer stops playback (null when off). */
+export function sleepRemainingSeconds(state: {
+  sleepMode: SleepMode;
+  sleepAt: number | null;
+  current: number;
+}): number | null {
+  if (state.sleepMode === "time" && state.sleepAt !== null) {
+    return Math.max(0, (state.sleepAt - Date.now()) / 1000);
+  }
+  if (state.sleepMode === "track" && state.current >= 0) {
+    const dur = engine.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return null;
+    return Math.max(0, dur - engine.currentTime);
+  }
+  return null;
+}
+
+function sleepTick(): boolean {
+  const state = usePlayer.getState();
+  if (state.sleepMode === "time" && state.sleepAt !== null) {
+    const remaining = state.sleepAt - Date.now();
+    if (remaining <= 0) {
+      sleepStop();
+      return true;
+    }
+    if (state.playing) applySleepFade(remaining);
+  } else if (state.sleepMode === "track" && state.playing) {
+    const track = state.tracks[state.current];
+    const dur = engine.duration;
+    if (track && Number.isFinite(dur) && dur > 0) {
+      let end = engine.ytActive ? dur : effectiveEnd(track.id, dur);
+      if (!engine.ytActive && state.crossfade > 0) end -= state.crossfade;
+      applySleepFade((end - engine.currentTime) * 1000);
+    }
+  }
+  return false;
+}
+
+const GAPLESS_PRELOAD_S = 12;
+let lastPreloadCheck = 0;
+
+/** Preloads what next(true) will play, when it is a local track. */
+function preloadUpcoming(): void {
+  const now = Date.now();
+  if (now - lastPreloadCheck < 1000) return;
+  lastPreloadCheck = now;
+  const state = usePlayer.getState();
+  if (state.repeat === "one" || state.sleepMode === "track") return;
+  const plan = planNext(true);
+  const track =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? state.tracks[plan.index]
+        : undefined;
+  if (!track || track.isOnline || track.id === state.tracks[state.current]?.id) return;
+  if (engine.hasPreloaded(track.id)) return;
+  if (track.file) engine.preload(track.id, track.file);
+  else if (track.streamUrl && !track.streamUrl.startsWith("yt:")) {
+    engine.preload(track.id, { url: track.streamUrl });
+  }
+}
+
+function playbackTick(): void {
+  const get = usePlayer.getState;
+  if (sleepTick()) return;
+  const state = get();
+  accumulateListening(state.tracks[state.current], state.playing);
+  if (state.playing) {
+    pushMediaPosition();
+    savePlaybackPosition();
+  }
+  const { a, b } = state.abLoop;
+  if (a !== null && b !== null && engine.currentTime >= b) {
+    engine.seek(a);
+  }
+  if (!state.playing || state.current < 0) return;
+  prefetchUpcomingStream();
+  const mixOn = state.mix.enabled;
+  if (mixOn) directorTick();
+  if (engine.ytActive) return; // crossfade / silence: local tracks only
+  const track = state.tracks[state.current];
+  if (!track) return;
+  const dur = engine.duration;
+  const time = engine.currentTime;
+  if (!Number.isFinite(dur) || dur <= 0) return;
+
+  if (state.skipSilence && silence && silence.id === track.id) {
+    if (silence.start > 0.5 && time < silence.start - 0.3 && (a === null || b === null)) {
+      engine.seek(silence.start);
+      return;
+    }
+    if (time < silence.end - 2) silence.endFired = false;
+  }
+
+  const end = effectiveEnd(track.id, dur);
+  // Aurora Mix owns the end of the track (plain crossfade / gapless off).
+  if (mixOn && directorOwnsEnd()) return;
+  if (state.crossfade <= 0 && end - time < GAPLESS_PRELOAD_S) preloadUpcoming();
+  if (state.crossfade > 0 && !mixOn) {
+    if (track.id === lastCrossfadeId) return;
+    if (end > state.crossfade + 2 && end - time <= state.crossfade) {
+      lastCrossfadeId = track.id;
+      get().next(true);
+    }
+    return;
+  }
+  if (end < dur && time >= end && silence && !silence.endFired) {
+    silence.endFired = true;
+    get().next(true);
+  }
+}
+
+/**
+ * Track resolved by planNext(true) (what Aurora Mix will mix into). Catalog
+ * tracks without a known video cannot be mixed: they start after the end.
+ */
+function upcomingTrack(): Track | undefined {
+  const plan = planNext(true);
+  const track =
+    plan.kind === "queue"
+      ? plan.item.track
+      : plan.kind === "library"
+        ? usePlayer.getState().tracks[plan.index]
+        : undefined;
+  return needsResolve(track) ? undefined : track;
+}
+
+function attachMixDirector(): void {
+  attachDirector({
+    settings: () => usePlayer.getState().mix,
+    current: () => {
+      const s = usePlayer.getState();
+      return s.tracks[s.current];
+    },
+    upcoming: upcomingTrack,
+    playing: () => usePlayer.getState().playing,
+    blocked: () => {
+      const s = usePlayer.getState();
+      return (
+        s.repeat === "one" ||
+        s.sleepMode === "track" ||
+        (s.abLoop.a !== null && s.abLoop.b !== null)
+      );
+    },
+    normalizeLevel: (track, analysis) => {
+      if (!usePlayer.getState().normalize) return undefined;
+      const rg = replayGainMultiplier(track.replayGain);
+      if (rg !== undefined) return rg;
+      return analysis ? normalizationGain(analysis.rms, true) : 1;
+    },
+    onTransition: (info) => {
+      if (info === null && usePlayer.getState().mixTransition === null) return;
+      usePlayer.setState({ mixTransition: info });
+    },
+    commit: (id) => {
+      const plan = planNext(true);
+      const track =
+        plan.kind === "queue"
+          ? plan.item.track
+          : plan.kind === "library"
+            ? usePlayer.getState().tracks[plan.index]
+            : undefined;
+      if (track?.id === id) commitNext(plan);
+      else engine.abortMix();
+    },
+  });
+}
+
+/** Engine event listeners + the 100 ms playback ticker (installed once). */
+function wireEngine(): void {
+  const set = usePlayer.setState;
+  const get = usePlayer.getState;
+  if (wired || typeof window === "undefined") return;
+  wired = true;
+  installResumeListeners();
+  attachMixDirector();
+  {
+    for (const el of engine.getElements()) {
+      el.addEventListener("play", (event) => {
+        if (event.target !== engine.el) return;
+        set({ playing: true });
+        setMediaPlaybackState(true);
+        pushMediaPosition(true);
+      });
+      el.addEventListener("pause", (event) => {
+        if (event.target !== engine.el) return;
+        set({ playing: false });
+        savePlaybackPosition(true);
+        setMediaPlaybackState(false);
+        pushMediaPosition(true);
+      });
+      el.addEventListener("ended", (event) => {
+        if (event.target !== engine.el) return;
+        get().next(true);
+      });
+      el.addEventListener("loadedmetadata", (event) => {
+        if (event.target !== engine.el) return;
+        set({
+          duration: Number.isFinite(el.duration) ? el.duration : 0,
+        });
+        pushMediaPosition(true);
+        rememberDuration(el.duration);
+      });
+      el.addEventListener("ratechange", (event) => {
+        if (event.target !== engine.el) return;
+        pushMediaPosition(true);
+      });
+    }
+    
+    setInterval(playbackTick, 100);
+
+    engine.onYtStateChange = (state) => {
+      // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
+      if (state === 1) {
+        ytErrorStreak = 0;
+        set({ playing: true, duration: engine.duration });
+        setMediaPlaybackState(true);
+        pushMediaPosition(true);
+      } else if (state === 2) {
+        set({ playing: false });
+        savePlaybackPosition(true);
+        setMediaPlaybackState(false);
+        pushMediaPosition(true);
+      } else if (state === 0) {
+        set({ playing: false });
+        setMediaPlaybackState(false);
+        get().next(true);
+      }
+    };
+    engine.onYtError = (error) => {
+      console.warn("YouTube Error:", error);
+      ytErrorStreak++;
+      set({ playing: false });
+      get().setPlaybackError(ytErrorMessage(error));
+      // Skip to the next track (deleted/blocked video) but stop after a few
+      // consecutive failures instead of looping forever over the queue.
+      if (error !== -1 && ytErrorStreak < 3 && get().tracks.length > 1) {
+        get().next(true);
+      }
+    };
+  }
 }
 
 export const usePlayer = create<PlayerState>((set, get) => ({
@@ -206,6 +1279,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   playing: false,
   duration: 0,
   volume: 0.85,
+  muted: false,
+  abLoop: { a: null, b: null },
   queueOpen: true,
   supported: false,
   scanning: false,
@@ -223,12 +1298,16 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   pendingDirName: "",
   helpOpen: false,
   playlists: [],
-  stats: { plays: {}, seconds: 0 },
+  stats: emptyStats(),
   crossfade: 0,
   speed: 1,
   skipSilence: false,
   normalize: false,
+  mix: DEFAULT_MIX_SETTINGS,
+  mixTransition: null,
+  trackMix: null,
   sleepAt: null,
+  sleepMode: "off",
   ambient: false,
   lyrics: [],
   lyricsAvailable: false,
@@ -238,16 +1317,324 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   onlineResults: [],
   onlineSearching: false,
   onlineError: null,
-  youtubeApiKey: process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "AIzaSyBHRkh_QT4tjk_TRZq8U7TBPLkBLHIcobo",
+  resolvingId: null,
+  playbackError: null,
+  youtubeApiKey: DEFAULT_YOUTUBE_API_KEY,
   showHome: false,
   history: [],
   savedOnlineTracks: [],
+  queue: [],
+  smartPlaylists: [],
+
+  createSmartPlaylist(name, rules, options = {}) {
+    const trimmed = name.trim();
+    if (!trimmed || rules.length === 0) return null;
+    const playlist: SmartPlaylist = {
+      id: `smart:${Date.now().toString(36)}`,
+      name: trimmed,
+      rules,
+      ...(options.match ? { match: options.match } : {}),
+      ...(options.limit ? { limit: options.limit } : {}),
+    };
+    const smartPlaylists = [...get().smartPlaylists, playlist];
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+    return playlist;
+  },
+
+  updateSmartPlaylist(id, patch) {
+    const smartPlaylists = get().smartPlaylists.map((p) =>
+      p.id === id ? { ...p, ...patch, id, builtin: false } : p
+    );
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+  },
+
+  deleteSmartPlaylist(id) {
+    const smartPlaylists = get().smartPlaylists.filter((p) => p.id !== id);
+    set({ smartPlaylists });
+    savePref("smartPlaylists", smartPlaylists);
+  },
+
+  resolveSmart(id) {
+    const { smartPlaylists, tracks, stats } = get();
+    const playlist =
+      smartPlaylists.find((p) => p.id === id) ??
+      BUILTIN_SMART_PLAYLISTS.find((p) => p.id === id);
+    return playlist ? resolveSmartPlaylist(playlist, tracks, { stats }) : [];
+  },
+
+  playSmartPlaylist(id, options = {}) {
+    const list = get().resolveSmart(id);
+    if (list.length === 0) return;
+    const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
+    get().playCollection(list, start, options);
+  },
+
+  playPlaylist(id, options = {}) {
+    const playlist = get().playlists.find((p) => p.id === id);
+    if (!playlist) return;
+    const list = resolvePlaylistTracks(playlist);
+    if (list.length === 0) return;
+    const start = options.shuffle ? Math.floor(Math.random() * list.length) : 0;
+    get().playCollection(list, start, options);
+  },
+
+  async editTrack(trackId, patch) {
+    const current = await getTrackEdit(trackId);
+    let palette: PaletteColor[] | undefined;
+    if (patch.cover) {
+      const url = URL.createObjectURL(patch.cover);
+      try {
+        palette = await extractPalette(url);
+      } catch {
+        palette = undefined;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    const merged = mergeEdit(current, patch, palette);
+    await saveTrackEdit(trackId, merged);
+    replaceTrackEverywhere(trackId, (original) =>
+      applyTrackEdit(original, merged ?? undefined)
+    );
+  },
+
+  async resetTrackEdit(trackId) {
+    await saveTrackEdit(trackId, null);
+    replaceTrackEverywhere(trackId, (original) => original);
+  },
+
+  async setUserLyrics(trackId, lyrics) {
+    const cues = typeof lyrics === "string" ? parseLrc(lyrics) : lyrics;
+    const clean = cues
+      .filter((c) => Number.isFinite(c.time) && typeof c.text === "string")
+      .sort((a, b) => a.time - b.time);
+    await idbSet("meta", `lyricsUser:${trackId}`, clean);
+    if (get().tracks[get().current]?.id === trackId) {
+      set({ lyrics: clean, lyricsAvailable: clean.length > 0 });
+    }
+  },
+
+  async clearUserLyrics(trackId) {
+    await idbDelete("meta", `lyricsUser:${trackId}`);
+    const track = get().tracks[get().current];
+    if (track?.id === trackId) {
+      set({ lyrics: [], lyricsAvailable: false });
+      loadLyrics(track);
+    }
+  },
+
+  exportLrc(trackId) {
+    const state = get();
+    const track = trackId
+      ? state.tracks.find((t) => t.id === trackId)
+      : state.tracks[state.current];
+    if (!track || track.id !== state.tracks[state.current]?.id) return null;
+    if (state.lyrics.length === 0) return null;
+    const duration = engine.duration;
+    const text = formatLrc(shiftCues(state.lyrics, state.lyricsOffset), {
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      lengthSec: Number.isFinite(duration) ? duration : undefined,
+    });
+    return { text, fileName: lrcFileName(track.artist, track.title) };
+  },
+
+  async exportBackup() {
+    const state = get();
+    const prefs: Record<string, unknown> = {};
+    for (const key of BACKUP_PREF_KEYS) prefs[key] = state[key];
+    const data = await createBackup({
+      library: state.tracks,
+      playlists: state.playlists,
+      smartPlaylists: state.smartPlaylists,
+      favorites: state.savedOnlineTracks,
+      history: state.history,
+      stats: state.stats,
+      prefs,
+    });
+    return JSON.stringify(data);
+  },
+
+  async importBackup(text, mode = "merge") {
+    const data = parseBackup(text);
+    const idMap = matchTrackIds(data.tracks, get().tracks);
+    const mapId = (id: string) => idMap.get(id) ?? id;
+
+    // Playlists: union by id, remapped track ids.
+    const playlists = [...get().playlists];
+    for (const imported of data.playlists) {
+      if (!imported || typeof imported.id !== "string") continue;
+      const trackIds = (imported.trackIds ?? []).map(mapId);
+      const at = playlists.findIndex((p) => p.id === imported.id);
+      const merged: Playlist =
+        at >= 0
+          ? {
+              ...playlists[at],
+              trackIds: [...new Set([...playlists[at].trackIds, ...trackIds])],
+              online: [...(playlists[at].online ?? []), ...(imported.online ?? [])],
+            }
+          : { id: imported.id, name: imported.name, trackIds, online: imported.online };
+      if (at >= 0) playlists[at] = merged;
+      else playlists.push(merged);
+      await idbSet("playlists", merged.id, merged);
+    }
+
+    const unionById = (a: Track[], b: Track[]) => {
+      const seen = new Set(a.map((t) => t.id));
+      return [...a, ...b.filter((t) => t && typeof t.id === "string" && !seen.has(t.id))];
+    };
+    const savedOnlineTracks = unionById(get().savedOnlineTracks, data.favorites);
+    const history = unionById(get().history, data.history).slice(0, 50);
+    const smartPlaylists = [
+      ...get().smartPlaylists,
+      ...sanitizeSmartPlaylists(data.smartPlaylists).filter(
+        (p) => !get().smartPlaylists.some((q) => q.id === p.id)
+      ),
+    ];
+    const importedStats = remapStatsIds(migrateStats(data.stats), (id) => idMap.get(id) ?? null);
+    const stats = mode === "replace" ? importedStats : mergeStats(get().stats, importedStats);
+    flushListening(true);
+    set({ playlists, savedOnlineTracks, history, smartPlaylists, stats });
+    savePref("savedOnlineTracks", savedOnlineTracks);
+    savePref("history", history);
+    savePref("smartPlaylists", smartPlaylists);
+    savePref("stats", stats);
+
+    if (mode === "replace") {
+      const p = data.prefs as Partial<Record<(typeof BACKUP_PREF_KEYS)[number], unknown>>;
+      const s = get();
+      if (typeof p.volume === "number") s.setVolume(p.volume);
+      if (p.repeat === "off" || p.repeat === "all" || p.repeat === "one") {
+        set({ repeat: p.repeat });
+        savePref("repeat", p.repeat);
+      }
+      if (typeof p.shuffle === "boolean") {
+        set({ shuffle: p.shuffle });
+        savePref("shuffle", p.shuffle);
+      }
+      if (typeof p.autoMode === "boolean") s.setAutoMode(p.autoMode);
+      const eq = p.eq as EqSettings | undefined;
+      if (eq && typeof eq.low === "number" && typeof eq.mid === "number" && typeof eq.high === "number") {
+        s.setEq(eq);
+      }
+      if (typeof p.visualMode === "string" && MODE_KEYS.includes(p.visualMode as VisualMode)) {
+        s.setVisualMode(p.visualMode as VisualMode);
+      }
+      if (typeof p.bloom === "boolean" && p.bloom !== get().bloom) s.toggleBloom();
+      if (typeof p.crossfade === "number") s.setCrossfade(Math.max(0, Math.min(12, p.crossfade)));
+      if (typeof p.speed === "number" && p.speed >= 0.5 && p.speed <= 1.5) s.setSpeed(p.speed);
+      if (typeof p.skipSilence === "boolean") s.setSkipSilence(p.skipSilence);
+      if (typeof p.normalize === "boolean") s.setNormalize(p.normalize);
+      if (p.mix && typeof p.mix === "object") s.setMix(p.mix as Partial<MixSettings>);
+    }
+
+    const metaEntries = await restoreTrackMeta(data.trackMeta, mapId);
+    const localTotal = data.tracks.filter((t) => !t.online && !t.id.startsWith("yt:")).length;
+    const localMatched = data.tracks.filter(
+      (t) => !t.online && !t.id.startsWith("yt:") && idMap.has(t.id)
+    ).length;
+    return {
+      playlists: data.playlists.length,
+      tracksMatched: localMatched,
+      tracksTotal: localTotal,
+      metaEntries,
+    };
+  },
+
+  exportPlaylistM3u(playlistId) {
+    const { playlists } = get();
+    const playlist = playlists.find((p) => p.id === playlistId);
+    if (!playlist) return null;
+    return exportM3u(resolvePlaylistTracks(playlist), playlist.name);
+  },
+
+  async importM3u(text, name) {
+    const parsed = parseM3u(text);
+    const { tracks } = matchM3u(parsed.entries, get().tracks, (videoId, entry) =>
+      onlineResultToTrack({
+        id: videoId,
+        title: entry.title ?? videoId,
+        artist: entry.artist ?? "YouTube",
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        durationText: entry.duration
+          ? `${Math.floor(entry.duration / 60)}:${String(Math.floor(entry.duration % 60)).padStart(2, "0")}`
+          : undefined,
+        isOnline: true,
+      })
+    );
+    const playlist: Playlist = {
+      id: String(Date.now()),
+      name: (name ?? parsed.name ?? "Playlist importée").trim() || "Playlist importée",
+      trackIds: [...new Set(tracks.map((t) => t.id))],
+      online: tracks.filter((t) => t.isOnline).map(serializableTrack),
+    };
+    set({ playlists: [...get().playlists, playlist] });
+    await idbSet("playlists", playlist.id, playlist);
+    return { playlistId: playlist.id, matched: tracks.length, total: parsed.entries.length };
+  },
+
+  playShuffledLibrary() {
+    const { tracks } = get();
+    if (tracks.length === 0) return;
+    // Shuffle mode + bag rather than a 5000-item queue.
+    set({ shuffle: true });
+    savePref("shuffle", true);
+    shuffleBag = [];
+    get().play(Math.floor(Math.random() * tracks.length));
+  },
+
+  playNext(input) {
+    const items = (Array.isArray(input) ? input : [input]).map(makeQueueItem);
+    if (items.length === 0) return;
+    setQueue([...items, ...get().queue]);
+  },
+
+  addToQueue(input) {
+    const items = (Array.isArray(input) ? input : [input]).map(makeQueueItem);
+    if (items.length === 0) return;
+    setQueue([...get().queue, ...items]);
+  },
+
+  removeFromQueue(qid) {
+    setQueue(get().queue.filter((item) => item.qid !== qid));
+  },
+
+  reorderQueue(from, to) {
+    setQueue(moveItem(get().queue, from, to));
+  },
+
+  clearQueue() {
+    setQueue([]);
+  },
+
+  playFromQueue(qid) {
+    const queue = get().queue;
+    const at = queue.findIndex((item) => item.qid === qid);
+    if (at < 0) return;
+    setQueue(queue.slice(at + 1));
+    playTrackObject(queue[at].track, true);
+  },
+
+  playCollection(list, start = 0, options = {}) {
+    const first = list[start];
+    if (!first) return;
+    const rest = [...list.slice(start + 1), ...list.slice(0, start)];
+    setQueue((options.shuffle ? shuffled(rest) : rest).map(makeQueueItem));
+    playTrackObject(first, false);
+  },
 
   addToHistory(track) {
     if (!track.isOnline) return;
     set((state) => {
+      // Keep a video already resolved for this catalog entry.
+      const previous = state.history.find((t) => t.id === track.id);
+      const entry =
+        previous?.streamUrl && !track.streamUrl ? { ...track, streamUrl: previous.streamUrl } : track;
       const filtered = state.history.filter((t) => t.id !== track.id);
-      const nextHistory = [track, ...filtered].slice(0, 50);
+      const nextHistory = [entry, ...filtered].slice(0, 50);
       savePref("history", nextHistory);
       return { history: nextHistory };
     });
@@ -272,8 +1659,28 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   setYoutubeApiKey(key) {
-    set({ youtubeApiKey: key });
-    savePref("youtubeApiKey", key);
+    const trimmed = key.trim();
+    if (trimmed) {
+      set({ youtubeApiKey: trimmed });
+      savePref("youtubeApiKey", trimmed);
+    } else {
+      // Clearing the custom key falls back to the build-time key instead of
+      // persisting an empty string that would break every search.
+      set({ youtubeApiKey: DEFAULT_YOUTUBE_API_KEY });
+      void idbDelete("prefs", "youtubeApiKey");
+    }
+  },
+
+  setPlaybackError(message) {
+    if (playbackErrorTimer) clearTimeout(playbackErrorTimer);
+    playbackErrorTimer = null;
+    set({ playbackError: message });
+    if (message) {
+      playbackErrorTimer = setTimeout(() => {
+        playbackErrorTimer = null;
+        set({ playbackError: null });
+      }, 6000);
+    }
   },
 
   async searchOnline(query) {
@@ -281,21 +1688,36 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ onlineQuery: "", onlineResults: [], onlineError: null });
       return;
     }
+    const seq = ++searchSeq;
     set({ onlineSearching: true, onlineQuery: query, onlineError: null });
     try {
       const results = await searchOnlineMusic(query, get().youtubeApiKey);
+      if (seq !== searchSeq) return; // a newer search superseded this one
       set({ onlineResults: results, onlineSearching: false });
     } catch (e) {
-      set({ onlineError: "Erreur lors de la recherche en ligne", onlineSearching: false });
+      if (seq !== searchSeq) return;
+      const detail = e instanceof Error && e.message ? ` : ${e.message}` : "";
+      set({
+        onlineError: `Erreur lors de la recherche en ligne${detail}`,
+        onlineSearching: false,
+      });
     }
   },
 
   async playOnlineResult(result) {
-    const track = onlineResultToTrack(result);
+    get().playOnlineTrack(onlineResultToTrack(result));
+  },
+
+  playOnlineTrack(track) {
+    ytErrorStreak = 0; // explicit user choice: give the skip budget back
     get().addToHistory(track);
     const { tracks, current } = get();
     const existingIndex = tracks.findIndex(t => t.id === track.id);
     if (existingIndex >= 0) {
+      if (!tracks[existingIndex].streamUrl && track.streamUrl) {
+        patchOnlineTrack(track.id, { streamUrl: track.streamUrl });
+      }
+      set({ showHome: false });
       get().play(existingIndex);
       return;
     }
@@ -338,9 +1760,12 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         idbGet<Track[]>("prefs", "history"),
         idbGet<string>("prefs", "youtubeApiKey"),
       ]);
+    const storedSmart = await idbGet<unknown>("prefs", "smartPlaylists");
+    const storedMix = await idbGet<Partial<MixSettings>>("prefs", "mix");
 
     const prefs: Partial<PlayerState> = {};
-    if (typeof storedYoutubeApiKey === "string") {
+    prefs.smartPlaylists = sanitizeSmartPlaylists(storedSmart);
+    if (typeof storedYoutubeApiKey === "string" && storedYoutubeApiKey.trim()) {
       prefs.youtubeApiKey = storedYoutubeApiKey;
     }
     if (typeof volume === "number") {
@@ -373,11 +1798,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
     if (typeof skipSilence === "boolean") prefs.skipSilence = skipSilence;
     if (typeof normalize === "boolean") prefs.normalize = normalize;
+    if (storedMix && typeof storedMix === "object") prefs.mix = sanitizeMix(storedMix);
     if (stats && typeof stats === "object") {
-      prefs.stats = {
-        plays: stats.plays ?? {},
-        seconds: typeof stats.seconds === "number" ? stats.seconds : 0,
-      };
+      // v1 {plays, seconds} → v2 (dated history, artists, hours): lossless.
+      prefs.stats = migrateStats(stats);
     }
     if (Array.isArray(playlists?.values) && playlists.values.length > 0) {
       prefs.playlists = playlists.values;
@@ -385,7 +1809,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const cleanTracks = (tracks: Track[]) => {
       const seen = new Set<string>();
       return tracks
-        .map(t => ({ ...t, id: t.id.replace(/^(yt:|online_)+/, "yt:") }))
+        .filter((t) => t && typeof t.id === "string")
+        .map((t) => {
+          // Older builds stored `yt:yt:<id>` in both id and streamUrl, which
+          // the IFrame player cannot load. Normalise both.
+          const videoId = toVideoId(t.id);
+          return { ...t, id: `yt:${videoId}`, streamUrl: `yt:${videoId}`, isOnline: true };
+        })
         .filter(t => {
           if (seen.has(t.id)) return false;
           seen.add(t.id);
@@ -414,21 +1844,20 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ scanning: true, error: null });
       try {
         const result = await AudioScanner.scanAudio();
-        const nativeTracks: Track[] = result.tracks.map((t) => ({
-          ...t,
-          url: Capacitor.convertFileSrc(t.path),
-          isOnline: false,
-          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
-          seed: Math.random(),
-        }));
-        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
-      } catch (e) {
+        const nativeTracks = nativeToTracks(result.tracks);
+        // `sources` is rendered as text: an object here crashed React.
+        set({ tracks: nativeTracks, sources: ["Appareil"], scanning: false });
+      } catch {
         set({ error: "Erreur lors du scan automatique", scanning: false });
       }
+      await resumeLastSession();
       return;
     }
 
-    if (!dirs || dirs.length === 0) return;
+    if (!dirs || dirs.length === 0) {
+      await resumeLastSession(); // online-only session
+      return;
+    }
 
     const granted: FsNode[] = [];
     for (const dir of dirs) {
@@ -470,15 +1899,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ scanning: true });
       try {
         const result = await AudioScanner.scanAudio();
-        const nativeTracks: Track[] = result.tracks.map((t) => ({
-          ...t,
-          url: Capacitor.convertFileSrc(t.path),
-          isOnline: false,
-          palette: [{ hex: "#111111", rgb: [17, 17, 17], hsl: [0, 0, 0.07], css: "rgb(17,17,17)", score: 1 }, { hex: "#555555", rgb: [85, 85, 85], hsl: [0, 0, 0.33], css: "rgb(85,85,85)", score: 0.5 }, { hex: "#888888", rgb: [136, 136, 136], hsl: [0, 0, 0.53], css: "rgb(136,136,136)", score: 0.1 }],
-          seed: Math.random(),
-        }));
-        set({ tracks: nativeTracks, sources: [{ kind: "directory", name: "Appareil" } as any], scanning: false });
-      } catch (e) {
+        const nativeTracks = nativeToTracks(result.tracks);
+        // `sources` is rendered as text: an object here crashed React.
+        set({ tracks: nativeTracks, sources: ["Appareil"], scanning: false });
+      } catch {
         set({ error: "Erreur lors du scan", scanning: false });
       }
       return;
@@ -516,41 +1940,47 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         perDir.push(scanned);
         total += scanned.audio.length;
       }
+      const allFiles: File[] = [];
       for (const scanned of perDir) {
-        const files = [...scanned.audio].sort((a, b) =>
-          a.name.localeCompare(b.name)
+        allFiles.push(
+          ...[...scanned.audio].sort((a, b) => a.name.localeCompare(b.name))
         );
-        for (const file of files) {
-          const track = await parseTrack(file);
-          if (!byId.has(track.id)) byId.set(track.id, track);
-          done++;
-          set({ progress: { done, total } });
-        }
         for (const [base, file] of scanned.lyrics) {
           lyricsFiles.set(base, file);
         }
       }
-      const tracks = [...byId.values()].sort(
+      // Cached tags are reused; only new/modified files are parsed, in
+      // parallel workers. Progress updates are throttled (~10/s).
+      let lastProgress = 0;
+      const { tracks: built } = await buildTracks(allFiles, (d) => {
+        done = d;
+        const now = Date.now();
+        if (now - lastProgress > 100 || d === total) {
+          lastProgress = now;
+          set({ progress: { done, total } });
+        }
+      });
+      for (const track of built) {
+        const relPath = track.file ? relativePathOf(track.file) : undefined;
+        if (relPath) track.relPath = relPath;
+        if (!byId.has(track.id)) byId.set(track.id, track);
+      }
+      const tracks = (await applyStoredEdits([...byId.values()])).sort(
         (a, b) =>
           a.artist.localeCompare(b.artist) ||
           a.album.localeCompare(b.album) ||
           a.title.localeCompare(b.title)
       );
-      const lastId = await idbGet<string>("prefs", "lastTrackId");
-      const restored = lastId ? tracks.findIndex((t) => t.id === lastId) : -1;
       engine.pause();
       set({
         tracks,
         sources: dirs.map((d) => d.name),
-        current: restored >= 0 ? restored : -1,
+        current: -1,
         playing: false,
         duration: 0,
         scanning: false,
       });
-      if (restored >= 0) {
-        applyPalette(tracks[restored].palette);
-        syncMediaSession(tracks[restored]);
-      }
+      await resumeLastSession();
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "SCAN_FAILED",
@@ -559,113 +1989,90 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     }
   },
 
-  play(index) {
-    const { tracks, stats, crossfade, normalize, current } = get();
+  play(index, options = {}) {
+    const { tracks, normalize } = get();
+    const autoplay = options.autoplay ?? true;
+    const countPlay = options.countPlay ?? autoplay;
+    // Crossfading into a paused, resumed track makes no sense.
+    const crossfade = autoplay ? get().crossfade : 0;
+    const loadOptions = { autoplay, startAt: options.startAt ?? 0 };
     const track = tracks[index];
     if (!track) return;
-
-    if (!wired && typeof window !== "undefined") {
-      wired = true;
-      for (const el of engine.getElements()) {
-        el.addEventListener("play", (event) => {
-          if (event.target !== engine.el) return;
-          set({ playing: true });
-        });
-        el.addEventListener("pause", (event) => {
-          if (event.target !== engine.el) return;
-          set({ playing: false });
-        });
-        el.addEventListener("ended", (event) => {
-          if (event.target !== engine.el) return;
-          get().next(true);
-        });
-        el.addEventListener("loadedmetadata", (event) => {
-          if (event.target !== engine.el) return;
-          set({
-            duration: Number.isFinite(el.duration) ? el.duration : 0,
-          });
-        });
-      }
-      
-      let lastCrossfadeId: string | null = null;
-      setInterval(() => {
-        const state = get();
-        if (state.crossfade <= 0 || !state.playing || state.current < 0) return;
-        if (engine.ytActive) return; // Crossfade doesn't work well with YouTube iframe yet
-        
-        const track = state.tracks[state.current];
-        if (!track || track.id === lastCrossfadeId) return;
-        
-        const dur = engine.duration;
-        const time = engine.currentTime;
-        // Si la piste est assez longue et qu'on atteint la zone de crossfade
-        if (dur > state.crossfade + 2 && dur - time <= state.crossfade) {
-          lastCrossfadeId = track.id;
-          get().next(true);
-        }
-      }, 250);
-
-      engine.onYtStateChange = (state) => {
-        // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
-        if (state === 1) {
-          set({ playing: true, duration: engine.duration });
-        } else if (state === 2) {
-          set({ playing: false });
-        } else if (state === 0) {
-          get().next(true);
-        }
-      };
-      engine.onYtError = (error) => {
-        console.warn("YouTube Error:", error);
-        get().next(true); // Passer au suivant si erreur (vidéo supprimée/bloquée)
-      };
+    if (needsResolve(track)) {
+      startResolve(index, track, options);
+      return;
     }
+    resolveToken++; // a pending catalog lookup no longer applies
+    if (get().resolvingId) set({ resolvingId: null });
 
-    const previous = current >= 0 ? tracks[current] : null;
-    if (previous && previous.id !== track.id) {
-      const elapsed = engine.el.currentTime;
-      if (elapsed > 0) {
-        const nextStats: ListeningStats = {
-          plays: { ...stats.plays },
-          seconds: stats.seconds + elapsed,
-        };
-        set({ stats: nextStats });
-        savePref("stats", nextStats);
-      }
-    }
+    wireEngine();
 
-    if (track.isOnline && track.streamUrl) {
-      engine.loadSource({ url: track.streamUrl }, crossfade * 1000);
+    flushListening(true);
+
+    // Aurora Mix already carries this track (transition in progress).
+    const mixed = autoplay && !loadOptions.startAt && engine.adoptMix(track.id);
+    if (!mixed) resetDirector();
+    const gapless =
+      mixed ||
+      (autoplay && crossfade === 0 && !loadOptions.startAt && engine.startPreloaded(track.id));
+    if (gapless) {
+      // Already loaded in the second slot and started: nothing to load.
     } else if (track.file) {
-      engine.load(track.file, crossfade * 1000);
+      engine.load(track.file, crossfade * 1000, loadOptions);
+    } else if (track.streamUrl) {
+      // Online (`yt:<id>`) or native Android (Capacitor file URL) tracks.
+      engine.loadSource({ url: track.streamUrl }, crossfade * 1000, loadOptions);
     }
-    engine.volume = get().volume;
+    engine.volume = get().muted ? 0 : get().volume;
     applyPalette(track.palette);
     syncMediaSession(track);
     if (typeof document !== "undefined") {
       document.title = `${track.title} · ${track.artist} — AURORA`;
     }
-    playHistory.push(index);
-    if (playHistory.length > 60) playHistory.shift();
+    if (playHistory[playHistory.length - 1] !== track.id) {
+      playHistory.push(track.id);
+      if (playHistory.length > 60) playHistory.shift();
+    }
+    currentFromQueue = false;
     savePref("lastTrackId", track.id);
-    set({ current: index, duration: 0, lyricsOffset: 0 });
+    // A preloaded element fired "loadedmetadata" while inactive (ignored by
+    // the listeners), so read its duration now.
+    const knownDuration =
+      gapless && Number.isFinite(engine.duration) ? engine.duration : 0;
+    set({
+      current: index,
+      duration: knownDuration,
+      lyricsOffset: 0,
+      abLoop: { a: null, b: null },
+    });
+    if (knownDuration > 0) {
+      rememberDuration(knownDuration);
+      pushMediaPosition(true);
+    }
 
     if (get().autoMode) {
       set({ visualMode: MODE_KEYS[track.seed % MODE_KEYS.length] });
     }
 
-    const nextStats: ListeningStats = {
-      plays: { ...get().stats.plays },
-      seconds: get().stats.seconds,
-    };
-    nextStats.plays[track.id] = (nextStats.plays[track.id] ?? 0) + 1;
-    set({ stats: nextStats });
-    savePref("stats", nextStats);
+    if (countPlay) {
+      const nextStats = recordPlay(get().stats, track);
+      set({ stats: nextStats });
+      savePref("stats", nextStats);
+    }
 
-    void engine.play();
+    if (autoplay) void engine.play();
+    else set({ playing: false });
+    lastSavedPosition = { id: track.id, t: loadOptions.startAt };
+
+    set({ trackMix: null });
+    if (track.file && !track.isOnline) {
+      void trackMixInfo(track).then((info) => {
+        if (info && get().tracks[get().current]?.id === track.id) set({ trackMix: info });
+      });
+    }
 
     if (track.file && track.bpm === undefined) {
-      void detectBpm(track.file).then((bpm) => {
+      void detectBpm(track.id, track.file).then((bpm) => {
         const state = get();
         const idx = state.tracks.findIndex((t) => t.id === track.id);
         if (idx >= 0) {
@@ -677,44 +2084,40 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       });
     }
 
-    if (normalize && track.file) {
+    // Async results (analysis, lyrics, presets) must only apply if the user
+    // has not switched tracks in the meantime.
+    const isCurrent = () => get().tracks[get().current]?.id === track.id;
+
+    const replayGain = normalize ? replayGainMultiplier(track.replayGain) : undefined;
+    if (replayGain !== undefined) {
+      // ReplayGain tags are authoritative; RMS analysis is only a fallback.
+      engine.setTrackGain(replayGain);
+    } else if (normalize && track.file) {
       void getCachedAnalysis(track.id, track.file).then((analysis) => {
-        if (analysis) {
+        if (analysis && isCurrent()) {
           engine.setTrackGain(normalizationGain(analysis.rms, true));
         }
       });
     } else {
       engine.setTrackGain(1);
     }
+    if (get().skipSilence) loadSilenceBounds(track);
+    else silence = null;
 
     set({ lyrics: [], lyricsAvailable: false });
-    const applyCues = (cues: LyricsCue[]) => {
-      set({ lyrics: cues, lyricsAvailable: cues.length > 0 });
-    };
-    const lrcFile = track.file ? lyricsFiles.get(baseName(track.file.name)) : undefined;
-    if (lrcFile) {
-      void lrcFile
-        .text()
-        .then((text) => applyCues(parseLrc(text)))
-        .catch(() => set({ lyrics: [], lyricsAvailable: false }));
-    } else {
-      void (async () => {
-        const cached = await idbGet<LyricsCue[]>("meta", `lyrics:${track.id}`);
-        if (cached && cached.length > 0) {
-          applyCues(cached);
-          return;
-        }
-        const remote = await fetchRemoteLyrics(track.artist, track.title);
-        if (remote && remote.length > 0) {
-          void idbSet("meta", `lyrics:${track.id}`, remote);
-          applyCues(remote);
-        }
-      })();
-    }
+    loadLyrics(track);
 
-    void idbGet<VisualPreset>("meta", `visual:${track.id}`).then((preset) => {
-      set({ visualPreset: preset ?? DEFAULT_PRESET });
-    });
+    void idbGet<number>("meta", `lyricsOffset:${track.id}`)
+      .then((offset) => {
+        if (isCurrent() && typeof offset === "number") set({ lyricsOffset: offset });
+      })
+      .catch(() => void 0);
+
+    void idbGet<VisualPreset>("meta", `visual:${track.id}`)
+      .then((preset) => {
+        if (isCurrent()) set({ visualPreset: preset ?? DEFAULT_PRESET });
+      })
+      .catch(() => void 0);
   },
 
   toggle() {
@@ -722,12 +2125,18 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (now - lastActionTime < 300) return; // Anti-spam (idempotence)
     lastActionTime = now;
 
-    const { current, tracks } = get();
+    const { current, tracks, resolvingId } = get();
     if (current < 0 || current >= tracks.length) {
       get().play(0);
       return;
     }
-    if (engine.el.paused) void engine.play();
+    if (needsResolve(tracks[current])) {
+      if (!resolvingId) get().play(current);
+      return;
+    }
+    // engine.paused also covers the YouTube player (the <audio> element is
+    // always paused while an online track plays, so pause never worked).
+    if (engine.paused) void engine.play();
     else engine.pause();
   },
 
@@ -738,27 +2147,27 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       lastActionTime = now;
     }
 
-    const { current, tracks, shuffle, repeat } = get();
-    if (tracks.length === 0) return;
+    const { tracks, repeat, queue } = get();
+    if (tracks.length === 0 && queue.length === 0) return;
+    if (auto && get().sleepMode === "track") {
+      sleepStop();
+      if (!engine.ytActive) engine.seek(0);
+      return;
+    }
     if (auto && repeat === "one") {
       engine.seek(0);
       void engine.play();
       return;
     }
-    if (auto && repeat === "off" && !shuffle && current >= tracks.length - 1) {
+    const plan = planNext(auto);
+    if (plan.kind === "stop") {
       engine.pause();
-      engine.seek(0);
+      // seekTo() on an ENDED YouTube player restarts playback.
+      if (!engine.ytActive) engine.seek(0);
+      set({ playing: false });
       return;
     }
-    let index: number;
-    if (shuffle && tracks.length > 1) {
-      do {
-        index = Math.floor(Math.random() * tracks.length);
-      } while (index === current);
-    } else {
-      index = (current + 1) % tracks.length;
-    }
-    get().play(index);
+    commitNext(plan);
   },
 
   prev() {
@@ -772,25 +2181,61 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       engine.seek(0);
       return;
     }
-    if (shuffle && playHistory.length > 1) {
+    // Shuffle / queue playback: walk back through what was actually heard.
+    if ((shuffle || currentFromQueue) && playHistory.length > 1) {
       playHistory.pop();
-      const target = playHistory[playHistory.length - 1];
-      if (tracks[target]) {
+      const targetId = playHistory.pop();
+      const target = tracks.findIndex((t) => t.id === targetId);
+      if (target >= 0) {
         get().play(target);
+        currentFromQueue = false;
         return;
       }
     }
     get().play((current - 1 + tracks.length) % tracks.length);
+    currentFromQueue = false;
   },
 
   seek(time) {
     engine.seek(time);
+    pushMediaPosition(true);
+  },
+
+  seekBy(delta) {
+    if (get().current < 0) return;
+    const duration = engine.duration;
+    const target = engine.currentTime + delta;
+    const max =
+      Number.isFinite(duration) && duration > 0 ? duration - 0.25 : target;
+    engine.seek(Math.max(0, Math.min(max, target)));
+    pushMediaPosition(true);
   },
 
   setVolume(value) {
-    engine.volume = value;
-    set({ volume: value });
-    savePref("volume", value);
+    const volume = Math.max(0, Math.min(1, value));
+    engine.volume = volume;
+    set({ volume, muted: false });
+    savePref("volume", volume);
+  },
+
+  toggleMute() {
+    const muted = !get().muted;
+    engine.volume = muted ? 0 : get().volume;
+    set({ muted });
+  },
+
+  cycleAbLoop() {
+    if (get().current < 0) return;
+    const { a, b } = get().abLoop;
+    const now = engine.currentTime;
+    if (a === null) set({ abLoop: { a: now, b: null } });
+    else if (b === null) {
+      set({ abLoop: now > a + 0.2 ? { a, b: now } : { a: now, b: null } });
+    } else set({ abLoop: { a: null, b: null } });
+  },
+
+  clearAbLoop() {
+    set({ abLoop: { a: null, b: null } });
   },
 
   setQueueOpen(queueOpen) {
@@ -858,6 +2303,11 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   setLyricsOffset(offset) {
     set({ lyricsOffset: offset });
+    const track = get().tracks[get().current];
+    if (!track) return;
+    // Persisted per track (and included in backups).
+    if (offset === 0) void idbDelete("meta", `lyricsOffset:${track.id}`);
+    else void idbSet("meta", `lyricsOffset:${track.id}`, offset);
   },
 
   reorder(from, to) {
@@ -876,12 +2326,23 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   refreshApp() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
       return;
-    navigator.serviceWorker.controller?.postMessage("SKIP_WAITING");
     navigator.serviceWorker.addEventListener(
       "controllerchange",
       () => window.location.reload(),
       { once: true }
     );
+    // SKIP_WAITING must go to the *waiting* worker: the active controller is
+    // the old one, so posting to it never activated the update.
+    void navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => {
+        if (registration?.waiting) {
+          registration.waiting.postMessage("SKIP_WAITING");
+        } else {
+          window.location.reload();
+        }
+      })
+      .catch(() => window.location.reload());
   },
 
   async createPlaylist(name) {
@@ -903,10 +2364,27 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     await idbDelete("playlists", id);
   },
 
-  async addToPlaylist(playlistId, trackId) {
+  async addToPlaylist(playlistId, trackId, track) {
+    const online = isOnlineTrackId(trackId)
+      ? (track?.id === trackId && track.isOnline ? track : undefined) ??
+        [...get().tracks, ...get().savedOnlineTracks, ...get().history].find(
+          (t) => t.id === trackId
+        )
+      : undefined;
     const playlists = get().playlists.map((p) =>
       p.id === playlistId && !p.trackIds.includes(trackId)
-        ? { ...p, trackIds: [...p.trackIds, trackId] }
+        ? {
+            ...p,
+            trackIds: [...p.trackIds, trackId],
+            ...(online
+              ? {
+                  online: [
+                    ...(p.online ?? []).filter((t) => t.id !== trackId),
+                    serializableTrack(online),
+                  ],
+                }
+              : {}),
+          }
         : p
     );
     set({ playlists });
@@ -926,7 +2404,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
 
   resetStats() {
-    const stats: ListeningStats = { plays: {}, seconds: 0 };
+    pendingListen = null;
+    const stats = emptyStats();
     set({ stats });
     savePref("stats", stats);
   },
@@ -939,23 +2418,66 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setSpeed(speed) {
     engine.setRate(speed);
     set({ speed });
+    pushMediaPosition(true);
     savePref("speed", speed);
   },
 
   setSkipSilence(skipSilence) {
     set({ skipSilence });
     savePref("skipSilence", skipSilence);
+    const track = get().tracks[get().current];
+    if (skipSilence && track && (!silence || silence.id !== track.id)) {
+      loadSilenceBounds(track);
+    }
   },
 
   setNormalize(normalize) {
     set({ normalize });
     savePref("normalize", normalize);
-    if (!normalize) engine.setTrackGain(1);
+    if (!normalize) {
+      engine.setTrackGain(1);
+      return;
+    }
+    const track = get().tracks[get().current];
+    if (!track) return;
+    const rg = replayGainMultiplier(track.replayGain);
+    if (rg !== undefined) engine.setTrackGain(rg);
+    else if (track.file) {
+      void getCachedAnalysis(track.id, track.file).then((analysis) => {
+        const state = get();
+        if (analysis && state.normalize && state.tracks[state.current]?.id === track.id) {
+          engine.setTrackGain(normalizationGain(analysis.rms, true));
+        }
+      });
+    }
+  },
+
+  setMix(patch) {
+    const mix = sanitizeMix({ ...get().mix, ...patch });
+    const wasOn = get().mix.enabled;
+    set({ mix });
+    savePref("mix", mix);
+    resetDirector();
+    if (wasOn && !mix.enabled) engine.abortMix();
   },
 
   setSleep(minutes) {
-    const sleepAt = minutes > 0 ? Date.now() + minutes * 60000 : null;
-    set({ sleepAt });
+    if (!(minutes > 0)) {
+      get().cancelSleep();
+      return;
+    }
+    restoreSleepVolume();
+    set({ sleepAt: Date.now() + minutes * 60000, sleepMode: "time" });
+  },
+
+  setSleepEndOfTrack() {
+    restoreSleepVolume();
+    set({ sleepAt: null, sleepMode: "track" });
+  },
+
+  cancelSleep() {
+    restoreSleepVolume();
+    set({ sleepAt: null, sleepMode: "off" });
   },
 
   setAmbient(ambient) {
