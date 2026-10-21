@@ -343,12 +343,15 @@ a {
   outline: none;
 }
 
+/* Sized by the hero column (container query units), not just the viewport:
+   when the lyrics or library panel narrows the column, words still fit
+   instead of breaking mid-word under the dock. */
 .hero-title {
-  font-size: var(--text-hero);
+  font-size: min(var(--text-hero), 10.5cqi);
 }
 
 .hero-title-long {
-  font-size: var(--text-display);
+  font-size: min(var(--text-display), 7cqi);
 }
 
 @media (max-height: 560px) {

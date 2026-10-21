@@ -284,7 +284,7 @@ export default function Home() {
         {hasTracks && !showHome ? (
           <>
             <main
-              className={`pointer-events-none relative z-(--z-content) flex flex-1 flex-col justify-end px-5 transition-all duration-700 md:px-12 ${
+              className={`pointer-events-none relative z-(--z-content) flex flex-1 flex-col justify-end [container-type:inline-size] px-5 transition-all duration-700 md:px-12 ${
                 immersive ? "translate-y-6" : ""
               } pb-[calc(var(--dock-h)+var(--safe-b)+4.5rem)] md:pb-[calc(var(--dock-h)+5.5rem)] ${
                 lyricsOpen

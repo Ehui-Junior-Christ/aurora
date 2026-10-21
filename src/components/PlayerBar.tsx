@@ -741,6 +741,9 @@ function NowPlayingSheetBody({
         }`}
         style={{
           transform: visible ? `translateY(${drag}px)` : "translateY(100%)",
+          // Fullscreen sheet: fully opaque, otherwise the big hero title
+          // behind it ghosts through the 97.5% glass surface.
+          backgroundColor: "rgb(8 8 14)",
         }}
       >
         <div
