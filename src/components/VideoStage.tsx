@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { engine, YT_STAGE_ID } from "@/lib/audio-engine";
 import { usePlayer } from "@/store/player-store";
+import { useVideoPref } from "@/lib/video-pref";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
- * Keeps the YouTube player visible while it plays (YouTube API terms forbid
- * hidden players). The iframes stay in the engine's fixed "stage" (moving an
+ * Shows the YouTube player while it plays. The listener can hide the video
+ * (cross on the card, or the "Vidéo" toggle in the player): the sound goes on
+ * and the preference is remembered on the device (lib/video-pref). The iframes stay in the engine's fixed "stage" (moving an
  * iframe in the DOM reloads it): every frame the stage is laid over the best
  * visible slot:
  *   1. a docked slot, e.g. the artwork of the mobile "En lecture" sheet
@@ -15,7 +17,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
  *   2. otherwise the floating mini-player rendered here (200 px tall at
  *      least, draggable to any corner). It cannot be closed while a YouTube
  *      track is loaded: "Agrandir" opens the sheet (mobile) or enlarges the
- *      card (desktop); pausing or playing something else hides it.
+ *      card (desktop), the cross hides the video; pausing or playing
+ *      something else hides it too.
  */
 
 const MIN_SIDE = 200;
@@ -59,7 +62,16 @@ function ExpandIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function FloatingCard({ desktop }: { desktop: boolean }) {
+  const hideVideo = useVideoPref((s) => s.setVisible);
   const title = usePlayer((s) => s.tracks[s.current]?.title ?? "");
   const artist = usePlayer((s) => s.tracks[s.current]?.artist ?? "");
   const [corner, setCorner] = useState<Corner>(desktop ? "tl" : "tr");
@@ -167,6 +179,15 @@ function FloatingCard({ desktop }: { desktop: boolean }) {
         >
           <ExpandIcon expanded={desktop && large} />
         </button>
+        <button
+          type="button"
+          onClick={() => hideVideo(false)}
+          aria-label="Masquer la vidéo (le son continue)"
+          title="Masquer la vidéo"
+          className="btn-icon grid size-8 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-white/10 hover:text-white"
+        >
+          <CloseIcon />
+        </button>
       </div>
     </div>
   );
@@ -204,7 +225,11 @@ export default function VideoStage() {
       const visual = engine.ytVisual();
       // A transition into a YouTube track shows the incoming video before
       // the store switches tracks; otherwise the current track must be one.
-      const show = !!stage && visual.show && (ytTrackRef.current || visual.mixing);
+      const show =
+        !!stage &&
+        visual.show &&
+        (ytTrackRef.current || visual.mixing) &&
+        useVideoPref.getState().visible;
       if (!stage || !show) {
         if (stage && stage.style.visibility !== "hidden") {
           stage.style.visibility = "hidden";

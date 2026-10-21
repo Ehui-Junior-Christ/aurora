@@ -590,8 +590,25 @@ function installResumeListeners(): void {
     flushListening(true);
   };
   window.addEventListener("pagehide", flush);
+  // Mobile browsers pause the YouTube player when the screen turns off or the
+  // tab goes to the background (it cannot play there). Resume it when the
+  // listener comes back, if it was playing when the page was hidden.
+  let resumeYtOnReturn = false;
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flush();
+    if (document.visibilityState === "hidden") {
+      const s = usePlayer.getState();
+      const t = s.tracks[s.current];
+      resumeYtOnReturn = s.playing && !!t && (t.streamUrl ?? t.id ?? "").startsWith("yt:");
+      flush();
+      return;
+    }
+    if (!resumeYtOnReturn) return;
+    resumeYtOnReturn = false;
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible" && !usePlayer.getState().playing) {
+        void engine.play();
+      }
+    }, 300);
   });
 }
 

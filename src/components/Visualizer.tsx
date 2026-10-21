@@ -142,9 +142,38 @@ export default function Visualizer() {
     }
   }, [mode]);
 
+  // Phones may drop the WebGL context while the screen is off or the tab is
+  // in the background: the canvas then stays black. Rebuild the scene when the
+  // context is lost, or when the page comes back with a lost context.
+  const [canvasKey, setCanvasKey] = useState(0);
+  const glRef = useRef<WebGLRenderingContext | WebGL2RenderingContext | null>(null);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && glRef.current?.isContextLost()) {
+        setCanvasKey((k) => k + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   return (
     <div id="aurora-canvas" className="fixed inset-0 z-(--z-canvas)" aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={({ gl }) => {
+          glRef.current = gl.getContext();
+          gl.domElement.addEventListener(
+            "webglcontextlost",
+            () => {
+              // Wait until the page is visible again to rebuild.
+              if (document.visibilityState === "visible") {
+                window.setTimeout(() => setCanvasKey((k) => k + 1), 200);
+              }
+            },
+            { once: true }
+          );
+        }}
         dpr={[1, 2]}
         camera={{ fov: 42, position: [0, 0, 4.4] }}
         gl={{

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePlayer } from "@/store/player-store";
+import { useVideoPref } from "@/lib/video-pref";
 import Timeline from "./Timeline";
 import EqPanel from "./EqPanel";
 import styles from "./PlayerBar.module.css";
@@ -239,6 +240,36 @@ function repeatLabel(repeat: string): string {
   return `Répétition : ${repeat === "off" ? "désactivée" : repeat === "all" ? "file" : "piste"}`;
 }
 
+function VideoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1.75" y="3.75" width="9" height="8.5" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M10.75 7l3.5-2.25v6.5L10.75 9" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Shows / hides the YouTube video of an online track (the sound goes on). */
+function VideoToggle({ className }: { className?: string }) {
+  const isYouTube = usePlayer((s) => {
+    const t = s.tracks[s.current];
+    return !!t && (t.streamUrl ?? t.id ?? "").startsWith("yt:");
+  });
+  const visible = useVideoPref((s) => s.visible);
+  const toggle = useVideoPref((s) => s.toggle);
+  if (!isYouTube) return null;
+  return (
+    <ToggleButton
+      label={visible ? "Masquer la vidéo" : "Afficher la vidéo"}
+      active={visible}
+      onClick={toggle}
+      className={className}
+    >
+      <VideoIcon />
+    </ToggleButton>
+  );
+}
+
 function ToggleButton({
   label,
   active,
@@ -465,6 +496,7 @@ function DesktopDock({
             >
               <LyricsIcon />
             </ToggleButton>
+            <VideoToggle />
             <ToggleButton label="Lecture aléatoire" active={shuffle} onClick={toggleShuffle}>
               <ShuffleIcon />
             </ToggleButton>
@@ -800,6 +832,7 @@ function NowPlayingSheetBody({
           >
             <LyricsIcon />
           </ToggleButton>
+          <VideoToggle className="size-11" />
           <ToggleButton label="Lecture aléatoire" active={shuffle} onClick={toggleShuffle} className="size-11">
             <ShuffleIcon />
           </ToggleButton>
