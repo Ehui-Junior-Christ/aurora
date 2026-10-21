@@ -24,6 +24,14 @@ import GlobalProgressBar from "@/components/GlobalProgressBar";
 import FxRoot from "@/components/fx/FxRoot";
 import Intro from "@/components/fx/Intro";
 import VideoStage from "@/components/VideoStage";
+import { engine } from "@/lib/audio-engine";
+
+// Marketing mockups only (marketing/tools/capture.mjs): build with
+// NEXT_PUBLIC_MOCKUP=1 to let the capture script inject demo tracks.
+// The condition is a build-time constant, removed from normal builds.
+if (process.env.NEXT_PUBLIC_MOCKUP === "1" && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__aurora = { usePlayer, engine };
+}
 
 const Visualizer = dynamic(() => import("@/components/Visualizer"), {
   ssr: false,

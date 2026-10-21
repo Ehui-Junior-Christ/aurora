@@ -1,0 +1,28 @@
+export const TRACKS = [
+  { artist: "Lumen Nocturne", title: "Néons sur la lagune", album: "Lagune", colors: ["#ff4ecd", "#6d4dff", "#22e4ff"], bpm: 122, dur: 214, genre: "Électro" },
+  { artist: "Kaïa", title: "Marée haute", album: "Sel", colors: ["#ff7a3d", "#ffcf5a", "#c2185b"], bpm: 104, dur: 188, genre: "Afro-pop" },
+  { artist: "Solis & Vega", title: "Gravité zéro", album: "Orbites", colors: ["#00e5a8", "#1e3cff", "#9b5cff"], bpm: 126, dur: 241, genre: "House" },
+  { artist: "Nora Vale", title: "Polaroïd", album: "Instantanés", colors: ["#ff5e7e", "#ffd1dc", "#7b2ff7"], bpm: 96, dur: 176, genre: "Pop" },
+  { artist: "ATLAS", title: "Hyperespace", album: "Vitesse lumière", colors: ["#3df2ff", "#0b1e5b", "#ff3df2"], bpm: 132, dur: 229, genre: "Électro" },
+  { artist: "Mélo Sun", title: "Saison sèche", album: "Harmattan", colors: ["#ffb347", "#ff5f6d", "#ffe29f"], bpm: 100, dur: 203, genre: "Afrobeats" },
+  { artist: "Dune Collective", title: "Mirage", album: "Sable", colors: ["#c79a5b", "#5b3cc4", "#f2e6d0"], bpm: 90, dur: 257, genre: "Chill" },
+  { artist: "Iris Koné", title: "Ondes", album: "Fréquences", colors: ["#4facfe", "#00f2fe", "#a18cd1"], bpm: 118, dur: 195, genre: "R&B" },
+  { artist: "Velours", title: "Minuit pile", album: "Nocturnes", colors: ["#8e2de2", "#4a00e0", "#ff6a88"], bpm: 84, dur: 222, genre: "Soul" },
+  { artist: "Orage Doux", title: "Électrique", album: "Foudre", colors: ["#f7ff00", "#db36a4", "#1b1446"], bpm: 128, dur: 199, genre: "Dance" },
+  { artist: "Pixel Bloom", title: "Arcade", album: "Insert Coin", colors: ["#ff0080", "#7928ca", "#00dfd8"], bpm: 140, dur: 183, genre: "Synthwave" },
+  { artist: "Sahel Wave", title: "Horizon", album: "Harmattan", colors: ["#e65c00", "#f9d423", "#5d4157"], bpm: 110, dur: 236, genre: "Afro-house" },
+];
+export const LYRICS = [
+  "La ville s'allume quand tu passes",
+  "Les néons dansent sur la lagune",
+  "On court après la nuit, sans trace",
+  "Le ciel prend les couleurs de la lune",
+  "Garde le rythme, ne lâche rien",
+  "Chaque battement nous rapproche",
+  "Tout s'efface, sauf le refrain",
+  "Et la musique qui nous accroche",
+  "Néons sur la lagune, encore",
+  "On respire au même tempo",
+  "La nuit est longue, la nuit est d'or",
+  "On recommence, on monte le son",
+];
