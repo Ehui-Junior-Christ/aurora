@@ -23,7 +23,7 @@ canvas { position: absolute; inset: 0; }
 .pill { display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(18px); font-weight: 600; font-size: 28px; }
 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c2); box-shadow: 0 0 18px var(--c2); }
 .device { position: absolute; will-change: transform; filter: drop-shadow(0 60px 80px rgba(0,0,0,.6)); }
-.shot { position: absolute; inset: 0; background-size: cover; background-position: center; will-change: transform, opacity; }
+.shot { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .shot.r { mix-blend-mode: screen; filter: url(#fr); } .shot.g { mix-blend-mode: screen; filter: url(#fg); } .shot.b { mix-blend-mode: screen; filter: url(#fb); }
 #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
 #leak { position: absolute; inset: -20%; opacity: 0; pointer-events: none; mix-blend-mode: screen;
@@ -31,6 +31,10 @@ canvas { position: absolute; inset: 0; }
 #vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.65)); }
 #grain { mix-blend-mode: overlay; opacity: .22; pointer-events: none; }
 .bars { position: absolute; left: 0; right: 0; height: 0; background: #000; z-index: 50; }
+.card { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 50px 100px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.12); background-size: cover; background-position: center; will-change: transform, opacity; }
+.wall { position: absolute; left: 50%; top: 50%; width: 3400px; height: 2600px; margin: -1300px 0 0 -1700px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 46px; transform-style: preserve-3d; will-change: transform; }
+.wall > div { border-radius: 20px; background-size: cover; background-position: center top; box-shadow: 0 30px 60px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.1); }
+.wall > div.m { background-size: contain; background-repeat: no-repeat; background-position: center; box-shadow: none; }
 .vinyl { position: absolute; width: 520px; height: 520px; border-radius: 50%;
   background: repeating-radial-gradient(circle, #121218 0 3px, #1b1b24 3px 5px); box-shadow: 0 40px 90px rgba(0,0,0,.7), 0 0 0 2px rgba(255,255,255,.06) inset; }
 .vinyl .label { position: absolute; inset: 31%; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 6px #0b0b10; }
@@ -65,25 +69,28 @@ canvas { position: absolute; inset: 0; }
 
   <!-- S3 search + trends -->
   <section class="scene" id="s3">
-    <img class="device" id="s3pc" src="../mockups/pc/pc-02-recherche.png" style="width:1560px;left:40px;top:190px" />
-    <img class="device" id="s3ph" src="../mockups/mobile/mobile-02-tendances.png" style="width:520px;left:1340px;top:-40px" />
-    <div style="position:absolute;left:110px;top:90px">
+    <div class="card" id="s3pc" style="width:1150px;height:719px;left:110px;top:250px;background-image:url(../mockups/ecrans-bruts/pc-02-recherche.png)"></div>
+    <img class="device" id="s3ph2" src="../mockups/mobile/mobile-01-accueil.png" style="width:400px;left:1250px;top:130px" />
+    <img class="device" id="s3ph" src="../mockups/mobile/mobile-02-tendances.png" style="width:440px;left:1440px;top:170px" />
+    <div style="position:absolute;left:110px;top:80px;display:flex;align-items:center;gap:34px">
       <div class="display" id="s3t1" style="font-size:96px">Cherche.</div>
-    </div>
-    <div style="position:absolute;left:110px;top:215px">
       <div class="pill" id="s3p"><span class="dot" style="background:var(--c3);box-shadow:0 0 18px var(--c3)"></span>Tendances du moment</div>
     </div>
   </section>
 
+  <!-- S3b: 3D wall of app screens -->
+  <section class="scene" id="swall" style="perspective:1600px"><div class="wall" id="wall"></div></section>
+
   <!-- S4 files -->
   <section class="scene" id="s4">
-    <img class="device" id="s4pc" src="../mockups/pc/pc-04-bibliotheque.png" style="width:1640px;left:140px;top:170px" />
+    <img class="device" id="s4pc" src="../mockups/pc/pc-04-bibliotheque.png" style="width:1380px;left:60px;top:250px" />
+    <img class="device" id="s4ph" src="../mockups/mobile/mobile-06-bibliotheque.png" style="width:430px;left:1400px;top:190px" />
     <div class="center" id="s4words" style="gap:10px">
       <div class="display grad" data-slam style="font-size:250px">MP3</div>
       <div class="display" data-slam style="font-size:250px;-webkit-text-stroke:3px #fff;color:transparent">FLAC</div>
       <div class="display grad" data-slam style="font-size:250px">WAV</div>
     </div>
-    <div style="position:absolute;left:0;right:0;bottom:70px;text-align:center"><div class="pill" id="s4p">
+    <div style="position:absolute;left:0;right:0;top:110px;text-align:center"><div class="pill" id="s4p">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2.7-2M2 8.8a15 15 0 0 1 4.2-2.7M22 8.8a15 15 0 0 0-11.3-3.8M12 20h.01"/></svg>
       Même sans connexion</div></div>
   </section>
@@ -91,6 +98,7 @@ canvas { position: absolute; inset: 0; }
   <!-- S5 drop: scenes -->
   <section class="scene" id="s5">
     <div id="cuts" style="position:absolute;inset:0"></div>
+    <div id="cutsDim" style="position:absolute;inset:0;background:radial-gradient(70% 70% at 50% 50%,rgba(6,6,11,.55),rgba(6,6,11,.85));opacity:0"></div>
     <div class="center" style="pointer-events:none">
       <div id="s5num" class="display rgb" style="font-size:360px;line-height:.8">15</div>
       <div id="s5lbl" class="display" style="font-size:72px;margin-top:10px">scènes visuelles</div>
@@ -101,13 +109,14 @@ canvas { position: absolute; inset: 0; }
 
   <!-- S6 lyrics -->
   <section class="scene" id="s6">
-    <img class="device" id="s6ph" src="../mockups/mobile/mobile-07-paroles.png" style="width:600px;left:1180px;top:-110px" />
-    <div style="position:absolute;left:130px;top:250px;width:980px" id="s6lines" data-x>
+    <img class="device" id="s6ph2" src="../mockups/mobile/mobile-05-en-lecture.png" style="width:430px;left:1030px;top:120px" />
+    <img class="device" id="s6ph" src="../mockups/mobile/mobile-07-paroles.png" style="width:500px;left:1340px;top:40px" />
+    <div style="position:absolute;left:130px;top:250px;width:900px" id="s6lines" data-x>
       <div class="mono" style="margin-bottom:40px">Paroles synchronisées</div>
-      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">La ville s'allume</div>
-      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">quand tu passes</div>
-      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">chaque battement</div>
-      <div class="lyr display" style="font-size:56px;white-space:nowrap">nous rapproche</div>
+      <div class="lyr display" style="font-size:50px;white-space:nowrap;width:max-content;margin-bottom:22px">La ville s'allume</div>
+      <div class="lyr display" style="font-size:50px;white-space:nowrap;width:max-content;margin-bottom:22px">quand tu passes</div>
+      <div class="lyr display" style="font-size:50px;white-space:nowrap;width:max-content;margin-bottom:22px">chaque battement</div>
+      <div class="lyr display" style="font-size:50px;white-space:nowrap;width:max-content">nous rapproche</div>
     </div>
     <div id="s6sing" class="display grad" style="position:absolute;left:130px;bottom:110px;font-size:92px">Chante.</div>
   </section>
@@ -134,11 +143,14 @@ canvas { position: absolute; inset: 0; }
     <img class="device" id="s8ph" src="../mockups/mobile/mobile-04-scene-prism.png" style="width:560px;left:1280px;top:110px" />
     <div id="s8l1" class="pill" style="position:absolute;left:300px;top:110px">Sur ton ordinateur</div>
     <div id="s8l2" class="pill" style="position:absolute;left:1360px;top:60px">Sur ton téléphone</div>
+    <div id="fan" style="position:absolute;inset:0"></div>
     <div class="center"><div id="s8all" class="display grad rgb" style="font-size:190px">Partout.</div></div>
   </section>
 
   <!-- S9 end card -->
   <section class="scene" id="s9">
+    <div id="endwall" style="position:absolute;inset:0;opacity:.22;perspective:1600px"><div class="wall" id="wall2"></div></div>
+    <div style="position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 50%,rgba(6,6,11,.75),rgba(6,6,11,.3))"></div>
     <div class="center">
       <div class="display" id="s9logo" style="font-size:210px;letter-spacing:.04em">AURORA</div>
       <div id="s9tag" style="font-size:52px;font-weight:500;margin-top:26px">Chaque piste respire différemment.</div>
@@ -176,18 +188,22 @@ const GRAD = "linear-gradient(100deg,#6d4dff,#22e4ff 45%,#ff4ecd)";
 const toGradify = [];
 /* Gradient text on split letters: each span shows its slice of one gradient. */
 function gradify(spans) {
-  const parent = spans[0].parentElement; parent.classList.remove("grad"); toGradify.push(spans);
+  spans[0].closest(".grad")?.classList.remove("grad"); toGradify.push(spans);
 }
+const STOPS = [[0, [109, 77, 255]], [0.45, [34, 228, 255]], [1, [255, 78, 205]]];
+function gradAt(k) {
+  for (let i = 1; i < STOPS.length; i++) if (k <= STOPS[i][0]) {
+    const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], f = (k - a) / (b - a);
+    return `rgb(${ca.map((v, j) => Math.round(v + (cb[j] - v) * f)).join(",")})`;
+  }
+  return "rgb(255,78,205)";
+}
+/* Gradient across split letters: one solid colour per letter (background-clip:text
+   on transformed inline-blocks renders as solid blocks in Chromium). */
 function applyGradients() {
   for (const spans of toGradify) {
-    // offsetLeft ignores transforms (letters may be mid-animation here).
-    const first = spans[0], last = spans[spans.length - 1];
-    const pw = last.offsetLeft + last.offsetWidth - first.offsetLeft;
-    for (const sp of spans) {
-      const off = sp.offsetLeft - first.offsetLeft;
-      Object.assign(sp.style, { backgroundImage: GRAD, backgroundSize: `${pw}px 100%`, backgroundPosition: `${-off}px 0`,
-        webkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" });
-    }
+    const n = spans.length;
+    spans.forEach((sp, i) => { sp.style.color = gradAt(n > 1 ? i / (n - 1) : 0); });
   }
 }
 function show(id, a, b, fadeIn = 0.15, fadeOut = 0.15) {
@@ -223,14 +239,32 @@ tl.to("#s2 .center", { scale: 2.4, opacity: 0, filter: "blur(16px)", duration: 0
 
 /* ---------- S3 search + trends (9 - 13.9) ---------- */
 show("#s3", 9.0, 13.95, 0.05, 0.2);
-tl.fromTo("#s3pc", { rotateY: -38, rotateX: 12, x: -500, scale: 0.8, opacity: 0 }, { rotateY: -12, rotateX: 6, x: 0, scale: 1, opacity: 1, duration: 1.3 }, 9.0);
-tl.to("#s3pc", { rotateY: -6, x: -60, duration: 4.0, ease: "none" }, 10.3);
+tl.fromTo("#s3pc", { rotateY: 38, rotateX: 10, x: -500, scale: 0.8, opacity: 0 }, { rotateY: 12, rotateX: 4, x: 0, scale: 1, opacity: 1, duration: 1.3 }, 9.0);
+tl.to("#s3pc", { rotateY: 4, x: 30, duration: 4.0, ease: "none" }, 10.3);
+tl.fromTo("#s3ph2", { y: 600, rotate: -12, opacity: 0 }, { y: 0, rotate: -7, opacity: 1, duration: 1.0 }, 11.4);
 const s3t = split($("#s3t1"));
 tl.from(s3t, { x: -80, opacity: 0, stagger: 0.04, duration: 0.7 }, 9.1);
 tl.fromTo("#s3ph", { x: 700, rotate: 18, opacity: 0 }, { x: 0, rotate: 6, opacity: 1, duration: 1.1 }, 10.73);
 tl.to("#s3ph", { y: 40, rotate: 3, duration: 2.6, ease: "sine.inOut" }, 11.8);
 tl.from("#s3p", { y: 60, opacity: 0, scale: 0.8, duration: 0.7, ease: "back.out(2)" }, 11.2);
-tl.to("#s3pc,#s3ph", { scale: 0.7, opacity: 0, filter: "blur(10px)", duration: 0.4, ease: "power3.in" }, 13.55);
+tl.to("#s3pc,#s3ph,#s3ph2", { scale: 0.7, opacity: 0, duration: 0.4, ease: "power3.in" }, 13.55);
+
+/* ---------- 3D wall of screens (13.7 - 15.4) + end card wall ---------- */
+const WALL = ["pc-03-scene-borealis", "m:mobile-03-lecteur", "pc-02-recherche", "pc-03-scene-prism", "m:mobile-07-paroles",
+  "pc-03-scene-vinyl", "pc-04-bibliotheque", "m:mobile-05-en-lecture", "pc-03-scene-liquid", "pc-05-paroles",
+  "m:mobile-02-tendances", "pc-03-scene-warp", "pc-01-accueil", "m:mobile-04-scene-prism", "pc-03-scene-spectrum"];
+function fillWall(el) {
+  for (const name of WALL) {
+    const d = document.createElement("div");
+    if (name.startsWith("m:")) { d.className = "m"; d.style.backgroundImage = `url(../mockups/mobile/${name.slice(2)}.png)`; }
+    else d.style.backgroundImage = `url(../mockups/ecrans-bruts/${name}.png)`;
+    el.appendChild(d);
+  }
+}
+fillWall($("#wall")); fillWall($("#wall2"));
+show("#swall", 13.65, 15.45, 0.15, 0.3);
+tl.fromTo("#wall", { rotateX: 52, rotateZ: -24, z: -900, x: 400, y: 300 }, { rotateX: 46, rotateZ: -18, z: -200, x: -300, y: -200, duration: 1.8, ease: "power1.inOut" }, 13.65);
+tl.to("#wall", { z: 500, duration: 0.45, ease: "power3.in" }, 15.0);
 
 /* ---------- S4 files (13.9 - 20) ---------- */
 show("#s4", 13.9, 20.02, 0.05, 0.05);
@@ -239,12 +273,13 @@ const slams = [...document.querySelectorAll("[data-slam]")];
   tl.fromTo(slams[i], { scale: 3.2, opacity: 0, filter: "blur(20px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.35, ease: "power4.out" }, t);
   tl.fromTo("#s4words", { x: i % 2 ? 14 : -14 }, { x: 0, duration: 0.25, ease: "power2.out" }, t + 0.02);
 });
-tl.set("#s4pc", { opacity: 0 }, 0);
+tl.set("#s4pc,#s4ph", { opacity: 0 }, 0);
 tl.to("#s4words", { scale: 0.55, y: -330, opacity: 0.0, duration: 0.6, ease: "power3.inOut" }, 17.4);
 tl.fromTo("#s4pc", { opacity: 0, scale: 0.65, rotateX: 40, y: 180 }, { opacity: 1, scale: 1, rotateX: 8, y: 0, duration: 1.1 }, 17.5);
+tl.fromTo("#s4ph", { opacity: 0, x: 400, rotate: 14 }, { opacity: 1, x: 0, rotate: 5, duration: 0.9 }, 17.85);
 tl.from("#s4p", { scale: 2.4, opacity: 0, rotate: -6, duration: 0.45, ease: "power4.out" }, 18.66);
 // build into the drop: push-in + shake
-tl.to("#s4", { scale: 1.25, duration: 1.2, ease: "power2.in" }, 18.8);
+tl.to("#s4pc,#s4ph", { scale: 1.12, duration: 1.2, ease: "power2.in" }, 18.8);
 tl.to("#barT,#barB", { height: 140, duration: 0.9, ease: "power2.in" }, 19.1).to("#barT,#barB", { height: 0, duration: 0.25, ease: "power3.out" }, 20.0);
 flash(20.0, 1, 0.6);
 
@@ -255,12 +290,16 @@ const cutsSrc = ["pc-03-scene-borealis", "pc-03-scene-prism", "pc-03-scene-liqui
 const cutsEl = $("#cuts");
 cutsSrc.forEach((name, i) => {
   const t0 = 20.0 + i * BEAT;
-  const wrap = document.createElement("div"); wrap.style.cssText = "position:absolute;inset:0;opacity:0";
+  const wrap = document.createElement("div"); wrap.style.cssText = "position:absolute;inset:0;display:none";
   const url = `url(../mockups/ecrans-bruts/${name}.png)`;
-  wrap.innerHTML = `<div class="shot" style="background-image:${url}"></div><div class="shot r" style="background-image:${url}"></div><div class="shot g" style="background-image:${url}"></div><div class="shot b" style="background-image:${url}"></div>`;
+  const PHONES = { 3: "mobile-04-scene-prism", 7: "mobile-03-lecteur", 11: "mobile-05-en-lecture" };
+  const phoneHtml = PHONES[i] ? `<img src="../mockups/mobile/${PHONES[i]}.png" style="position:absolute;left:50%;top:50%;width:470px;margin:-470px 0 0 -235px;filter:drop-shadow(0 50px 70px rgba(0,0,0,.7))">` : "";
+  const dim = PHONES[i] ? '<div class="shot" style="background:rgba(6,6,11,.55)"></div>' : "";
+  wrap.innerHTML = `<div class="shot" style="background-image:${url}"></div><div class="shot r" style="background-image:${url}"></div><div class="shot g" style="background-image:${url}"></div><div class="shot b" style="background-image:${url}"></div>${dim}${phoneHtml}`;
   cutsEl.appendChild(wrap);
   const [base, r, g, b] = wrap.children;
-  tl.set(wrap, { opacity: 1 }, t0).set(wrap, { opacity: 0 }, t0 + BEAT);
+  // Only the current cut exists in the render tree (keeps GPU memory low).
+  tl.set(wrap, { display: "block" }, t0).set(wrap, { display: "none" }, t0 + BEAT);
   tl.fromTo(wrap, { scale: 1.18, rotate: i % 2 ? 1.2 : -1.2 }, { scale: 1.0, rotate: 0, duration: BEAT, ease: "expo.out" }, t0);
   tl.fromTo(r, { x: -26, opacity: 1 }, { x: 0, duration: 0.18, ease: "power2.out" }, t0);
   tl.fromTo(b, { x: 26, opacity: 1 }, { x: 0, duration: 0.18, ease: "power2.out" }, t0);
@@ -268,7 +307,7 @@ cutsSrc.forEach((name, i) => {
   tl.fromTo("#flash", { opacity: 0.25 }, { opacity: 0, duration: 0.18, ease: "none", immediateRender: false }, t0);
 });
 tl.set("#s5num,#s5lbl", { opacity: 0 }, 0);
-tl.fromTo("#cuts", { filter: "blur(0px) brightness(1)" }, { filter: "blur(10px) brightness(0.42)", duration: 0.3, ease: "power2.out", immediateRender: false }, 21.85);
+tl.fromTo("#cutsDim", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out", immediateRender: false }, 21.85);
 tl.fromTo("#s5num", { scale: 2.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power4.out" }, 21.95);
 aberr("#s5num", 21.95, 30, 0.6);
 const lbl = split($("#s5lbl"));
@@ -293,6 +332,7 @@ tl.from(cap, { y: 40, opacity: 0, stagger: 0.07, duration: 0.5 }, 24.8);
 show("#s6", 26.6, 30.02, 0.1, 0.12);
 tl.fromTo("#s6ph", { y: 500, rotate: 12, opacity: 0 }, { y: 0, rotate: 4, opacity: 1, duration: 1.0 }, 26.6);
 tl.to("#s6ph", { rotate: 1, y: -20, duration: 3, ease: "sine.inOut" }, 27.6);
+tl.fromTo("#s6ph2", { y: 500, rotate: -14, opacity: 0 }, { y: 0, rotate: -8, opacity: 0.9, duration: 1.0 }, 26.85);
 const lyr = [...document.querySelectorAll(".lyr")];
 lyr.forEach((el, i) => {
   el.style.backgroundImage = "linear-gradient(90deg,#fff 50%,rgba(255,255,255,.22) 50%)";
@@ -330,6 +370,11 @@ tl.fromTo("#s8l1", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 3
 tl.fromTo("#s8ph", { x: 500, rotate: 16, opacity: 0 }, { x: 0, rotate: 5, opacity: 1, duration: 0.8 }, 36.85);
 tl.fromTo("#s8l2", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 36.95);
 tl.to("#s8pc,#s8ph,#s8l1,#s8l2", { scale: 0.6, opacity: 0.18, filter: "blur(14px)", duration: 0.45, ease: "power3.inOut" }, 38.05);
+["mobile-01-accueil", "mobile-03-lecteur", "mobile-05-en-lecture", "mobile-06-bibliotheque", "mobile-07-paroles"].forEach((n, i) => {
+  const img = document.createElement("img"); img.src = `../mockups/mobile/${n}.png`; img.className = "device";
+  img.style.cssText += "width:330px;left:795px;top:220px;opacity:0"; $("#fan").appendChild(img);
+  tl.fromTo(img, { opacity: 0, x: 0, rotate: 0, y: 200 }, { opacity: 0.95, x: (i - 2) * 330, y: Math.abs(i - 2) * 50, rotate: (i - 2) * 9, duration: 0.6, ease: "back.out(1.4)" }, 38.1 + i * 0.03);
+});
 tl.fromTo("#s8all", { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power4.out" }, 38.12);
 aberr("#s8all", 38.12, 32, 0.6);
 flash(38.12, 0.5, 0.3);
@@ -345,6 +390,7 @@ tl.from(tag, { y: 40, opacity: 0, filter: "blur(8px)", stagger: 0.07, duration: 
 tl.from("#s9url", { y: 50, opacity: 0, scale: 0.9, duration: 0.8, ease: "back.out(1.8)" }, 41.6);
 tl.from("#s9plat", { opacity: 0, letterSpacing: "1em", duration: 1.0 }, 42.1);
 tl.to("#s9 .center", { scale: 1.06, duration: 7, ease: "none" }, 39.0);
+tl.fromTo("#wall2", { rotateX: 50, rotateZ: -20, z: -600, x: 300, y: 200 }, { rotateX: 48, rotateZ: -16, z: -300, x: -300, y: -150, duration: 7, ease: "none" }, 39.0);
 tl.to("#stage", { opacity: 0, duration: 1.2, ease: "power2.in" }, 44.8);
 tl.to({}, { duration: 0.01 }, DUR);
 
