@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>AURORA promo</title>
+<style>
+@font-face { font-family: Syne; src: url(fonts/syne-latin.woff2) format("woff2"); font-weight: 400 800; }
+@font-face { font-family: Space; src: url(fonts/space-grotesk-latin.woff2) format("woff2"); font-weight: 300 700; }
+@font-face { font-family: Mono; src: url(fonts/jetbrains-mono-latin.woff2) format("woff2"); font-weight: 400 500; }
+:root { --c1: #6d4dff; --c2: #22e4ff; --c3: #ff4ecd; --bg: #06060b; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: #f5f5f7; font-family: Space, sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; perspective: 1800px; }
+canvas { position: absolute; inset: 0; }
+.scene { position: absolute; inset: 0; opacity: 0; visibility: hidden; transform-style: preserve-3d; }
+.display { font-family: Syne, sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; line-height: .9; }
+.mono { font-family: Mono, monospace; text-transform: uppercase; letter-spacing: .4em; font-size: 22px; color: rgba(245,245,247,.62); }
+.grad { background: linear-gradient(100deg, var(--c1), var(--c2) 45%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.ch { display: inline-block; will-change: transform, filter, opacity; }
+.w { display: inline-block; white-space: pre; }
+.rgb { text-shadow: calc(var(--ab, 0) * -1px) 0 rgba(255, 40, 120, .85), calc(var(--ab, 0) * 1px) 0 rgba(40, 230, 255, .85); }
+.pill { display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px; border-radius: 999px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(18px); font-weight: 600; font-size: 28px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c2); box-shadow: 0 0 18px var(--c2); }
+.device { position: absolute; will-change: transform; filter: drop-shadow(0 60px 80px rgba(0,0,0,.6)); }
+.shot { position: absolute; inset: 0; background-size: cover; background-position: center; will-change: transform, opacity; }
+.shot.r { mix-blend-mode: screen; filter: url(#fr); } .shot.g { mix-blend-mode: screen; filter: url(#fg); } .shot.b { mix-blend-mode: screen; filter: url(#fb); }
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; mix-blend-mode: screen; }
+#leak { position: absolute; inset: -20%; opacity: 0; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(35% 45% at 20% 30%, rgba(255,120,60,.55), transparent 70%), radial-gradient(30% 40% at 80% 70%, rgba(255,60,200,.5), transparent 70%); }
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.65)); }
+#grain { mix-blend-mode: overlay; opacity: .22; pointer-events: none; }
+.bars { position: absolute; left: 0; right: 0; height: 0; background: #000; z-index: 50; }
+.vinyl { position: absolute; width: 520px; height: 520px; border-radius: 50%;
+  background: repeating-radial-gradient(circle, #121218 0 3px, #1b1b24 3px 5px); box-shadow: 0 40px 90px rgba(0,0,0,.7), 0 0 0 2px rgba(255,255,255,.06) inset; }
+.vinyl .label { position: absolute; inset: 31%; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 6px #0b0b10; }
+.vinyl .hole { position: absolute; inset: 48.6%; border-radius: 50%; background: #06060b; }
+.vinyl .shine { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 20deg, transparent 0 20%, rgba(255,255,255,.12) 25%, transparent 30% 70%, rgba(255,255,255,.09) 75%, transparent 80%); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="fr"><feColorMatrix values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" /></filter>
+  <filter id="fg"><feColorMatrix values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" /></filter>
+  <filter id="fb"><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" /></filter>
+</svg>
+<div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+
+  <!-- S1 hook -->
+  <section class="scene" id="s1"><div class="center">
+    <div class="display rgb" id="s1a" style="font-size:88px">Et si ta musique…</div>
+    <div class="display grad" id="s1b" style="font-size:150px;margin-top:28px">prenait vie ?</div>
+  </div></section>
+
+  <!-- S2 logo -->
+  <section class="scene" id="s2">
+    <div class="shot" id="s2bg" style="background-image:url(../mockups/ecrans-bruts/pc-01-accueil.png);filter:blur(30px) saturate(1.4);opacity:.55"></div>
+    <div class="center">
+      <div class="mono" id="s2k">Lecteur de musique génératif</div>
+      <div class="display" id="s2logo" style="font-size:230px;letter-spacing:.04em;margin:20px 0 30px;text-shadow:0 0 80px rgba(109,77,255,.55)">AURORA</div>
+      <div id="s2sub" style="font-size:54px;font-weight:500;max-width:1300px;line-height:1.15">Le lecteur qui se voit autant qu'il s'écoute.</div>
+    </div>
+  </section>
+
+  <!-- S3 search + trends -->
+  <section class="scene" id="s3">
+    <img class="device" id="s3pc" src="../mockups/pc/pc-02-recherche.png" style="width:1560px;left:40px;top:190px" />
+    <img class="device" id="s3ph" src="../mockups/mobile/mobile-02-tendances.png" style="width:520px;left:1340px;top:-40px" />
+    <div style="position:absolute;left:110px;top:90px">
+      <div class="display" id="s3t1" style="font-size:96px">Cherche.</div>
+    </div>
+    <div style="position:absolute;left:110px;top:215px">
+      <div class="pill" id="s3p"><span class="dot" style="background:var(--c3);box-shadow:0 0 18px var(--c3)"></span>Tendances du moment</div>
+    </div>
+  </section>
+
+  <!-- S4 files -->
+  <section class="scene" id="s4">
+    <img class="device" id="s4pc" src="../mockups/pc/pc-04-bibliotheque.png" style="width:1640px;left:140px;top:170px" />
+    <div class="center" id="s4words" style="gap:10px">
+      <div class="display grad" data-slam style="font-size:250px">MP3</div>
+      <div class="display" data-slam style="font-size:250px;-webkit-text-stroke:3px #fff;color:transparent">FLAC</div>
+      <div class="display grad" data-slam style="font-size:250px">WAV</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:70px;text-align:center"><div class="pill" id="s4p">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5.2-2.8M19 13a10 10 0 0 0-2.7-2M2 8.8a15 15 0 0 1 4.2-2.7M22 8.8a15 15 0 0 0-11.3-3.8M12 20h.01"/></svg>
+      Même sans connexion</div></div>
+  </section>
+
+  <!-- S5 drop: scenes -->
+  <section class="scene" id="s5">
+    <div id="cuts" style="position:absolute;inset:0"></div>
+    <div class="center" style="pointer-events:none">
+      <div id="s5num" class="display rgb" style="font-size:360px;line-height:.8">15</div>
+      <div id="s5lbl" class="display" style="font-size:72px;margin-top:10px">scènes visuelles</div>
+    </div>
+    <div id="s5pal" style="position:absolute;left:0;right:0;bottom:110px;display:flex;justify-content:center;gap:26px"></div>
+    <div id="s5cap" class="display" style="position:absolute;left:0;right:0;bottom:300px;text-align:center;font-size:64px;opacity:0">aux couleurs de ta pochette</div>
+  </section>
+
+  <!-- S6 lyrics -->
+  <section class="scene" id="s6">
+    <img class="device" id="s6ph" src="../mockups/mobile/mobile-07-paroles.png" style="width:600px;left:1180px;top:-110px" />
+    <div style="position:absolute;left:130px;top:250px;width:980px" id="s6lines" data-x>
+      <div class="mono" style="margin-bottom:40px">Paroles synchronisées</div>
+      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">La ville s'allume</div>
+      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">quand tu passes</div>
+      <div class="lyr display" style="font-size:56px;white-space:nowrap;margin-bottom:22px">chaque battement</div>
+      <div class="lyr display" style="font-size:56px;white-space:nowrap">nous rapproche</div>
+    </div>
+    <div id="s6sing" class="display grad" style="position:absolute;left:130px;bottom:110px;font-size:92px">Chante.</div>
+  </section>
+
+  <!-- S7 Aurora Mix -->
+  <section class="scene" id="s7">
+    <div class="center" style="justify-content:flex-start;padding-top:90px">
+      <div class="mono">Transitions automatiques</div>
+      <div id="s7t" class="display grad" style="font-size:170px;margin-top:16px">Aurora Mix</div>
+    </div>
+    <div class="vinyl" id="dA" style="left:230px;top:430px"><div class="label" style="background-image:url(../mockups/pochettes/cover-1.png)"></div><div class="shine"></div><div class="hole"></div></div>
+    <div class="vinyl" id="dB" style="right:230px;top:430px"><div class="label" style="background-image:url(../mockups/pochettes/cover-3.png)"></div><div class="shine"></div><div class="hole"></div></div>
+    <canvas id="wave" width="560" height="200" style="inset:auto;left:680px;top:520px;width:560px;height:200px;position:absolute"></canvas>
+    <div style="position:absolute;left:760px;top:800px;width:400px;height:10px;border-radius:9px;background:rgba(255,255,255,.12)">
+      <div id="xf" style="position:absolute;top:-17px;left:0;width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#fff,#cfd3ff);box-shadow:0 0 30px var(--c2)"></div>
+    </div>
+    <div id="s7dj" class="display" style="position:absolute;left:0;right:0;bottom:95px;text-align:center;font-size:66px">comme un vrai DJ</div>
+    <div id="s7cut" class="display grad" style="position:absolute;left:0;right:0;bottom:95px;text-align:center;font-size:76px;opacity:0">sans aucune coupure</div>
+  </section>
+
+  <!-- S8 devices -->
+  <section class="scene" id="s8">
+    <img class="device" id="s8pc" src="../mockups/pc/pc-03-scene-borealis.png" style="width:1560px;left:90px;top:170px" />
+    <img class="device" id="s8ph" src="../mockups/mobile/mobile-04-scene-prism.png" style="width:560px;left:1280px;top:110px" />
+    <div id="s8l1" class="pill" style="position:absolute;left:300px;top:110px">Sur ton ordinateur</div>
+    <div id="s8l2" class="pill" style="position:absolute;left:1360px;top:60px">Sur ton téléphone</div>
+    <div class="center"><div id="s8all" class="display grad rgb" style="font-size:190px">Partout.</div></div>
+  </section>
+
+  <!-- S9 end card -->
+  <section class="scene" id="s9">
+    <div class="center">
+      <div class="display" id="s9logo" style="font-size:210px;letter-spacing:.04em">AURORA</div>
+      <div id="s9tag" style="font-size:52px;font-weight:500;margin-top:26px">Chaque piste respire différemment.</div>
+      <div id="s9url" class="pill" style="margin-top:70px;font-size:34px"><span class="dot"></span>aurora-music.free.je</div>
+      <div id="s9plat" class="mono" style="margin-top:34px">Web · Android · Windows</div>
+    </div>
+  </section>
+
+  <div id="leak"></div>
+  <canvas id="grain" width="960" height="540" style="width:1920px;height:1080px"></canvas>
+  <div id="vignette"></div>
+  <div class="bars" id="barT" style="top:0"></div><div class="bars" id="barB" style="bottom:0"></div>
+  <div id="flash"></div>
+</div>
+
+<script src="lib/gsap.min.js"></script>
+<script>
+const DUR = 46, BPM = 120, BEAT = 60 / BPM;
+const $ = (s) => document.querySelector(s);
+const tl = gsap.timeline({ paused: true, defaults: { ease: "expo.out" } });
+
+/* ---------- helpers ---------- */
+function split(el, mode = "ch") {
+  const text = el.textContent; el.textContent = "";
+  const out = [];
+  text.split(/(\s+)/).forEach((word) => {
+    if (/^\s+$/.test(word)) { el.appendChild(document.createTextNode(" ")); return; }
+    const w = document.createElement("span"); w.className = "w"; el.appendChild(w);
+    if (mode === "w") { w.textContent = word; out.push(w); return; }
+    for (const c of word) { const s = document.createElement("span"); s.className = "ch"; s.textContent = c; w.appendChild(s); out.push(s); }
+  });
+  return out;
+}
+const GRAD = "linear-gradient(100deg,#6d4dff,#22e4ff 45%,#ff4ecd)";
+const toGradify = [];
+/* Gradient text on split letters: each span shows its slice of one gradient. */
+function gradify(spans) {
+  const parent = spans[0].parentElement; parent.classList.remove("grad"); toGradify.push(spans);
+}
+function applyGradients() {
+  for (const spans of toGradify) {
+    // offsetLeft ignores transforms (letters may be mid-animation here).
+    const first = spans[0], last = spans[spans.length - 1];
+    const pw = last.offsetLeft + last.offsetWidth - first.offsetLeft;
+    for (const sp of spans) {
+      const off = sp.offsetLeft - first.offsetLeft;
+      Object.assign(sp.style, { backgroundImage: GRAD, backgroundSize: `${pw}px 100%`, backgroundPosition: `${-off}px 0`,
+        webkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" });
+    }
+  }
+}
+function show(id, a, b, fadeIn = 0.15, fadeOut = 0.15) {
+  tl.set(id, { autoAlpha: 0 }, 0);
+  tl.to(id, { autoAlpha: 1, duration: fadeIn, ease: "none" }, a);
+  tl.to(id, { autoAlpha: 0, duration: fadeOut, ease: "none" }, b - fadeOut);
+}
+function flash(t, peak = 0.9, d = 0.45) { tl.fromTo("#flash", { opacity: peak }, { opacity: 0, duration: d, ease: "power2.out", immediateRender: false }, t); }
+function leak(t, d = 1.4) { tl.fromTo("#leak", { opacity: 0, x: -200 }, { opacity: 0.9, x: 0, duration: d / 2, ease: "sine.inOut", immediateRender: false }, t)
+  .to("#leak", { opacity: 0, x: 200, duration: d / 2, ease: "sine.in" }, t + d / 2); }
+function aberr(sel, t, amt = 14, d = 0.35) { tl.fromTo(sel, { "--ab": amt }, { "--ab": 0, duration: d, ease: "power3.out", immediateRender: false }, t); }
+
+/* ---------- S1 hook (0 - 4) ---------- */
+show("#s1", 0.2, 4.05, 0.01, 0.12);
+const s1a = split($("#s1a"));
+tl.from(s1a, { y: 90, opacity: 0, filter: "blur(18px)", stagger: 0.035, duration: 0.9 }, 1.2);
+aberr("#s1a", 1.2, 18, 0.6);
+const s1b = split($("#s1b")); gradify(s1b);
+tl.from(s1b, { y: 140, rotateX: -80, opacity: 0, stagger: 0.03, duration: 1.0, transformOrigin: "50% 100%" }, 2.94);
+tl.to("#s1 .center", { scale: 1.6, filter: "blur(24px)", opacity: 0, duration: 0.5, ease: "power3.in" }, 3.55);
+flash(4.0, 1, 0.55);
+
+/* ---------- S2 logo (4 - 9) ---------- */
+show("#s2", 4.0, 9.05, 0.01, 0.2);
+tl.fromTo("#s2bg", { scale: 1.35 }, { scale: 1.05, duration: 5, ease: "none" }, 4.0);
+const logo = split($("#s2logo"));
+tl.from(logo, { yPercent: 120, opacity: 0, filter: "blur(30px)", scaleY: 1.8, stagger: 0.07, duration: 1.1 }, 4.15);
+tl.from("#s2k", { opacity: 0, letterSpacing: "1.2em", duration: 1.2 }, 4.4);
+const sub = split($("#s2sub"), "w");
+tl.from(sub, { y: 50, opacity: 0, filter: "blur(10px)", stagger: 0.06, duration: 0.8 }, 5.75);
+leak(5.4, 2.2);
+tl.to("#s2 .center", { scale: 2.4, opacity: 0, filter: "blur(16px)", duration: 0.55, ease: "power4.in" }, 8.55);
+
+/* ---------- S3 search + trends (9 - 13.9) ---------- */
+show("#s3", 9.0, 13.95, 0.05, 0.2);
+tl.fromTo("#s3pc", { rotateY: -38, rotateX: 12, x: -500, scale: 0.8, opacity: 0 }, { rotateY: -12, rotateX: 6, x: 0, scale: 1, opacity: 1, duration: 1.3 }, 9.0);
+tl.to("#s3pc", { rotateY: -6, x: -60, duration: 4.0, ease: "none" }, 10.3);
+const s3t = split($("#s3t1"));
+tl.from(s3t, { x: -80, opacity: 0, stagger: 0.04, duration: 0.7 }, 9.1);
+tl.fromTo("#s3ph", { x: 700, rotate: 18, opacity: 0 }, { x: 0, rotate: 6, opacity: 1, duration: 1.1 }, 10.73);
+tl.to("#s3ph", { y: 40, rotate: 3, duration: 2.6, ease: "sine.inOut" }, 11.8);
+tl.from("#s3p", { y: 60, opacity: 0, scale: 0.8, duration: 0.7, ease: "back.out(2)" }, 11.2);
+tl.to("#s3pc,#s3ph", { scale: 0.7, opacity: 0, filter: "blur(10px)", duration: 0.4, ease: "power3.in" }, 13.55);
+
+/* ---------- S4 files (13.9 - 20) ---------- */
+show("#s4", 13.9, 20.02, 0.05, 0.05);
+const slams = [...document.querySelectorAll("[data-slam]")];
+[15.1, 15.95, 16.3].forEach((t, i) => {
+  tl.fromTo(slams[i], { scale: 3.2, opacity: 0, filter: "blur(20px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.35, ease: "power4.out" }, t);
+  tl.fromTo("#s4words", { x: i % 2 ? 14 : -14 }, { x: 0, duration: 0.25, ease: "power2.out" }, t + 0.02);
+});
+tl.set("#s4pc", { opacity: 0 }, 0);
+tl.to("#s4words", { scale: 0.55, y: -330, opacity: 0.0, duration: 0.6, ease: "power3.inOut" }, 17.4);
+tl.fromTo("#s4pc", { opacity: 0, scale: 0.65, rotateX: 40, y: 180 }, { opacity: 1, scale: 1, rotateX: 8, y: 0, duration: 1.1 }, 17.5);
+tl.from("#s4p", { scale: 2.4, opacity: 0, rotate: -6, duration: 0.45, ease: "power4.out" }, 18.66);
+// build into the drop: push-in + shake
+tl.to("#s4", { scale: 1.25, duration: 1.2, ease: "power2.in" }, 18.8);
+tl.to("#barT,#barB", { height: 140, duration: 0.9, ease: "power2.in" }, 19.1).to("#barT,#barB", { height: 0, duration: 0.25, ease: "power3.out" }, 20.0);
+flash(20.0, 1, 0.6);
+
+/* ---------- S5 DROP (20 - 26.6) ---------- */
+show("#s5", 20.0, 26.62, 0.01, 0.15);
+const cutsSrc = ["pc-03-scene-borealis", "pc-03-scene-prism", "pc-03-scene-liquid", "pc-03-scene-warp", "pc-03-scene-vinyl", "pc-03-scene-spectrum",
+  "pc-03-scene-constellation", "pc-03-scene-mosaic", "pc-03-scene-organism", "pc-03-scene-borealis", "pc-03-scene-prism", "pc-03-scene-liquid", "pc-03-scene-warp"];
+const cutsEl = $("#cuts");
+cutsSrc.forEach((name, i) => {
+  const t0 = 20.0 + i * BEAT;
+  const wrap = document.createElement("div"); wrap.style.cssText = "position:absolute;inset:0;opacity:0";
+  const url = `url(../mockups/ecrans-bruts/${name}.png)`;
+  wrap.innerHTML = `<div class="shot" style="background-image:${url}"></div><div class="shot r" style="background-image:${url}"></div><div class="shot g" style="background-image:${url}"></div><div class="shot b" style="background-image:${url}"></div>`;
+  cutsEl.appendChild(wrap);
+  const [base, r, g, b] = wrap.children;
+  tl.set(wrap, { opacity: 1 }, t0).set(wrap, { opacity: 0 }, t0 + BEAT);
+  tl.fromTo(wrap, { scale: 1.18, rotate: i % 2 ? 1.2 : -1.2 }, { scale: 1.0, rotate: 0, duration: BEAT, ease: "expo.out" }, t0);
+  tl.fromTo(r, { x: -26, opacity: 1 }, { x: 0, duration: 0.18, ease: "power2.out" }, t0);
+  tl.fromTo(b, { x: 26, opacity: 1 }, { x: 0, duration: 0.18, ease: "power2.out" }, t0);
+  tl.set([r, g, b], { opacity: 0 }, t0 + 0.2);
+  tl.fromTo("#flash", { opacity: 0.25 }, { opacity: 0, duration: 0.18, ease: "none", immediateRender: false }, t0);
+});
+tl.set("#s5num,#s5lbl", { opacity: 0 }, 0);
+tl.fromTo("#cuts", { filter: "blur(0px) brightness(1)" }, { filter: "blur(10px) brightness(0.42)", duration: 0.3, ease: "power2.out", immediateRender: false }, 21.85);
+tl.fromTo("#s5num", { scale: 2.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power4.out" }, 21.95);
+aberr("#s5num", 21.95, 30, 0.6);
+const lbl = split($("#s5lbl"));
+tl.to("#s5lbl", { opacity: 1, duration: 0.01 }, 22.2);
+tl.from(lbl, { y: 60, opacity: 0, stagger: 0.025, duration: 0.5 }, 22.2);
+tl.to("#s5num,#s5lbl", { opacity: 0, scale: 0.8, filter: "blur(12px)", duration: 0.4, ease: "power3.in" }, 24.3);
+// palette swatches from the covers
+const pal = $("#s5pal");
+const COVER_COLORS = [["#ff4ecd","#6d4dff","#22e4ff"],["#ff7a3d","#ffcf5a","#c2185b"],["#00e5a8","#1e3cff","#9b5cff"],["#ff5e7e","#ffd1dc","#7b2ff7"],["#3df2ff","#0b1e5b","#ff3df2"],["#ffb347","#ff5f6d","#ffe29f"]];
+COVER_COLORS.forEach((cols, i) => {
+  const d = document.createElement("div");
+  d.style.cssText = `width:150px;height:150px;border-radius:24px;background:url(../mockups/pochettes/cover-${i + 1}.png) center/cover;box-shadow:0 0 0 2px rgba(255,255,255,.2),0 30px 60px -10px ${cols[0]}`;
+  pal.appendChild(d);
+  tl.fromTo(d, { y: 200, opacity: 0, rotate: (i - 2.5) * 8 }, { y: 0, opacity: 1, rotate: (i - 2.5) * 3, duration: 0.6, ease: "back.out(1.6)" }, 24.75 + i * 0.07);
+});
+tl.to("#s5cap", { opacity: 1, duration: 0.01 }, 24.8);
+const cap = split($("#s5cap"), "w");
+tl.from(cap, { y: 40, opacity: 0, stagger: 0.07, duration: 0.5 }, 24.8);
+// keep a colour-graded backdrop after the cuts end (last cut ends 26.5)
+
+/* ---------- S6 lyrics (26.6 - 30) ---------- */
+show("#s6", 26.6, 30.02, 0.1, 0.12);
+tl.fromTo("#s6ph", { y: 500, rotate: 12, opacity: 0 }, { y: 0, rotate: 4, opacity: 1, duration: 1.0 }, 26.6);
+tl.to("#s6ph", { rotate: 1, y: -20, duration: 3, ease: "sine.inOut" }, 27.6);
+const lyr = [...document.querySelectorAll(".lyr")];
+lyr.forEach((el, i) => {
+  el.style.backgroundImage = "linear-gradient(90deg,#fff 50%,rgba(255,255,255,.22) 50%)";
+  el.style.backgroundSize = "200% 100%"; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent";
+  tl.from(el, { x: -60, opacity: 0, duration: 0.5 }, 26.75 + i * 0.12);
+  tl.fromTo(el, { backgroundPosition: "100% 0" }, { backgroundPosition: "0% 0", duration: 0.5, ease: "none" }, 26.9 + i * 0.5);
+});
+const sing = split($("#s6sing")); gradify(sing);
+tl.from(sing, { y: 80, opacity: 0, rotate: 8, stagger: 0.04, duration: 0.6, ease: "back.out(2)" }, 28.55);
+tl.to("#s6 > *", { x: -300, opacity: 0, duration: 0.35, ease: "power3.in" }, 29.7);
+
+/* ---------- S7 Aurora Mix (30 - 35.4) ---------- */
+show("#s7", 29.95, 35.45, 0.1, 0.15);
+const mixT = split($("#s7t")); gradify(mixT);
+tl.from(mixT, { yPercent: 110, opacity: 0, stagger: 0.04, duration: 0.8 }, 30.0);
+tl.fromTo("#dA", { x: -600, rotate: 0 }, { x: 0, rotate: 0, duration: 0.9 }, 30.05);
+tl.fromTo("#dB", { x: 600 }, { x: 0, duration: 0.9 }, 30.15);
+tl.fromTo("#dA", { rotate: 0 }, { rotate: 1440, duration: 5.4, ease: "none" }, 30.05);
+tl.fromTo("#dB", { rotate: 0 }, { rotate: -1440, duration: 5.4, ease: "none" }, 30.15);
+tl.fromTo("#xf", { x: 0 }, { x: 356, duration: 3.0, ease: "power1.inOut" }, 31.0);
+tl.fromTo("#dA", { opacity: 1, scale: 1 }, { opacity: 0.35, scale: 0.88, duration: 3.0, ease: "power1.inOut" }, 31.0);
+tl.fromTo("#dB", { opacity: 0.35, scale: 0.88 }, { opacity: 1, scale: 1.06, duration: 3.0, ease: "power1.inOut" }, 31.0);
+tl.from("#s7dj", { y: 60, opacity: 0, duration: 0.6 }, 31.4);
+tl.to("#s7dj", { y: -40, opacity: 0, duration: 0.3 }, 33.7);
+tl.to("#s7cut", { opacity: 1, duration: 0.01 }, 34.05);
+const cutW = split($("#s7cut"), "w"); gradify(cutW);
+tl.from(cutW, { y: 60, opacity: 0, filter: "blur(10px)", stagger: 0.08, duration: 0.5 }, 34.05);
+leak(33.0, 2.0);
+
+/* ---------- S8 devices (35.4 - 38.9) ---------- */
+show("#s8", 35.4, 38.95, 0.05, 0.12);
+tl.set("#s8pc,#s8ph,#s8l1,#s8l2,#s8all", { opacity: 0 }, 0);
+tl.fromTo("#s8pc", { y: 400, rotateX: 35, opacity: 0, scale: 0.85 }, { y: 0, rotateX: 6, opacity: 1, scale: 1, duration: 0.9 }, 35.55);
+tl.fromTo("#s8l1", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 35.65);
+tl.fromTo("#s8ph", { x: 500, rotate: 16, opacity: 0 }, { x: 0, rotate: 5, opacity: 1, duration: 0.8 }, 36.85);
+tl.fromTo("#s8l2", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 36.95);
+tl.to("#s8pc,#s8ph,#s8l1,#s8l2", { scale: 0.6, opacity: 0.18, filter: "blur(14px)", duration: 0.45, ease: "power3.inOut" }, 38.05);
+tl.fromTo("#s8all", { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power4.out" }, 38.12);
+aberr("#s8all", 38.12, 32, 0.6);
+flash(38.12, 0.5, 0.3);
+
+/* ---------- S9 end card (38.9 - 46) ---------- */
+show("#s9", 38.95, 46, 0.01, 0.01);
+flash(38.98, 1, 0.7);
+const logo2 = split($("#s9logo"));
+tl.from(logo2, { yPercent: 100, opacity: 0, filter: "blur(24px)", stagger: 0.06, duration: 1.0 }, 39.0);
+tl.fromTo("#s9logo", { textShadow: "0 0 0px rgba(109,77,255,0)" }, { textShadow: "0 0 60px rgba(109,77,255,.9)", duration: 1.2, yoyo: true, repeat: 1, ease: "sine.inOut" }, 41.6);
+const tag = split($("#s9tag"), "w");
+tl.from(tag, { y: 40, opacity: 0, filter: "blur(8px)", stagger: 0.07, duration: 0.7 }, 39.84);
+tl.from("#s9url", { y: 50, opacity: 0, scale: 0.9, duration: 0.8, ease: "back.out(1.8)" }, 41.6);
+tl.from("#s9plat", { opacity: 0, letterSpacing: "1em", duration: 1.0 }, 42.1);
+tl.to("#s9 .center", { scale: 1.06, duration: 7, ease: "none" }, 39.0);
+tl.to("#stage", { opacity: 0, duration: 1.2, ease: "power2.in" }, 44.8);
+tl.to({}, { duration: 0.01 }, DUR);
+
+/* ---------- canvas background: aurora blobs, particles, beat rings ---------- */
+const bg = $("#bg"), ctx = bg.getContext("2d");
+const PAL = [[109,77,255],[34,228,255],[255,78,205]];
+let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const P = Array.from({ length: 260 }, () => ({ x: rnd() * 1920, y: rnd() * 1080, r: 0.6 + rnd() * 2.2, s: 0.2 + rnd(), a: rnd() * 6.28 }));
+function kickPulse(t) {           // kicks on every beat from bar 2 (t=4) except the DJ break and the outro
+  const on = (t >= 4 && t < 32) || (t >= 36 && t < 42);
+  if (!on) return 0;
+  return Math.exp(-((t % BEAT) / BEAT) * 7);
+}
+function sceneHue(t) {
+  if (t < 4) return 0; if (t < 9) return 0.2; if (t < 14) return 0.5; if (t < 20) return 0.8;
+  if (t < 26.6) return (t * 0.8) % 3; if (t < 30) return 1.6; if (t < 35.4) return 2.2; return 0.1;
+}
+function mix(a, b, k) { return a.map((v, i) => v + (b[i] - v) * k); }
+function drawBG(t) {
+  const k = kickPulse(t), h = sceneHue(t);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#06060b"; ctx.fillRect(0, 0, 1920, 1080);
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 4; i++) {
+    const c = mix(PAL[(Math.floor(h) + i) % 3], PAL[(Math.floor(h) + i + 1) % 3], h % 1);
+    const x = 960 + Math.cos(t * 0.23 + i * 1.7) * 620, y = 540 + Math.sin(t * 0.31 + i * 2.1) * 330;
+    const R = 520 + 140 * Math.sin(t * 0.5 + i) + 90 * k;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, R);
+    const intro = Math.min(1, t / 1.4);
+    g.addColorStop(0, `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${(0.32 + 0.12 * k) * intro})`); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+  }
+  // particles drifting outward, kicked by the beat
+  for (const p of P) {
+    const dx = p.x - 960, dy = p.y - 540, d = Math.hypot(dx, dy) || 1;
+    const push = (t * 18 * p.s + k * 14) ;
+    const x = (p.x + (dx / d) * push * 8 + 1920 * 4) % 1920, y = (p.y + (dy / d) * push * 8 + 1080 * 4) % 1080;
+    ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.5 * p.s * (0.6 + k)})`;
+    ctx.beginPath(); ctx.arc(x, y, p.r * (1 + k * 0.8), 0, 6.283); ctx.fill();
+  }
+  // beat ring in the hook/logo/end sections
+  if ((t > 0.6 && t < 9) || t > 38.9) {
+    const ph = t < 4 ? ((t - 0.6) % 0.9) / 0.9 : (t % BEAT) / BEAT;
+    ctx.strokeStyle = `rgba(160,180,255,${(1 - ph) * 0.35})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(960, 540, 120 + ph * 700, 0, 6.283); ctx.stroke();
+  }
+}
+
+/* ---------- Aurora Mix waveform ---------- */
+const wv = $("#wave").getContext("2d");
+function drawWave(t) {
+  wv.clearRect(0, 0, 560, 200);
+  if (t < 29.9 || t > 35.6) return;
+  const x = Math.min(1, Math.max(0, (t - 31) / 3));
+  for (let i = 0; i < 56; i++) {
+    const a = Math.abs(Math.sin(i * 0.7 + t * 9)) * (1 - x) + Math.abs(Math.sin(i * 0.43 - t * 7)) * x;
+    const h = 20 + a * 150 * (0.6 + 0.4 * Math.sin(t * 6 + i));
+    const g = wv.createLinearGradient(0, 100 - h / 2, 0, 100 + h / 2);
+    g.addColorStop(0, "#22e4ff"); g.addColorStop(1, "#ff4ecd");
+    wv.fillStyle = g; wv.fillRect(i * 10, 100 - h / 2, 6, h);
+  }
+}
+
+/* ---------- film grain ---------- */
+const gr = $("#grain").getContext("2d");
+const tiles = Array.from({ length: 6 }, () => { const id = gr.createImageData(960, 540); for (let i = 0; i < id.data.length; i += 4) { const v = rnd() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } return id; });
+
+/* ---------- camera shake on big hits ---------- */
+function shake(t) {
+  const hits = [4.0, 20.0, 38.12, 38.98];
+  let s = 0; for (const h of hits) if (t >= h && t < h + 0.35) s = Math.max(s, (1 - (t - h) / 0.35) * 14);
+  if (t > 18.8 && t < 20) s = Math.max(s, (t - 18.8) * 6);
+  return s;
+}
+
+window.renderAt = (t) => {
+  tl.seek(Math.min(t, DUR), false);
+  drawBG(t); drawWave(t);
+  gr.putImageData(tiles[Math.floor(t * 30) % tiles.length], 0, 0);
+  const s = shake(t), sx = s * Math.sin(t * 91), sy = s * Math.cos(t * 77);
+  $("#stage").style.translate = `${sx}px ${sy}px`;
+};
+window.ready = document.fonts.ready.then(() => { tl.seek(0); applyGradients(); }).then(() => Promise.all([...document.images].map((i) => i.complete ? 1 : new Promise((r) => (i.onload = i.onerror = r)))));
+window.renderAt(0);
+</script>
+</body>
+</html>
