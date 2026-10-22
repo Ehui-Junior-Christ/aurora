@@ -9,9 +9,9 @@
 .times {
   min-width: 40px;
   text-align: center;
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 

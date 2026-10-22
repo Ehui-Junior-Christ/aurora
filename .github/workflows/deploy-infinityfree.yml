@@ -1,0 +1,61 @@
+name: Deploy InfinityFree
+
+# Every push to main (or feat/overhaul until it is merged) rebuilds the static site and syncs it to
+# https://aurora-music.free.je over FTP. Can also be run by hand on any branch, and is called by
+# trends.yml after it commits new charts (commits made with GITHUB_TOKEN trigger no push event).
+on:
+  push:
+    branches: [main, feat/overhaul]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Commit to deploy (default: the triggering commit)"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Never run two uploads at once; the newest push wins.
+concurrency:
+  group: deploy-infinityfree
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_YOUTUBE_API_KEY: ${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}
+
+      - name: Assemble upload folder
+        run: |
+          mkdir dist-infinityfree
+          rsync -a --exclude download out/ dist-infinityfree/
+          cp deploy/infinityfree/.htaccess dist-infinityfree/
+          echo "Files: $(find dist-infinityfree -type f | wc -l)"
+
+      - name: Upload over FTP
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
+        with:
+          server: ${{ secrets.AURORA_FTP_SERVER }}
+          username: ${{ secrets.AURORA_FTP_USERNAME }}
+          password: ${{ secrets.AURORA_FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./dist-infinityfree/
+          server-dir: ${{ secrets.AURORA_FTP_SERVER_DIR }}
+          # Incremental sync: only changed files are sent, and files removed
+          # since the last deploy (old hashed bundles) are deleted remotely.
+          dangerous-clean-slate: false

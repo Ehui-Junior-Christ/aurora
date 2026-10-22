@@ -13,35 +13,42 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function Timeline() {
+/**
+ * Seek bar. Pure view: A-B looping and silence skipping live in the store,
+ * keyboard seeking in useHotkeys (arrows reach it when the slider is focused).
+ */
+export default function Timeline({
+  variant = "full",
+}: {
+  /** "hairline": 2px read-only progress on the mobile dock edge. */
+  variant?: "full" | "hairline";
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
-  const abRef = useRef<HTMLSpanElement>(null);
   const draggingRef = useRef(false);
   const peaksRef = useRef<number[] | null>(null);
-  const loopRef = useRef<{ a: number | null; b: number | null }>({
-    a: null,
-    b: null,
-  });
-  const silenceRef = useRef<number | null>(null);
 
+  const hairline = variant === "hairline";
   const track = usePlayer((s) => s.tracks[s.current]);
   const trackId = track?.id ?? null;
+  const abLoop = usePlayer((s) => s.abLoop);
+  const duration = usePlayer((s) => s.duration);
 
   useEffect(() => {
     peaksRef.current = null;
-    if (!trackId || !track?.file || track.isOnline) return;
+    if (hairline || !trackId || !track?.file || track.isOnline) return;
     void getCachedAnalysis(trackId, track.file).then((analysis) => {
       if (analysis) peaksRef.current = analysis.peaks;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackId]);
+  }, [trackId, hairline]);
 
   useEffect(() => {
+    if (hairline) return;
     const draw = () => {
       const canvas = canvasRef.current;
       const wrap = wrapRef.current;
@@ -81,84 +88,55 @@ export default function Timeline() {
       observer.disconnect();
       window.clearInterval(interval);
     };
-  }, [trackId]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-        return;
-      if (event.key !== "b" && event.key !== "B") return;
-      const loop = loopRef.current;
-      const now = engine.currentTime;
-      if (loop.a === null) {
-        loop.a = now;
-        loop.b = null;
-      } else if (loop.b === null) {
-        if (now > loop.a) loop.b = now;
-        else loop.a = now;
-      } else {
-        loop.a = null;
-        loop.b = null;
-      }
-      if (abRef.current) {
-        abRef.current.textContent =
-          loop.a !== null && loop.b !== null
-            ? `A-B ${formatTime(loop.a)} → ${formatTime(loop.b)}`
-            : loop.a !== null
-              ? `A ${formatTime(loop.a)} — (B ?)`
-              : "";
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [trackId, hairline]);
 
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const el = engine.el;
-      const duration = Number.isFinite(engine.duration) ? engine.duration : 0;
+      const total = Number.isFinite(engine.duration) ? engine.duration : 0;
       const currentTime = engine.currentTime;
-      const state = usePlayer.getState();
-      const loopAB = loopRef.current;
       if (!draggingRef.current) {
-        const pct = duration > 0 ? currentTime / duration : 0;
-        if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
-        if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
-        if (curRef.current)
-          curRef.current.textContent = formatTime(currentTime);
-        wrapRef.current?.setAttribute(
-          "aria-valuenow",
-          String(Math.round(pct * 100))
-        );
-      }
-      if (
-        loopAB.a !== null &&
-        loopAB.b !== null &&
-        currentTime >= loopAB.b
-      ) {
-        engine.seek(loopAB.a);
-      }
-      if (state.skipSilence && state.playing) {
-        const b = engine.bands();
-        const energy = b.bass + b.mid + b.treble;
-        const now = performance.now();
-        if (energy < 0.02) {
-          if (silenceRef.current === null) silenceRef.current = now;
-          else if (now - silenceRef.current > 2600 && duration > 0) {
-            engine.seek(Math.min(currentTime + 6, duration - 0.5));
-            silenceRef.current = null;
-          }
+        const pct = total > 0 ? currentTime / total : 0;
+        if (hairline) {
+          if (fillRef.current) fillRef.current.style.transform = `scaleX(${pct})`;
         } else {
-          silenceRef.current = null;
+          if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
+          if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
+          if (curRef.current) curRef.current.textContent = formatTime(currentTime);
+          const wrap = wrapRef.current;
+          if (wrap) {
+            wrap.setAttribute("aria-valuenow", String(Math.round(pct * 100)));
+            wrap.setAttribute(
+              "aria-valuetext",
+              `${formatTime(currentTime)} sur ${formatTime(total)}`
+            );
+          }
         }
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [hairline]);
+
+  if (hairline) {
+    return (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-white/10"
+      >
+        <div
+          ref={fillRef}
+          className="h-full origin-left"
+          style={{
+            transform: "scaleX(0)",
+            background: "linear-gradient(90deg, var(--c1), var(--c2), var(--c3))",
+            boxShadow: "0 0 8px color-mix(in srgb, var(--c2) 60%, transparent)",
+          }}
+        />
+      </div>
+    );
+  }
 
   const applyPct = (clientX: number) => {
     const wrap = wrapRef.current;
@@ -167,11 +145,21 @@ export default function Timeline() {
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     if (fillRef.current) fillRef.current.style.width = `${pct * 100}%`;
     if (knobRef.current) knobRef.current.style.left = `${pct * 100}%`;
-    const duration = engine.el.duration;
-    if (Number.isFinite(duration)) {
-      usePlayer.getState().seek(pct * duration);
+    const total = engine.duration;
+    if (Number.isFinite(total) && total > 0) {
+      usePlayer.getState().seek(pct * total);
     }
   };
+
+  const loopA = abLoop.a;
+  const loopB = abLoop.b;
+  const pctOf = (t: number) => (duration > 0 ? Math.min(100, Math.max(0, (t / duration) * 100)) : 0);
+  const abLabel =
+    loopA !== null && loopB !== null
+      ? `A-B ${formatTime(loopA)} → ${formatTime(loopB)}`
+      : loopA !== null
+        ? `A ${formatTime(loopA)} — B ?`
+        : "";
 
   return (
     <div className={styles.timeline} data-cursor="stretch">
@@ -185,7 +173,7 @@ export default function Timeline() {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={0}
-        tabIndex={-1}
+        tabIndex={0}
         className={styles["track-wrap"]}
         onPointerDown={(event) => {
           draggingRef.current = true;
@@ -196,16 +184,13 @@ export default function Timeline() {
           if (draggingRef.current) applyPct(event.clientX);
           const wrap = wrapRef.current;
           const hover = hoverRef.current;
-          if (!wrap || !hover) return;
+          if (!wrap || !hover || event.pointerType === "touch") return;
           const rect = wrap.getBoundingClientRect();
-          const pct = Math.min(
-            1,
-            Math.max(0, (event.clientX - rect.left) / rect.width)
-          );
+          const pct = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
           hover.style.left = `${pct * 100}%`;
-          const duration = engine.el.duration;
+          const total = engine.duration;
           hover.textContent =
-            Number.isFinite(duration) ? formatTime(pct * duration) : "";
+            Number.isFinite(total) && total > 0 ? formatTime(pct * total) : "";
           hover.style.opacity = "1";
         }}
         onPointerLeave={() => {
@@ -220,24 +205,30 @@ export default function Timeline() {
       >
         <canvas ref={canvasRef} className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2" />
         <div className={styles.rail}>
+          {loopA !== null && (
+            <div
+              aria-hidden
+              className="absolute -inset-y-1 rounded-full bg-[var(--c2)]/25"
+              style={{
+                left: `${pctOf(loopA)}%`,
+                width: loopB !== null ? `${pctOf(loopB) - pctOf(loopA)}%` : "2px",
+              }}
+            />
+          )}
           <div ref={fillRef} className={styles.fill} />
           <div ref={knobRef} className={styles.knob} />
         </div>
         <div
           ref={hoverRef}
-          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 font-mono text-[9px] text-white/80 opacity-0 transition-opacity"
+          className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 font-mono text-micro text-white/80 opacity-0 transition-opacity"
         />
-        <span
-          ref={abRef}
-          className="pointer-events-none absolute -top-5 right-0 font-mono text-[9px] tracking-widest text-[var(--c2)]"
-        />
+        {abLabel && (
+          <span className="pointer-events-none absolute -top-5 right-0 font-mono text-micro tracking-widest text-[var(--c2)]">
+            {abLabel}
+          </span>
+        )}
       </div>
-      <DurationLabel />
+      <span className={styles.times}>{formatTime(duration)}</span>
     </div>
   );
-}
-
-function DurationLabel() {
-  const duration = usePlayer((s) => s.duration);
-  return <span className={styles.times}>{formatTime(duration)}</span>;
 }

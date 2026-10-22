@@ -1,0 +1,493 @@
+{
+ "version": 1,
+ "entries": {
+  "adela|nicole kidman": {
+   "videoId": "IXA6bQsVNjs",
+   "title": "Nicole Kidman",
+   "channel": "ADÉLA - Topic",
+   "score": 105,
+   "itunesId": "6807192825",
+   "at": 1792588176156
+  },
+  "alex warren|ordinary": {
+   "videoId": "LCINMcL42i8",
+   "title": "Alex Warren - Ordinary (Audio)",
+   "channel": "Sound Clode",
+   "score": 83,
+   "itunesId": "1817735163",
+   "at": 1792588199372
+  },
+  "ashe|stop the wedding": {
+   "videoId": "U2UmrrbOAjo",
+   "title": "Ashe - Stop The Wedding!",
+   "channel": "LatinHype",
+   "score": 80,
+   "itunesId": "6805240960",
+   "at": 1792588172571
+  },
+  "aya nakamura|sexy nana": {
+   "videoId": "VCvEjTwk10k",
+   "title": "Aya Nakamura Ft. La Rvfleuze - Sexy Nana 2",
+   "channel": "Electa Beats",
+   "score": 80,
+   "itunesId": "6764794375",
+   "at": 1792588186609
+  },
+  "bouss|different": {
+   "videoId": "DIbw6NtHI58",
+   "title": "Bouss - Différent (Lyrics video)",
+   "channel": "Bouss Officiel",
+   "score": 82,
+   "itunesId": "6821971786",
+   "at": 1792588198134
+  },
+  "cherry pie|bir hakeim": {
+   "videoId": "nKkzzxdFkhY",
+   "title": "BIR HAKEIM",
+   "channel": "Cherry Pie - Topic",
+   "score": 105,
+   "itunesId": "6811892826",
+   "at": 1792588196461
+  },
+  "disiz|melodrama": {
+   "videoId": "ll5uAeEanjY",
+   "title": "disiz - melodrama feat. theodora (audio officiel)",
+   "channel": "disiz",
+   "score": 102,
+   "itunesId": "1840188177",
+   "at": 1792588185434
+  },
+  "drake|best i ever had": {
+   "videoId": "Zfp3KfYH0xA",
+   "title": "Best I Ever Had",
+   "channel": "Drake - Topic",
+   "score": 105,
+   "itunesId": "1453336216",
+   "at": 1792588197099
+  },
+  "drake|cold shoulder": {
+   "videoId": "qA3QXxIipV8",
+   "title": "Cold Shoulder",
+   "channel": "Drake - Topic",
+   "score": 105,
+   "itunesId": "6818059600",
+   "at": 1792588185985
+  },
+  "drake|janice stfu": {
+   "videoId": "h5u4dKq8C2w",
+   "title": "Janice STFU",
+   "channel": "Drake - Topic",
+   "score": 105,
+   "itunesId": "6769568596",
+   "at": 1792588180696
+  },
+  "drake|quebec": {
+   "videoId": "cyodNwC7Q2U",
+   "title": "Quebec",
+   "channel": "Drake - Topic",
+   "score": 105,
+   "itunesId": "6818209990",
+   "at": 1792588177853
+  },
+  "drake|solar eclipse": {
+   "videoId": "psoukhew9iQ",
+   "title": "Solar Eclipse",
+   "channel": "Drake - Topic",
+   "score": 105,
+   "itunesId": "6818209989",
+   "at": 1792588174108
+  },
+  "ella langley|choosin texas": {
+   "videoId": "hLOheGDwD_0",
+   "title": "Ella Langley - Choosin' Texas (Official Lyric Video)",
+   "channel": "EllaLangleyVEVO",
+   "score": 86,
+   "itunesId": "1844932150",
+   "at": 1792588172003
+  },
+  "fontaines d c|demolition": {
+   "videoId": "ucBwsAgimY0",
+   "title": "Fontaines D.C. - Demolition (Lyric Video)",
+   "channel": "Fontaines DC",
+   "score": 82,
+   "itunesId": "6792085376",
+   "at": 1792588201293
+  },
+  "fontaines d c|japan": {
+   "videoId": "ey7cbVW_z2A",
+   "title": "Fontaines D.C. - Japan (Lyric Video)",
+   "channel": "Fontaines DC",
+   "score": 82,
+   "itunesId": "6792085543",
+   "at": 1792588194347
+  },
+  "fontaines d c|marianne": {
+   "videoId": "lWNxWy012Ro",
+   "title": "Fontaines D.C. - Marianne (Official Video)",
+   "channel": "Fontaines DC",
+   "score": 99,
+   "itunesId": "6792085056",
+   "at": 1792588189342
+  },
+  "fontaines d c|mimesis": {
+   "videoId": "YEQwq31sT8M",
+   "title": "Fontaines D.C. - Mimesis (Lyric Video)",
+   "channel": "Fontaines DC",
+   "score": 82,
+   "itunesId": "6792085060",
+   "at": 1792588195945
+  },
+  "fontaines d c|six shot morning": {
+   "videoId": "bijLQqV_iAU",
+   "title": "Fontaines D.C. - Six Shot Morning (Lyric Video)",
+   "channel": "Fontaines DC",
+   "score": 82,
+   "itunesId": "6792085054",
+   "at": 1792588197598
+  },
+  "future|like me": {
+   "videoId": "0-45KAhyshI",
+   "title": "Future - LIKE ME (Official Audio) ft. 42 Dugg, Lil Baby",
+   "channel": "FutureVEVO",
+   "score": 106,
+   "itunesId": "1621803969",
+   "at": 1792588198786
+  },
+  "future|wait for u": {
+   "videoId": "Y2QpQP8wPG8",
+   "title": "Future - WAIT FOR U (Official Audio) ft. Drake, Tems",
+   "channel": "FutureVEVO",
+   "score": 106,
+   "itunesId": "1621119447",
+   "at": 1792588192110
+  },
+  "hugel|movin to the sun": {
+   "videoId": "n7QlUH0zrPg",
+   "title": "HUGEL, Ultra Nate, Imael Angel - Movin’ To The Sun  [Make The Girls Dance Records]",
+   "channel": "Make The Girls Dance Records",
+   "score": 80,
+   "itunesId": "6769070199",
+   "at": 1792588178940
+  },
+  "jamie miller|babydoll": {
+   "videoId": "8g25GeJgxgs",
+   "title": "Jamie Miller - Babydoll feat. Antonio Cipriano",
+   "channel": "Jamie Miller",
+   "score": 94,
+   "itunesId": "6794168373",
+   "at": 1792588168805
+  },
+  "karol g|bby wow": {
+   "videoId": "fRIhCiUVaKs",
+   "title": "KAROL G, Judeline, rusowsky - BbY WOW (Visualizer)",
+   "channel": "KarolGVEVO",
+   "score": 98,
+   "itunesId": "6796864754",
+   "at": 1792588169940
+  },
+  "l2b|cybertesla": {
+   "videoId": "Myk4p8OMiDk",
+   "title": "L2B - CYBERTESLA (Clip Officiel)",
+   "channel": "L2B",
+   "score": 99,
+   "itunesId": "6818551658",
+   "at": 1792588178357
+  },
+  "lagui|degun": {
+   "videoId": "UK2TM32VHH8",
+   "title": "Lagui - DÉGUN (Clip Officiel)",
+   "channel": "Lagui",
+   "score": 75,
+   "itunesId": "6817004248",
+   "at": 1792588191528
+  },
+  "le crime|bodycount": {
+   "videoId": "f1BOVbbrYIA",
+   "title": "Le Crime - Bodycount (Feat. TK) (Clip Officiel)",
+   "channel": "Le Crime",
+   "score": 99,
+   "itunesId": "6773819547",
+   "at": 1792588189853
+  },
+  "lil baby|freestyle": {
+   "videoId": "mcB_TNU_apI",
+   "title": "Freestyle",
+   "channel": "Lil Baby - Topic",
+   "score": 105,
+   "itunesId": "1440929293",
+   "at": 1792588190504
+  },
+  "lil baby|in a minute": {
+   "videoId": "evBLc0SXoKk",
+   "title": "In A Minute",
+   "channel": "Lil Baby - Topic",
+   "score": 105,
+   "itunesId": "1648587330",
+   "at": 1792588187170
+  },
+  "mauvais djo|12": {
+   "videoId": "5wo4ddTbVNQ",
+   "title": "MAUVAIS DJO - 12 LYRICS ",
+   "channel": "BELYRICS TV",
+   "score": 68,
+   "itunesId": "6803864930",
+   "at": 1792588183709
+  },
+  "mauvais djo|4": {
+   "videoId": "HNJV8qiXvo0",
+   "title": "Airbnb 4",
+   "channel": "Mauvais djo - Topic",
+   "score": 95,
+   "itunesId": "6812266085",
+   "at": 1792588173322
+  },
+  "morgan wallen|been by now": {
+   "videoId": "IpEoDLVEqVw",
+   "title": "Morgan Wallen - Been By Now (Audio)",
+   "channel": "MorganWallenVEVO",
+   "score": 91,
+   "itunesId": "6792676860",
+   "at": 1792588181857
+  },
+  "morgan wallen|i m the problem": {
+   "videoId": "YT57RMxA-Eo",
+   "title": "Morgan Wallen - I'm The Problem (Official Audio)",
+   "channel": "MorganWallenVEVO",
+   "score": 106,
+   "itunesId": "1802103970",
+   "at": 1792588200658
+  },
+  "morgan wallen|last thing you need": {
+   "videoId": "9leAwpph-xs",
+   "title": "Morgan Wallen – Last Thing You Need (From Grand Theft Auto VI: The Album)",
+   "channel": "Atlantic Records",
+   "score": 80,
+   "itunesId": "6812477290",
+   "at": 1792588188843
+  },
+  "ninho|dis moi que tu m aimes": {
+   "videoId": "yx9WQ0hrsdk",
+   "title": "Ninho - Dis-moi que tu m'aimes (Clip officiel)",
+   "channel": "Ninho",
+   "score": 99,
+   "itunesId": "1157195547",
+   "at": 1792588201860
+  },
+  "ninho|sur paname": {
+   "videoId": "rDiw1CBxaQw",
+   "title": "Sur paname",
+   "channel": "Ninho - Topic",
+   "score": 105,
+   "itunesId": "1565402015",
+   "at": 1792588194899
+  },
+  "ninho|tout en gucci": {
+   "videoId": "bY7im0HlQ6I",
+   "title": "Ninho \"Tout en Gucci\" #PlanèteRap",
+   "channel": "SkyrockFM",
+   "score": 70,
+   "itunesId": "1536443643",
+   "at": 1792588193267
+  },
+  "niro|rania": {
+   "videoId": "UK6NAl6I088",
+   "title": "Maux de tête",
+   "channel": "Niro - Topic",
+   "score": 59,
+   "itunesId": "6817733587",
+   "at": 1792588175420
+  },
+  "olivia dean|man i need": {
+   "videoId": "JGKgbmz_gcU",
+   "title": "Olivia Dean - Man I Need (Lyric Video)",
+   "channel": "OliviaDeanVEVO",
+   "score": 86,
+   "itunesId": "1817609509",
+   "at": 1792588176730
+  },
+  "olivia rodrigo|expectations": {
+   "videoId": "SmzLX_weRMc",
+   "title": "Olivia Rodrigo, Chappell Roan - expectations (Lyric Video)",
+   "channel": "OliviaRodrigoVEVO",
+   "score": 86,
+   "itunesId": "6822390426",
+   "at": 1792588184923
+  },
+  "olivia rodrigo|stupid song": {
+   "videoId": "DKaxuPbgyFM",
+   "title": "stupid song",
+   "channel": "Olivia Rodrigo - Topic",
+   "score": 105,
+   "itunesId": "6779097534",
+   "at": 1792588182549
+  },
+  "olivia rodrigo|the cure": {
+   "videoId": "LuxizOvIbog",
+   "title": "the cure",
+   "channel": "Olivia Rodrigo - Topic",
+   "score": 105,
+   "itunesId": "1889992123",
+   "at": 1792588184330
+  },
+  "rnboi|j assume": {
+   "videoId": "gWuBQyAb7Dk",
+   "title": "RnBoi - J'assume (Clip Officiel)",
+   "channel": "RnBoiVEVO",
+   "score": 103,
+   "itunesId": "6816893848",
+   "at": 1792588171130
+  },
+  "ronisia|cuenta": {
+   "videoId": "vOdlW0Jv5Q4",
+   "title": "Ronisia - Cuenta (Clip officiel) ft. Meryl, Shay",
+   "channel": "RonisiaVEVO",
+   "score": 103,
+   "itunesId": "6811941414",
+   "at": 1792588180050
+  },
+  "sam fender|rein me in": {
+   "videoId": "4vpTO9TBZKc",
+   "title": "Rein Me In",
+   "channel": "Sam Fender - Topic",
+   "score": 105,
+   "itunesId": "1820918468",
+   "at": 1792588174924
+  },
+  "sienna spiro|great expectation": {
+   "videoId": "B452TVVco2Q",
+   "title": "SIENNA SPIRO - Great Expectation (Official Music Video)",
+   "channel": "SiennaSpiroVEVO",
+   "score": 103,
+   "itunesId": "6769552411",
+   "at": 1792588170619
+  },
+  "sombr|my body isn t ready": {
+   "videoId": "WjnsaO-q3BE",
+   "title": "sombr - My Body Isn't Ready (lyric video)",
+   "channel": "sombr",
+   "score": 82,
+   "itunesId": "6781074080",
+   "at": 1792588192669
+  },
+  "stella lefty|boston": {
+   "videoId": "9b6BpKlCsg8",
+   "title": "Stella Lefty - Boston (Lyrics)",
+   "channel": "BagOnly",
+   "score": 68,
+   "itunesId": "1884403093",
+   "at": 1792588191023
+  },
+  "tate mcrae|housewife": {
+   "videoId": "DPEodkHzH-s",
+   "title": "Tate McRae - Housewife (Official Video)",
+   "channel": "TateMcRaeVEVO",
+   "score": 103,
+   "itunesId": "6822497774",
+   "at": 1792588167056
+  },
+  "taylor swift|patient zero": {
+   "videoId": "pV7JqcDMkNE",
+   "title": "PATIENT ZERO - TAYLOR SWIFT - AUDIO",
+   "channel": "Midnight Lyrics",
+   "score": 83,
+   "itunesId": "6814997425",
+   "at": 1792588187732
+  },
+  "the weeknd|wicked games": {
+   "videoId": "r5q5Sebo55k",
+   "title": "Wicked Games",
+   "channel": "The Weeknd - Topic",
+   "score": 105,
+   "itunesId": "1550878110",
+   "at": 1792588195465
+  },
+  "theodora|habiba": {
+   "videoId": "tF7NZUqoGMs",
+   "title": "Theodora - Habiba (Lyrics) ",
+   "channel": "Matt P",
+   "score": 68,
+   "itunesId": "1548713020",
+   "at": 1792588177239
+  },
+  "tiakola|cœur de pirate": {
+   "videoId": "NzDMHY9jBB0",
+   "title": "Tiakola - Cœur De Pirate (Paroles/Lyrics)",
+   "channel": "TV RAP FRANCE",
+   "score": 58,
+   "itunesId": "6809755020",
+   "at": 1792588188217
+  },
+  "tiakola|jet lag": {
+   "videoId": "pk3ws9t2RYQ",
+   "title": "Tiakola FT Jorja Smith.  Jet  Lag ( WpointM )",
+   "channel": "Hello_Music01",
+   "score": 80,
+   "itunesId": "6809755256",
+   "at": 1792588181273
+  },
+  "tiakola|la nocturne": {
+   "videoId": "8TZ3TUu8c7E",
+   "title": "Tiakola  FT Théodora  La Nocturne. (WpointM )",
+   "channel": "Hello_Music01",
+   "score": 80,
+   "itunesId": "6812420993",
+   "at": 1792588169327
+  },
+  "tiakola|melo decale": {
+   "videoId": "qtzXR-G7wRY",
+   "title": "Tiakola - Mélo Décalé (Track4)",
+   "channel": "TIAKOLA",
+   "score": 70,
+   "itunesId": "6775967738",
+   "at": 1792588167633
+  },
+  "timal|sicario": {
+   "videoId": "GJcXlF4Kkl8",
+   "title": "Timal - Sicario #PR+",
+   "channel": "SkyrockFM",
+   "score": 70,
+   "itunesId": "6778036498",
+   "at": 1792588183121
+  },
+  "triangle des bermudes|a l aise": {
+   "videoId": "xwSlirHo-YY",
+   "title": "Triangle des bermudes - À l’aise (feat. L2B)",
+   "channel": "CRUSUAL 2",
+   "score": 80,
+   "itunesId": "1885121091",
+   "at": 1792588199901
+  },
+  "vacra|fille a papa": {
+   "videoId": "PhfdpyI6h1Y",
+   "title": "Vacra - Fille à Papa ft. La Rvfleuze (Visualiser)",
+   "channel": "Vacra",
+   "score": 84,
+   "itunesId": "6809781929",
+   "at": 1790827540914
+  },
+  "zach bryan|lies": {
+   "videoId": "VMbRbp1I738",
+   "title": "Lies (feat. Lana Del Rey)",
+   "channel": "Zach Bryan - Topic",
+   "score": 105,
+   "itunesId": "6822944296",
+   "at": 1792588168233
+  },
+  "zach bryan|lodi when": {
+   "videoId": "Kdn-TOF4z0I",
+   "title": "Zach Bryan - Lodi When (Official Audio)",
+   "channel": "Zach Bryan",
+   "score": 102,
+   "itunesId": "6822944289",
+   "at": 1792588179502
+  },
+  "zach bryan|robot killed the working man": {
+   "videoId": "Izd-iRmYYGY",
+   "title": "Zach Bryan - Robot Killed The Working Man (Official Audio)",
+   "channel": "Zach Bryan",
+   "score": 102,
+   "itunesId": "6822944293",
+   "at": 1792588193820
+  }
+ }
+}

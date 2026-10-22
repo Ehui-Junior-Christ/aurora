@@ -110,3 +110,65 @@ export async function idbGetAll<T>(
     return { keys: [], values: [] };
   }
 }
+
+/** All keys of a store (cheap: values are not loaded). */
+export async function idbKeys(store: StoreName): Promise<string[]> {
+  try {
+    const db = await open();
+    return await new Promise<string[]>((resolve, reject) => {
+      const tx = db.transaction(store, "readonly");
+      const request = tx.objectStore(store).getAllKeys();
+      request.onsuccess = () => resolve(request.result.map(String));
+      request.onerror = () =>
+        reject(request.error ?? new Error("idb-keys-failed"));
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Reads several keys in one transaction (missing keys → undefined). */
+export async function idbGetMany<T>(
+  store: StoreName,
+  keys: string[]
+): Promise<(T | undefined)[]> {
+  if (keys.length === 0) return [];
+  try {
+    const db = await open();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(store, "readonly");
+      const os = tx.objectStore(store);
+      const out: (T | undefined)[] = new Array(keys.length);
+      keys.forEach((key, i) => {
+        const request = os.get(key);
+        request.onsuccess = () => {
+          out[i] = request.result as T | undefined;
+        };
+      });
+      tx.oncomplete = () => resolve(out);
+      tx.onerror = () => reject(tx.error ?? new Error("idb-getmany-failed"));
+    });
+  } catch {
+    return keys.map(() => undefined);
+  }
+}
+
+/** Writes several entries in one transaction. */
+export async function idbSetMany(
+  store: StoreName,
+  entries: [string, unknown][]
+): Promise<void> {
+  if (entries.length === 0) return;
+  try {
+    const db = await open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(store, "readwrite");
+      const os = tx.objectStore(store);
+      for (const [key, value] of entries) os.put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("idb-setmany-failed"));
+    });
+  } catch {
+    void 0;
+  }
+}

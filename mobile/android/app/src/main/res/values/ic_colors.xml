@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_day_bg">#E4DDF6</color>
+    <color name="ic_night_bg">#05040D</color>
+</resources>

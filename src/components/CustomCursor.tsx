@@ -40,35 +40,24 @@ export default function CustomCursor() {
 
     let activeEl: HTMLElement | null = null;
     let stretch = false;
+    let play = false;
+    let text = false;
+    let mode = "";
 
-    const collectTargets = () =>
-      Array.from(document.querySelectorAll<HTMLElement>("[data-cursor]"));
+    const TEXT_FIELDS =
+      'input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]';
 
-    let targets = collectTargets();
-    const observer = new MutationObserver(() => {
-      targets = collectTargets();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    const onEnter = (event: Event) => {
-      activeEl = event.currentTarget as HTMLElement;
-      stretch = activeEl.dataset.cursor === "stretch";
+    // Delegated hover detection: no subtree observer, no periodic rebinding.
+    const onOver = (event: PointerEvent) => {
+      const el = event.target as Element | null;
+      text = !!el?.closest(TEXT_FIELDS);
+      const target = text ? null : (el?.closest<HTMLElement>("[data-cursor]") ?? null);
+      if (target === activeEl) return;
+      activeEl = target;
+      stretch = target?.dataset.cursor === "stretch";
+      play = target?.dataset.cursor === "play";
     };
-    const onLeave = () => {
-      activeEl = null;
-      stretch = false;
-    };
-
-    const bind = () => {
-      targets.forEach((target) => {
-        target.removeEventListener("mouseenter", onEnter);
-        target.removeEventListener("mouseleave", onLeave);
-        target.addEventListener("mouseenter", onEnter);
-        target.addEventListener("mouseleave", onLeave);
-      });
-    };
-    bind();
-    const rebindInterval = window.setInterval(bind, 1500);
+    document.addEventListener("pointerover", onOver, { passive: true });
 
     const onMove = (event: MouseEvent) => {
       state.x = event.clientX;
@@ -92,32 +81,49 @@ export default function CustomCursor() {
 
     let raf = 0;
     const loop = () => {
+      if (activeEl && !activeEl.isConnected) {
+        activeEl = null;
+        stretch = false;
+        play = false;
+      }
+      // Modes: text caret, play badge, drag (pressing a stretch target).
+      const nextMode = text ? "text" : play ? "play" : stretch && state.down ? "drag" : "";
+      if (nextMode !== mode) {
+        mode = nextMode;
+        if (ringRef.current) ringRef.current.dataset.mode = mode;
+        if (dotRef.current) dotRef.current.dataset.mode = mode;
+      }
+
       let tx = state.x;
       let ty = state.y;
-      if (activeEl) {
+      if (activeEl && !play) {
         const rect = activeEl.getBoundingClientRect();
         tx = rect.left + rect.width / 2 + (state.x - rect.left - rect.width / 2) * 0.55;
         ty = rect.top + rect.height / 2 + (state.y - rect.top - rect.height / 2) * 0.55;
       }
-      state.rx += (tx - state.rx) * 0.18;
-      state.ry += (ty - state.ry) * 0.18;
+      const follow = text || play ? 0.35 : 0.18;
+      state.rx += (tx - state.rx) * follow;
+      state.ry += (ty - state.ry) * follow;
 
-      const targetSx = stretch ? 2.4 : activeEl ? 1.5 : 1;
-      const targetSy = stretch ? 0.55 : activeEl ? 1.5 : 1;
+      const magnet = activeEl && !play;
+      const targetSx = mode === "drag" ? 3 : stretch ? 2.4 : magnet ? 1.5 : 1;
+      const targetSy = mode === "drag" ? 0.35 : stretch ? 0.55 : magnet ? 1.5 : 1;
       state.sx += (targetSx - state.sx) * 0.22;
       state.sy += (targetSy - state.sy) * 0.22;
 
-      const pressScale = state.down ? 0.82 : 1;
+      const pressScale = state.down && mode !== "drag" ? 0.82 : 1;
       const opacity = state.visible ? 1 : 0;
 
+      // Both elements are centred by CSS (translate: -50% -50%), so size
+      // changes per mode keep them anchored on the pointer.
       if (ringRef.current) {
         ringRef.current.style.transform =
-          `translate(${state.rx - 20}px, ${state.ry - 20}px) ` +
+          `translate(${state.rx}px, ${state.ry}px) ` +
           `scale(${state.sx * pressScale}, ${state.sy * pressScale})`;
         ringRef.current.style.opacity = String(opacity);
       }
       if (dotRef.current) {
-        dotRef.current.style.transform = `translate(${state.x - 3}px, ${state.y - 3}px)`;
+        dotRef.current.style.transform = `translate(${state.x}px, ${state.y}px)`;
         dotRef.current.style.opacity = String(opacity);
       }
       raf = requestAnimationFrame(loop);
@@ -126,8 +132,7 @@ export default function CustomCursor() {
 
     return () => {
       cancelAnimationFrame(raf);
-      observer.disconnect();
-      window.clearInterval(rebindInterval);
+      document.removeEventListener("pointerover", onOver);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
