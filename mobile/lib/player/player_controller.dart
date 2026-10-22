@@ -6,12 +6,11 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart' hide PlayerState;
+import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../core/models.dart';
 import '../services/audio_features.dart';
@@ -19,6 +18,7 @@ import '../services/library_service.dart';
 import '../services/lyrics_service.dart';
 import '../services/online_service.dart';
 import '../services/palette.dart';
+import '../services/yt_web_player.dart';
 
 /// App state + playback engine (port of the web store, phase 1).
 /// Local files: just_audio (background, lock screen, notification).
@@ -39,21 +39,11 @@ class PlayerController extends ChangeNotifier {
   final AudioPlayer audio = AudioPlayer();
   /// Created on the first online song only: an idle YouTube WebView showed up
   /// as a black 16:9 box over the start page.
-  YoutubePlayerController? _yt;
-  YoutubePlayerController get yt {
+  YtWebPlayer? _yt;
+  YtWebPlayer get yt {
     final existing = _yt;
     if (existing != null) return existing;
-    final c = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        showControls: false,
-        showFullscreenButton: false,
-        enableCaption: false,
-        strictRelatedVideos: true,
-        playsInline: true,
-        // Web origin sent as Referer: YouTube refuses embeds without one.
-        origin: 'https://aurora-theta-rust.vercel.app',
-      ),
-    );
+    final c = YtWebPlayer();
     _yt = c;
     _listenYoutube(c);
     return c;
@@ -151,25 +141,31 @@ class PlayerController extends ChangeNotifier {
     if (_prefs.getBool('libraryGranted') ?? false) unawaited(scanLibrary(ask: false));
   }
 
-  void _listenYoutube(YoutubePlayerController c) {
-    _subs.add(c.stream.listen((v) {
+  void _listenYoutube(YtWebPlayer c) {
+    YtState last = YtState.unknown;
+    int? lastError;
+    _subs.add(c.changes.listen((_) {
       if (!_ytActive) return;
-      final st = v.playerState;
-      playing = st == PlayerState.playing;
-      loading = st == PlayerState.buffering;
-      final d = v.metaData.duration;
-      if (d > Duration.zero) duration = d;
-      if (st == PlayerState.ended) _onEnded();
-      if (v.error != YoutubeError.none) {
-        error = 'Lecture YouTube impossible pour ce titre (${v.error.name}).';
+      position = c.position;
+      final st = c.state;
+      final changed = st != last || c.errorCode != lastError;
+      if (c.duration > Duration.zero && c.duration != duration) {
+        duration = c.duration;
+        notifyListeners();
+      }
+      if (!changed) return;
+      last = st;
+      lastError = c.errorCode;
+      debugPrint('AURORA-YT state $st error ${c.errorCode}');
+      playing = st == YtState.playing;
+      loading = st == YtState.buffering || st == YtState.unstarted;
+      if (st == YtState.ended) _onEnded();
+      if (c.errorCode != null) {
+        error = youtubeErrorMessage(c.errorCode!);
+        loading = false;
       }
       notifyListeners();
     }));
-    _subs.add(c.videoStateStream.listen((s) {
-      if (!_ytActive) return;
-      position = s.position;
-    }));
-
   }
 
   List<Track> _loadList(String key) {
@@ -208,12 +204,18 @@ class PlayerController extends ChangeNotifier {
     }
   }
 
+  /// Charts from GitHub; retried with back-off (a busy start-up or a slow
+  /// network made the single attempt fail and the section never appeared).
   Future<void> loadTrends() async {
-    try {
-      trends = await online.trends();
-      notifyListeners();
-    } catch (_) {
-      // offline: the section just stays hidden
+    for (final wait in const [0, 4, 12, 30]) {
+      if (wait > 0) await Future<void>.delayed(Duration(seconds: wait));
+      try {
+        trends = await online.trends();
+        notifyListeners();
+        return;
+      } catch (_) {
+        // try again; offline: the section just stays hidden
+      }
     }
   }
 
@@ -262,15 +264,23 @@ class PlayerController extends ChangeNotifier {
         if (!youtubeUsed) {
           youtubeUsed = true;
           notifyListeners();
-          // Let the WebView mount before sending it commands.
-          await Future<void>.delayed(const Duration(milliseconds: 600));
         }
-        await yt.loadVideoById(videoId: id);
+        debugPrint('AURORA-YT load $id (ready ${yt.isReady})');
+        await yt.load(id);
+        if (token != _playToken) return;
         _remember(t);
+        // Safety net: if it did not start (autoplay refused), ask again.
+        unawaited(Future<void>.delayed(const Duration(seconds: 5), () async {
+          if (token != _playToken || !_ytActive) return;
+          final st = yt.state;
+          if (yt.errorCode == null && st != YtState.playing && st != YtState.buffering && st != YtState.paused) {
+            await yt.play();
+          }
+        }));
       } else {
         if (_ytActive) {
           _ytActive = false;
-          await _yt?.stopVideo();
+          await _yt?.stop();
         }
         final artUri = await _artFileUri(t);
         if (token != _playToken) return;
@@ -327,7 +337,7 @@ class PlayerController extends ChangeNotifier {
   Future<void> toggle() async {
     if (current == null) return;
     if (_ytActive) {
-      playing ? await yt.pauseVideo() : await yt.playVideo();
+      playing ? await yt.pause() : await yt.play();
     } else {
       playing ? await audio.pause() : await audio.play();
     }
@@ -337,7 +347,7 @@ class PlayerController extends ChangeNotifier {
     if (queue.isEmpty) return;
     if (auto && repeat == RepeatMode.one) {
       await seek(Duration.zero);
-      if (_ytActive) await yt.playVideo();
+      if (_ytActive) await yt.play();
       return;
     }
     if (index + 1 < queue.length) {
@@ -357,7 +367,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> seek(Duration to) async {
     if (_ytActive) {
-      await yt.seekTo(seconds: to.inMilliseconds / 1000, allowSeekAhead: true);
+      await yt.seek(to);
     } else {
       await audio.seek(to);
     }
@@ -510,7 +520,7 @@ class PlayerController extends ChangeNotifier {
     }
     audio.dispose();
     positionN.dispose();
-    _yt?.close();
+    _yt?.dispose();
     super.dispose();
   }
 }

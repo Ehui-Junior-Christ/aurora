@@ -42,13 +42,9 @@ dependencies:
   provider: ^6.1.5+1
   path_provider: ^2.1.5
   shared_preferences: ^2.5.3
-  youtube_player_iframe: ^5.2.2
   crypto: ^3.0.7
-
-dependency_overrides:
-  # Local copy with the origin/host fix (see packages/youtube_player_iframe).
-  youtube_player_iframe:
-    path: packages/youtube_player_iframe
+  webview_flutter: ^4.13.0
+  webview_flutter_android: ^4.10.1
 
 dev_dependencies:
   flutter_test:

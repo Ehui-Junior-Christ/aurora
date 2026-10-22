@@ -54,8 +54,10 @@ class _LyricsViewState extends State<LyricsView> {
       });
     }
 
+    // The floating YouTube video sits under the header: start below it.
+    final videoGap = t.isOnline && p.videoVisible ? 214.0 : 4.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, videoGap, 12, 12),
       child: Glass(
         radius: AuroraRadius.panel,
         padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),

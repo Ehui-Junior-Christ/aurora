@@ -57,7 +57,7 @@ class OnlineService {
 
   // ----------------------------------------------------------------- trends
   Future<Map<String, List<Track>>> trends() async {
-    final res = await http.get(Uri.parse(trendsUrl)).timeout(_timeout);
+    final res = await http.get(Uri.parse(trendsUrl)).timeout(const Duration(seconds: 20));
     if (res.statusCode != 200) throw OnlineError('Tendances indisponibles.');
     final json = jsonDecode(utf8.decode(res.bodyBytes));
     final charts = json is Map && json['charts'] is Map ? json['charts'] as Map : const {};

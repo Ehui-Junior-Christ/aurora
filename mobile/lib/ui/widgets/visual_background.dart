@@ -147,8 +147,13 @@ class _VisualBackgroundState extends State<VisualBackground> with SingleTickerPr
     return _trio;
   }
 
+  /// Test builds only (`--dart-define=AURORA_NO_VISUALS=true`): a flat
+  /// background, for slow software-rendered emulators. Off in real builds.
+  static const _noVisuals = bool.fromEnvironment('AURORA_NO_VISUALS');
+
   @override
   Widget build(BuildContext context) {
+    if (_noVisuals) return const ColoredBox(color: Color(0xFF15122E));
     final p = context.watch<PlayerController>();
     final mode = _modeOf(p);
     if (_driverMode != mode) {

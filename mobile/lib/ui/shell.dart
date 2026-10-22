@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../core/theme.dart';
 import '../player/player_controller.dart';
@@ -181,7 +181,8 @@ class _VideoStage extends StatelessWidget {
     final w = inSheet ? size.width - 40 : 356.0.clamp(0, size.width - 32).toDouble();
     final h = inSheet ? w * 9 / 16 : 200.0;
     final left = inSheet ? 20.0 : size.width - w - 16;
-    final topPos = inSheet ? top + 40 : size.height - bottom - h - 12;
+    // Floating: just under the header, where the hero leaves empty space.
+    final topPos = inSheet ? top + 40 : top + 4;
     return AnimatedPositioned(
       duration: AuroraMotion.d4,
       curve: AuroraMotion.expoOut,
@@ -199,7 +200,7 @@ class _VideoStage extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AuroraRadius.card),
             child: Stack(children: [
-              Positioned.fill(child: YoutubePlayer(controller: p.yt, aspectRatio: 16 / 9)),
+              Positioned.fill(child: WebViewWidget(controller: p.yt.web)),
               if (!inSheet)
                 Positioned(
                   right: 6,
