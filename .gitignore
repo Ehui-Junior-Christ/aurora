@@ -11,7 +11,8 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 
-public/download/
+public/download/*.exe
+public/download/aurora-mobile.apk
 dist-electron/
 android/app/build/
 android/.gradle/
