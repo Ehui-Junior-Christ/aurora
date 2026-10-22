@@ -12,7 +12,6 @@ yarn-error.log*
 *.tsbuildinfo
 
 public/download/*.exe
-public/download/aurora-mobile.apk
 dist-electron/
 android/app/build/
 android/.gradle/
