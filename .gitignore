@@ -11,7 +11,7 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 
-public/download/*.exe
+public/download/
 dist-electron/
 android/app/build/
 android/.gradle/
