@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<title>AURORA · lecteur</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #player { position: fixed; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script>
+/*
+ * Player page for the AURORA mobile app. It is served from the real web origin
+ * (like the website, where the official YouTube embed works), opened in the
+ * app's WebView and driven through the "AuroraYT" JavaScript channel:
+ *   app -> page : window.aurora.load(id, start), play(), pause(), seek(s), stop(), volume(v)
+ *   page -> app : {type:'ready'|'state'|'error'|'time', ...}
+ */
+(function () {
+  var player = null, ready = false, pending = null, timer = null;
+  function send(msg) {
+    try { if (window.AuroraYT) window.AuroraYT.postMessage(JSON.stringify(msg)); } catch (e) {}
+  }
+  function tick() {
+    if (!ready || !player || !player.getCurrentTime) return;
+    send({ type: 'time', t: player.getCurrentTime() || 0, d: player.getDuration() || 0 });
+  }
+  window.onYouTubeIframeAPIReady = function () {
+    player = new YT.Player('player', {
+      width: '100%',
+      height: '100%',
+      playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1 },
+      events: {
+        onReady: function () {
+          ready = true;
+          send({ type: 'ready' });
+          if (pending) { var p = pending; pending = null; window.aurora.load(p.id, p.start); }
+          if (!timer) timer = setInterval(tick, 250);
+        },
+        onStateChange: function (e) { send({ type: 'state', s: e.data }); tick(); },
+        onError: function (e) { send({ type: 'error', code: e.data }); },
+        onAutoplayBlocked: function () { send({ type: 'blocked' }); }
+      }
+    });
+  };
+  window.aurora = {
+    load: function (id, start) {
+      if (!ready) { pending = { id: id, start: start || 0 }; return; }
+      var opts = { videoId: id };
+      if (start > 0) opts.startSeconds = start;
+      player.loadVideoById(opts);
+    },
+    play: function () { if (ready) player.playVideo(); },
+    pause: function () { if (ready) player.pauseVideo(); },
+    stop: function () { if (ready) player.stopVideo(); },
+    seek: function (s) { if (ready) player.seekTo(s, true); },
+    volume: function (v) { if (ready) player.setVolume(v); }
+  };
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  send({ type: 'loaded' });
+})();
+</script>
+</body>
+</html>
